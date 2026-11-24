@@ -48,7 +48,6 @@ ${cssVariables()}
 .fib, .fib *, .fib *::before, .fib *::after { box-sizing: border-box; }
 
 .fib {
-  --rail: 232px;
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--fib-void);
@@ -118,85 +117,8 @@ ${cssVariables()}
   background: radial-gradient(58% 100% at 50% 0%, oklch(1 0 0 / 0.045), transparent 72%);
 }
 
-.fib-main { flex: 1 1 auto; min-width: 0; position: relative; z-index: 1; }
-
-.fib-rail {
-  position: sticky; top: 0; align-self: flex-start;
-  z-index: var(--fib-z-rail);
-  width: var(--rail); flex: 0 0 var(--rail);
-  height: 100vh; height: 100dvh;
-  display: flex; flex-direction: column;
-  padding: var(--fib-space-5) var(--fib-space-4);
-  background: var(--fib-void);
-  border-right: 1px solid var(--fib-line-soft);
-}
-
-/*
- * The wordmark. It used to be "Statistics" in 14px Inter Bold beside a mono
- * "Beta" - a label, not a mark, and the only place on the page that could have
- * said whose statistics these were. Now it is the game's own initials in the
- * jersey, with the section name set a step down on the same baseline.
- */
-.fib-rail-brand {
-  display: flex; align-items: baseline; gap: 7px;
-  padding: 0 var(--fib-space-3) var(--fib-space-6);
-  font-family: var(--fib-font-display); font-weight: 400;
-  line-height: 0.8;
-}
-.fib-rail-brand b { font-size: var(--fib-display-mark); font-weight: 400; color: var(--fib-ink); }
-.fib-rail-brand span { font-size: var(--fib-display-sm); color: var(--fib-ink-3); }
-.fib-rail-brand em {
-  align-self: flex-start;
-  font-style: normal; font-family: var(--fib-font-mono);
-  font-size: var(--fib-text-2xs); color: var(--fib-netherite);
-  letter-spacing: 0.04em; line-height: 1;
-}
-
-.fib-rail-nav { display: flex; flex-direction: column; gap: 2px; }
-
-.fib-nav-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 9px var(--fib-space-3);
-  border-radius: var(--fib-radius-md);
-  font-size: var(--fib-text-md); font-weight: 500;
-  color: var(--fib-ink-2);
-  transition: background var(--fib-motion-fast) var(--fib-ease),
-              color var(--fib-motion-fast) var(--fib-ease);
-}
-.fib-nav-item:hover { background: var(--fib-plinth); color: var(--fib-ink); }
-/* Active item wears the interactive accent: a blue-tinted pill, blue label and
-   icon, and a top gloss so it reads as the lit, current destination. */
-.fib-nav-item[aria-current="page"] {
-  background: var(--fib-blue-tint); color: var(--fib-blue-ink); font-weight: 600;
-  box-shadow: inset 0 1px 0 0 var(--fib-gloss-top);
-}
-/* The destination's item. Softened at rest - part-desaturated, slightly dim -
-   not greyed out: fully grey, 16px sprites stopped reading as items at all.
-   Softened so a column of
-   five full-colour sprites does not outshout the labels; full colour on hover
-   and on the current page, where it is the "you are here" cue beside the blue. */
-.fib-nav-item .fib-nav-sprite {
-  flex: none; width: 16px; height: 16px;
-  image-rendering: pixelated;
-  filter: saturate(0.55); opacity: 0.8;
-  transition: filter var(--fib-motion-fast) var(--fib-ease), opacity var(--fib-motion-fast) var(--fib-ease),
-              transform var(--fib-motion-base) var(--fib-ease);
-}
-.fib-nav-item:hover .fib-nav-sprite,
-.fib-nav-item[aria-current="page"] .fib-nav-sprite {
-  filter: drop-shadow(0 1px 1px var(--fib-shadow-deep)); opacity: 1;
-}
-.fib-nav-item:hover .fib-nav-sprite { transform: translateY(-1px); }
-
-.fib-rail-foot { margin-top: auto; padding-top: var(--fib-space-5); }
-
-.fib-exit {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px var(--fib-space-3); border-radius: var(--fib-radius-md);
-  font-size: var(--fib-text-sm); color: var(--fib-netherite);
-  transition: color var(--fib-motion-fast) var(--fib-ease);
-}
-.fib-exit:hover { color: var(--fib-ink-2); }
+.fib-main { flex: 1 1 auto; min-width: 0; position: relative; z-index: 1; padding-bottom: 104px; }
+.fib-shell[data-view="overview"] .fib-main { padding-bottom: 0; }
 
 /*
  * Named container. The rail is 232px on desktop and gone below 900px, so the
@@ -3078,31 +3000,6 @@ ${cssVariables()}
   .fib-shell { display: block; }
   .fib-atmosphere { height: 260px; }
 
-  .fib-rail {
-    position: fixed; inset: auto 0 0 0;
-    width: auto; flex: none; height: auto;
-    flex-direction: row; align-items: center; gap: 2px;
-    padding: 6px max(6px, env(safe-area-inset-left))
-             max(6px, env(safe-area-inset-bottom))
-             max(6px, env(safe-area-inset-right));
-    background: var(--fib-plinth);
-    border-right: none;
-    border-top: 1px solid var(--fib-line-soft);
-  }
-  .fib-rail-brand, .fib-rail-foot { display: none; }
-  .fib-rail-nav { flex-direction: row; flex: 1; justify-content: space-around; gap: 2px; }
-  .fib-nav-item {
-    flex-direction: column; gap: 3px; padding: 6px 4px;
-    font-size: var(--fib-text-2xs); font-weight: 500;
-  }
-  /* Blue, not diamond. The pill is dropped here because a bottom bar has no room
-     for one, but the COLOUR has to stay blue: blue is the module's one
-     interactive accent and diamond means rarity and nothing else. Switching hue
-     at a breakpoint made the active-nav signal mean two different things
-     depending on the width of the window. */
-  .fib-nav-item[aria-current="page"] { background: none; color: var(--fib-blue-ink); }
-
-  .fib-main { padding-bottom: 76px; }
   .fib-page { padding: var(--fib-space-6) var(--fib-space-4) var(--fib-space-7); }
   .fib-section { padding-top: var(--fib-space-7); }
 

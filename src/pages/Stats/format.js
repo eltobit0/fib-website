@@ -110,4 +110,4 @@ export function movement(n) {
 export const truncate = (s, max = 16) =>
   String(s ?? '').length > max ? `${String(s).slice(0, max - 1)}…` : String(s ?? '');
 
-export const ordinal = (n) => ['1st', '2nd', '3rd'][n - 1] ?? `${n}th`;
+export const ordinal = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;

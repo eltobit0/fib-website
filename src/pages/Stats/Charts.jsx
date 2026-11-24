@@ -294,7 +294,6 @@ const PHASE_INK = {
  * ribbon runs between the leader and the runner-up at each moment - the fight
  * that decides the top - and every line is still drawn.
  */
-const MAIN_H = 380;
 const MAIN_TOP = 28;
 const MAIN_BOTTOM = 26;
 const PACE_H = 104;
@@ -309,7 +308,7 @@ const countAt = (entry, t) => {
 };
 
 export function RibbonRace({
-  entries, duration, from = 0, to = duration, onWindow, cursor, onScrub, phases = [], changeTimes = [], labelFor,
+  entries, duration, from = 0, to = duration, onWindow, cursor, onScrub, phases = [], changeTimes = [], labelFor, height: MAIN_H = 380,
 }) {
   const wrapRef = useRef(null);
   const width = useWidth(wrapRef);
@@ -440,6 +439,25 @@ export function RibbonRace({
       }
     : undefined;
 
+  /* Every pool label takes the same form: the longest one that fits wherever a label fits at all. */
+  const phaseLabels = (() => {
+    const fitted = phases.map((p, i) => {
+      if (p.to <= from || p.from >= to) return null;
+      const room = (i + 1 < phases.length ? x(phases[i + 1].from) : LEFT + innerW) - x(p.from) - 10;
+      const short = p.id.charAt(0) + p.id.slice(1).toLowerCase();
+      const opens = p.from > from;
+      const forms = [
+        opens ? `${p.label} · ${f.clock(p.from)}` : p.from > 0 ? `${short} pool` : p.label,
+        opens ? `${short} · ${f.clock(p.from)}` : short,
+        short,
+      ];
+      const fits = forms.map((s) => s.length * 6.6 <= room);
+      return fits[2] ? { forms, fits } : null;
+    });
+    const level = [0, 1, 2].find((l) => fitted.every((p) => !p || p.fits[l])) ?? 2;
+    return fitted.map((p) => (p ? p.forms[level] : null));
+  })();
+
   const two = entries.length === 2;
 
   return (
@@ -459,12 +477,7 @@ export function RibbonRace({
           if (p.to <= from || p.from >= to) return null;
           const x0 = x(p.from);
           const x1 = x(p.to);
-          const room = (i + 1 < phases.length ? x(phases[i + 1].from) : LEFT + innerW) - x0 - 10;
-          const short = p.id.charAt(0) + p.id.slice(1).toLowerCase();
-          const forms = p.from > from
-            ? [`${p.label} · ${f.clock(p.from)}`, `${short} · ${f.clock(p.from)}`, short]
-            : [p.from > 0 ? `${short} pool` : p.label, short];
-          const text = forms.find((s) => s.length * 6.6 <= room) ?? null;
+          const text = phaseLabels[i];
           return (
             <g key={p.id}>
               <rect x={x0} y={MAIN_TOP} width={Math.max(0, x1 - x0)} height={plotH} fill={PHASE_TONE[p.id]} opacity="0.04" />

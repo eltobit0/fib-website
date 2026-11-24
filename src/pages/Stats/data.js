@@ -134,7 +134,7 @@ export const LEADERBOARD_CATEGORIES = [
     /* Spelled out. "B2B streak" is server shorthand sitting in a row of
        plain-English labels, and the profile calls the same number
        "Back-to-back best" three clicks away. */
-    { id: 'BACK_TO_BACK_STREAK', label: 'Back-to-back', format: 'number', sense: 'high' },
+    { id: 'BACK_TO_BACK_STREAK', label: 'Back to back streak', format: 'number', sense: 'high' },
     { id: 'BLOCKS_TRAVELLED', label: 'Distance', format: 'distance', sense: 'high' },
     { id: 'DEATHS', label: 'Deaths', format: 'number', sense: 'low' },
 ];
@@ -279,34 +279,24 @@ export const standingsAt = (entries, t) => {
     });
 };
 
-export const leadChanges = (entries) => {
-    let count = 0;
-    let lead = null;
-    for (const t of eventTimes(entries)) {
-        const top = standingsAt(entries, t)[0]?.entry.index;
-        if (lead != null && top !== lead) count++;
-        lead = top;
-    }
-    return count;
-};
-
-/**
- * The moments the lead actually changed hands, as offsets in seconds.
- *
- * `leadChanges` counts these for a headline figure; the timeline underneath the race trace marks
- * them, because "when it turned" is the most useful landmark on the chart. Same walk, keeping the
- * timestamps.
+/*
+ * The plugin's rule (LeadTracker): only a sole leader holds the lead, a tie leaves it with the
+ * incumbent, and the first leader of the match took it from nobody. Counting a flip on every tie
+ * gave a round the server records as one lead change five of them.
  */
 export const leadChangeTimes = (entries) => {
     const times = [];
     let lead = null;
     for (const t of eventTimes(entries)) {
-        const top = standingsAt(entries, t)[0]?.entry.index;
-        if (lead != null && top !== lead) times.push(t);
-        lead = top;
+        const [top, next] = standingsAt(entries, t);
+        if (!top || (next && next.score === top.score)) continue;
+        if (lead != null && top.entry.index !== lead) times.push(t);
+        lead = top.entry.index;
     }
     return times;
 };
+
+export const leadChanges = (entries) => leadChangeTimes(entries).length;
 
 /** Segments for the item strips: width is the time that item took. */
 export const itemSegments = (entry) =>

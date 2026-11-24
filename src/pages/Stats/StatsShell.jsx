@@ -18,8 +18,8 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { injectStyles } from './styles.js';
-import { Rail } from './Chrome.jsx';
 import { Overview } from './Overview.jsx';
+import './stats.css';
 import { Leaderboards } from './Leaderboards.jsx';
 import { Matches } from './Matches.jsx';
 import { MatchDetail } from './MatchDetail.jsx';
@@ -28,8 +28,16 @@ import { PlayerProfile } from './Profile.jsx';
 import { Collection } from './Collection.jsx';
 import { Items } from './Items.jsx';
 
-/** Which rail item lights up for a given view. Detail views keep their parent lit. */
+/** Which tab is lit for a given view. Detail views keep their parent lit. */
 const NAV_FOR = { match: 'matches', player: 'players', collection: 'players' };
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'leaderboards', label: 'Table' },
+  { id: 'players', label: 'Players' },
+  { id: 'matches', label: 'Rounds' },
+  { id: 'items', label: 'Items' },
+];
+
 
 const SCOPES = ['solo', 'duo', 'combined'];
 
@@ -116,55 +124,55 @@ export function StatsShell({ initialView = 'overview', wikiHref = '/', onExitWik
       case 'matches':
         return <Matches onOpenMatch={openMatch} />;
       case 'match':
-        // The id, not a pre-found match object. MatchDetail fetches it.
         return <MatchDetail matchId={route.matchId} onBack={() => go('matches')} onOpenPlayer={openPlayer} />;
       case 'players':
-        return <Players onOpenPlayer={openPlayer} scope={scope} />;
+        return <Players onOpenPlayer={openPlayer} />;
       case 'player':
         return (
-            <PlayerProfile
-                uuid={route.playerUuid}
-                scope={scope}
-                onScopeChange={setScope}
-                onBack={() => go('players')}
-                onOpenPlayer={openPlayer}
-                onOpenMatch={openMatch}
-                onOpenCollection={openCollection}
-            />
+          <PlayerProfile
+            uuid={route.playerUuid}
+            onOpenPlayer={openPlayer}
+            onOpenMatch={openMatch}
+            onOpenCollection={openCollection}
+          />
         );
       case 'collection':
-        // The player's whole item book. Back returns to their profile.
         return <Collection uuid={route.playerUuid} onBack={() => openPlayer(route.playerUuid)} />;
       case 'items':
         return <Items />;
       default:
-        return (
-            <Overview
-                onOpenMatch={openMatch}
-                onOpenPlayer={openPlayer}
-                onOpenItems={() => go('items')}
-                onOpenMatches={() => go('matches')}
-                onOpenLeaderboards={() => go('leaderboards')}
-            />
-        );
+        return <Overview onOpenMatch={openMatch} onOpenPlayer={openPlayer} onNavigate={go} />;
     }
   };
 
+  const current = NAV_FOR[route.view] ?? route.view;
+
   return (
-    <div className="fib">
-      <a className="fib-skip-link" href="#fib-main">Skip to content</a>
-      <div className="fib-shell">
-        <div className="fib-atmosphere" aria-hidden="true" />
-        <Rail
-          view={NAV_FOR[route.view] ?? route.view}
-          onNavigate={go}
-          onExitWiki={onExitWiki}
-          wikiHref={wikiHref}
-        />
-        <main className="fib-main" id="fib-main" tabIndex={-1}>
-          {body()}
-        </main>
-      </div>
+    <div className="fs">
+      <a className="skip" href="#fs-main">Skip to content</a>
+      <header className="fs-head"><div>
+        <button type="button" className="mark" onClick={() => go('overview')}>FIB<span>Stats</span></button>
+        <nav aria-label="Statistics">
+          {TABS.map((t) => (
+            <button key={t.id} type="button" aria-current={current === t.id ? 'page' : undefined} onClick={() => go(t.id)}>
+              {t.label}
+            </button>
+          ))}
+          {/* An anchor so it middle-clicks and opens in a new tab; only the plain left click is routed in-app. */}
+          <a
+            className="out"
+            href={wikiHref}
+            onClick={(e) => {
+              if (!onExitWiki || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              e.preventDefault();
+              onExitWiki();
+            }}
+          >
+            Wiki
+          </a>
+        </nav>
+      </div></header>
+      <main className="fs-main" id="fs-main" tabIndex={-1}>{body()}</main>
     </div>
   );
 }

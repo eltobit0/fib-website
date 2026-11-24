@@ -1,459 +1,272 @@
-/**
- * FIB Stats — the item index.
- *
- * Every item that has turned up in a tracked match, as a shelf of product cards:
- * the texture sits directly on a lit media band (no inner box), and a
- * phase-coloured top line and floor-bleed mark which part of a match it belongs
- * to — EARLY green, MID yellow, LATE red, the same ramp the ItemPools pages use.
- *
- * The sort chips are the questions players ask about items — what comes up most,
- * what stalls a run, what everyone skips — not a generic column sort. Whichever
- * is active becomes the card's headline figure and drives its field bar; the
- * other two ride along in the footer as context, so one card answers all three
- * questions and never prints the active metric twice.
- *
- * Above the grid sit the index's three records (see itemRecords): the most
- * common item, the slowest, the most skipped, each at full sprite size and each
- * a button into its sort.
- *
- * The grid is windowed, not paged: the whole index arrives in one call and a
- * sentinel grows how many cards are mounted as it nears the viewport, so the DOM
- * stays light as the pool grows. Where IntersectionObserver is absent the whole
- * list renders at once rather than stranding the reader at sixty.
- */
-
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { loadItems } from './api.js';
 import { useAsync } from './useAsync.js';
 import { canObserve } from './env.js';
-import {
-  Section, ItemImage, Segmented, Search, Empty, Figure, AsyncView, PCard, CardMeter,
-  FacetRail, FacetGroup, CheckRow, RangeInputs,
-} from './Primitives.jsx';
 import { itemKey, ITEM_STATE } from './adapter.js';
+import { Async, Item, Tog } from './ui.jsx';
 import * as f from './format.js';
 
-/*
- * Match phase — which part of a match an item can start coming up in — read from
- * ITEM_STATE (vendored from the plugin, the same source the ItemPools pages use)
- * so an item's colour is identical in both places. Green EARLY, yellow MID, red
- * LATE; an item not in the pool (never assigned a phase) stays neutral.
- *
- * `tone` is the lit fill for the card's top line and floor bleed; `ink` is the
- * text colour for the label. They differ only for LATE: the fill red reads as a
- * lit accent but is too dark to clear 4.5:1 as small text, so the label takes a
- * lighter red (phase-late-ink) — the same fill-vs-text split the blue accent uses.
- */
-const PHASE = {
-  EARLY: { label: 'Early', tone: 'var(--fib-phase-early)', ink: 'var(--fib-phase-early)' },
-  MID: { label: 'Mid', tone: 'var(--fib-phase-mid)', ink: 'var(--fib-phase-mid)' },
-  LATE: { label: 'Late', tone: 'var(--fib-phase-late)', ink: 'var(--fib-phase-late-ink)' },
-};
-const phaseOf = (itemName) => ITEM_STATE[itemKey(itemName).toUpperCase()] || null;
+const PHASES = [
+  { id: 'EARLY', label: 'Early' },
+  { id: 'MID', label: 'Mid' },
+  { id: 'LATE', label: 'Late' },
+  { id: 'NONE', label: 'Unassigned' },
+];
+const phaseOf = (itemName) => ITEM_STATE[itemKey(itemName).toUpperCase()] ?? 'NONE';
 
 /*
- * The real /items row is the rarity snapshot's shape: { itemName, playerCount, totalFinds,
- * totalSkips, avgSeconds }, and the view reads { itemName, seen, avgSeconds, skipRate }. The two
- * derivations belong here at the boundary — seen is every appearance (found or skipped), skipRate
- * is the share given up on — so the render below is untouched.
+ * Each sort is a question about the whole index. On a card the active one is the headline (figure, unit and the
+ * bar against the highest in the index) and the other two ride along underneath as their one-line `brief`.
  */
+const found = (r) => r.seen > r.skips;
+const SORTS = [
+  {
+    id: 'seen', label: 'Most common', pick: (r) => r.seen,
+    figure: (r) => f.num(r.seen), unit: () => 'times seen', brief: (r) => `seen ${f.num(r.seen)} times`,
+  },
+  {
+    id: 'slow', label: 'Biggest time sink', pick: (r) => r.avgSeconds,
+    figure: (r) => (found(r) ? f.duration(r.avgSeconds) : 'Never'), unit: (r) => (found(r) ? 'on average' : 'found'),
+    brief: (r) => (found(r) ? `${f.duration(r.avgSeconds)} on average` : 'never found'),
+  },
+  {
+    id: 'skipped', label: 'Most jokered', pick: (r) => r.skipRate,
+    figure: (r) => f.pct(r.skipRate, 0), unit: () => 'jokered', brief: (r) => `${f.pct(r.skipRate, 0)} jokered`,
+  },
+];
+
+const PAGE = 60;
+/* An average or a share over fewer appearances than this is one unlucky round, not a record. */
+const RECORD_MIN_SEEN = 5;
+const NO_RANGES = { seenMin: '', seenMax: '', skipMin: '', skipMax: '' };
+
+/* seen is every appearance, found or skipped; skipRate is the share given up on, 0 to 100. */
 function toItemRow(r) {
-  const seen = (r.totalFinds ?? 0) + (r.totalSkips ?? 0);
+  const skips = r.totalSkips ?? 0;
+  const seen = (r.totalFinds ?? 0) + skips;
   return {
     itemName: r.itemName,
+    phase: phaseOf(r.itemName),
     seen,
-    skips: r.totalSkips ?? 0,
+    skips,
     avgSeconds: r.avgSeconds ?? 0,
-    skipRate: seen > 0 ? ((r.totalSkips ?? 0) / seen) * 100 : 0,
+    skipRate: seen > 0 ? (skips / seen) * 100 : 0,
   };
 }
 
-/*
- * Each sort is a question the reader can ask of the whole index. Its four jobs
- * on a card:
- *   pick    orders the grid and supplies the headline figure
- *   metric  names the field bar beneath the headline (its share of the best)
- *   unit    qualifies the headline number
- *   brief   the one-line form shown in the footer for the TWO sorts that are
- *           NOT active, so every card carries all three metrics at once
- * `max` reads this sort's field maximum out of the precomputed maxima, for the
- * share bar's fill.
- */
-const SORTS = [
-  {
-    id: 'seen', label: 'Most common', hint: 'How often the item has come up',
-    metric: 'Appearances', pick: (r) => r.seen, max: (m) => m.seen,
-    format: f.num, unit: 'times seen', brief: (r) => `${f.num(r.seen)} seen`,
-  },
-  {
-    id: 'slow', label: 'Biggest time sink', hint: 'Average time spent before finding it',
-    // Shown as m + s past a minute: a bare "1,988s" reads as noise, "33m 8s" reads
-    // as a duration — `duration` (formatTime) is the same helper the match feed uses.
-    // No headline unit: a duration is self-evidently a time, and the "Average time"
-    // field-bar label names it anyway.
-    metric: 'Average time', pick: (r) => r.avgSeconds, max: (m) => m.avg,
-    format: f.duration, unit: null, brief: (r) => `${f.duration(r.avgSeconds)} avg`,
-  },
-  {
-    id: 'skipped', label: 'Most skipped', hint: 'Share of appearances players gave up on',
-    metric: 'Skip rate', pick: (r) => r.skipRate, max: (m) => m.skip,
-    format: (n) => f.pct(n, 0), unit: 'of the time', brief: (r) => `${f.pct(r.skipRate, 0)} skipped`,
-  },
-];
-
-export function Items() {
-  const state = useAsync(loadItems, []);
-  return (
-      <AsyncView state={state} loadingLabel="Loading items…">
-        {(payload) => <ItemsBody items={(payload.items ?? payload ?? []).map(toItemRow)} />}
-      </AsyncView>
-  );
+function itemRecords(items) {
+  const sampled = items.filter((r) => r.seen >= RECORD_MIN_SEEN);
+  const top = (list, key) => list.reduce((best, r) => (best == null || key(r) > key(best) ? r : best), null);
+  const common = top(items, (r) => r.seen);
+  const slow = top(sampled, (r) => r.avgSeconds);
+  const skipped = top(sampled, (r) => r.skipRate);
+  return [
+    common && { sort: 'seen', title: 'Comes up most', item: common, figure: `${f.num(common.seen)} times` },
+    slow && { sort: 'slow', title: 'Biggest time sink', item: slow, figure: `${f.duration(slow.avgSeconds)} on average` },
+    skipped && skipped.skips > 0 && {
+      sort: 'skipped', title: 'Most given up on', item: skipped, figure: `${f.pct(skipped.skipRate, 0)} jokered`,
+    },
+  ].filter(Boolean);
 }
 
-/* The phase facet's options, including the items the plugin never assigned a
-   phase to — they are a real part of the index and a filter that silently
-   excluded them would be lying about the count. */
-const PHASE_FACETS = [
-  { id: 'EARLY', label: 'Early', tone: PHASE.EARLY.tone },
-  { id: 'MID', label: 'Mid', tone: PHASE.MID.tone },
-  { id: 'LATE', label: 'Late', tone: PHASE.LATE.tone },
-  { id: 'NONE', label: 'Unassigned', tone: 'var(--fib-netherite)' },
-];
-
-/** An empty box means unbounded, so '' and a bad parse both read as "no bound". */
+/* An empty box means no bound. */
 const bound = (s) => {
   const n = Number.parseFloat(s);
   return Number.isFinite(n) ? n : null;
 };
 
-/*
- * The fewest appearances an item needs before it can hold a record. The time
- * and skip records are averages and shares, and an item seen once is always
- * either 100% skipped or 0% - one unlucky round is not "the most skipped item
- * on the server". Five is small enough that a young server still has holders.
- * The appearance count is printed beside every record so the sample is on show
- * (the Measured Rarity Rule: counted, never asserted).
- */
-const RECORD_MIN_SEEN = 5;
+export function Items() {
+  const [attempt, setAttempt] = useState(0);
+  const state = useAsync(loadItems, [attempt]);
+  const items = useMemo(() => {
+    const list = state.data?.items ?? state.data;
+    return Array.isArray(list) ? list.map(toItemRow) : [];
+  }, [state.data]);
 
-/*
- * The index's three records: the item that comes up most, the one that eats
- * the most time, the one players give up on most. They open the page as
- * objects - the sprite at full size on its phase floor, the name in the
- * jersey - because the item index was a wall of identical cards whose top row
- * was simply whatever sorted first, and the three extremes are the facts about
- * the pool people actually repeat to each other. Each is also the way into
- * its sort: pressing one orders the grid by the question it answers.
- */
-function itemRecords(items) {
-  const pool = items.filter((r) => r.seen >= RECORD_MIN_SEEN);
-  const top = (list, key) => list.reduce((best, r) => (best == null || key(r) > key(best) ? r : best), null);
-  const common = top(items, (r) => r.seen);
-  const slow = top(pool, (r) => r.avgSeconds);
-  const skipped = top(pool, (r) => r.skipRate);
-  return [
-    common && {
-      sort: 'seen', title: 'Comes up most', item: common,
-      figure: f.num(common.seen), unit: 'times',
-      note: `found ${f.num(common.seen - common.skips)}, skipped ${f.num(common.skips)}`,
-    },
-    slow && {
-      sort: 'slow', title: 'Biggest time sink', item: slow,
-      figure: f.duration(slow.avgSeconds), unit: 'on average',
-      note: `across ${f.num(slow.seen)} appearances`,
-    },
-    skipped && skipped.skips > 0 && {
-      sort: 'skipped', title: 'Most given up on', item: skipped,
-      figure: f.pct(skipped.skipRate, 0), unit: 'skipped',
-      note: `${f.num(skipped.skips)} of ${f.num(skipped.seen)} appearances`,
-    },
-  ].filter(Boolean);
-}
-
-const EMPTY_FACETS = {
-  phases: [], seenMin: '', seenMax: '', skipMin: '', skipMax: '',
-};
-
-function ItemsBody({ items }) {
   const [sort, setSort] = useState('seen');
   const [query, setQuery] = useState('');
-  const [facets, setFacets] = useState(EMPTY_FACETS);
-
+  const [phases, setPhases] = useState([]);
+  const [ranges, setRanges] = useState(NO_RANGES);
   const active = SORTS.find((s) => s.id === sort);
+  const narrowed = phases.length > 0 || Object.values(ranges).some((v) => v !== '');
+  const clear = () => {
+    setPhases([]);
+    setRanges(NO_RANGES);
+  };
 
-  const setFacet = (patch) => setFacets((prev) => ({ ...prev, ...patch }));
-  const togglePhase = (id, on) => setFacets((prev) => ({
-    ...prev,
-    phases: on ? [...prev.phases, id] : prev.phases.filter((p) => p !== id),
-  }));
+  const searchRef = useRef(null);
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = document.activeElement;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el?.tagName) || el?.isContentEditable) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
-  /* How many filters are actually narrowing the list. A range counts once even
-     when both ends are set — the reader set one constraint, not two — and the
-     phase group counts once however many boxes are ticked. */
-  const activeFacets =
-      (facets.phases.length > 0 ? 1 : 0)
-      + (facets.seenMin !== '' || facets.seenMax !== '' ? 1 : 0)
-      + (facets.skipMin !== '' || facets.skipMax !== '' ? 1 : 0);
-
-  /* Phase counts across the WHOLE index, not the filtered set: a facet count that
-     changed as you ticked its own boxes would make the group unreadable. */
+  /* Counted over the whole index, so a phase's count does not change as its own box is ticked. */
   const phaseCounts = useMemo(() => {
-    const counts = { EARLY: 0, MID: 0, LATE: 0, NONE: 0 };
-    for (const r of items) counts[phaseOf(r.itemName) ?? 'NONE'] += 1;
+    const counts = {};
+    items.forEach((r) => { counts[r.phase] = (counts[r.phase] ?? 0) + 1; });
     return counts;
   }, [items]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const seenMin = bound(facets.seenMin);
-    const seenMax = bound(facets.seenMax);
-    const skipMin = bound(facets.skipMin);
-    const skipMax = bound(facets.skipMax);
-
+    const [seenMin, seenMax, skipMin, skipMax] = [ranges.seenMin, ranges.seenMax, ranges.skipMin, ranges.skipMax].map(bound);
     return items
-        .filter((r) => {
-          if (q && !f.itemSearchText(r.itemName).toLowerCase().includes(q)) return false;
-          if (facets.phases.length > 0
-              && !facets.phases.includes(phaseOf(r.itemName) ?? 'NONE')) return false;
-          if (seenMin != null && r.seen < seenMin) return false;
-          if (seenMax != null && r.seen > seenMax) return false;
-          if (skipMin != null && r.skipRate < skipMin) return false;
-          if (skipMax != null && r.skipRate > skipMax) return false;
-          return true;
-        })
-        .slice()
-        .sort((a, b) => active.pick(b) - active.pick(a));
-  }, [items, active, query, facets]);
+      .filter((r) => {
+        if (q && !f.itemSearchText(r.itemName).toLowerCase().includes(q)) return false;
+        if (phases.length > 0 && !phases.includes(r.phase)) return false;
+        if (seenMin != null && r.seen < seenMin) return false;
+        if (seenMax != null && r.seen > seenMax) return false;
+        if (skipMin != null && r.skipRate < skipMin) return false;
+        if (skipMax != null && r.skipRate > skipMax) return false;
+        return true;
+      })
+      .sort((a, b) => active.pick(b) - active.pick(a));
+  }, [items, active, query, phases, ranges]);
 
-  const totalSeen = items.reduce((a, r) => a + r.seen, 0);
   const records = useMemo(() => itemRecords(items), [items]);
+  const best = useMemo(() => Math.max(1, ...items.map(active.pick)), [items, active]);
+  const totalSeen = items.reduce((sum, r) => sum + r.seen, 0);
 
-  /* Field maxima for the share bars — one pass over the index, reused by
-     whichever sort is active so the bar always reads against its own field. */
-  const maxes = useMemo(() => ({
-    seen: Math.max(1, ...items.map((r) => r.seen)),
-    avg: Math.max(1, ...items.map((r) => r.avgSeconds)),
-    skip: Math.max(1, ...items.map((r) => r.skipRate)),
-  }), [items]);
-  const activeMax = active.max(maxes);
-
-  /*
-   * Infinite scroll. The whole index is already in memory (one /items call), so
-   * this is a render window, not a fetch: only `visible` cards are mounted, and
-   * a sentinel below the grid grows the window as it nears the viewport. Keeps
-   * the DOM light as the pool grows over time without paging the data.
-   *
-   * Where IntersectionObserver is unavailable (SSR, headless, old browser) the
-   * grid is not windowed at all — `shown` is the full list — so the reader is
-   * never stranded at sixty with no way to load more, and no state is set from
-   * inside an effect to get there.
-   */
-  const PAGE = 60;
+  /* Only a window of the rows is mounted; a sentinel under the table grows it. Without an observer, all of them are. */
   const windowed = canObserve();
   const [visible, setVisible] = useState(PAGE);
   const sentinelRef = useRef(null);
-
-  /* A new sort, search or facet starts the window over at the top. Done during
-     render (React's "adjust state when inputs change" pattern) rather than in an
-     effect, so no state is set from inside an effect and the reset lands before
-     paint instead of one frame after it. */
-  const filterKey = `${sort} ${query.trim().toLowerCase()} ${JSON.stringify(facets)}`;
+  const filterKey = `${sort} ${query.trim().toLowerCase()} ${phases} ${JSON.stringify(ranges)}`;
   const [windowKey, setWindowKey] = useState(filterKey);
   if (windowKey !== filterKey) {
     setWindowKey(filterKey);
     setVisible(PAGE);
   }
-
   useEffect(() => {
-    if (!windowed || visible >= rows.length) return undefined;
-    const el = sentinelRef.current;
-    if (!el) return undefined;
+    if (!windowed || visible >= rows.length || !sentinelRef.current) return undefined;
     const io = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) setVisible((v) => Math.min(rows.length, v + PAGE));
     }, { rootMargin: '800px' });
-    io.observe(el);
+    io.observe(sentinelRef.current);
     return () => io.disconnect();
   }, [windowed, visible, rows.length]);
-
   const shown = windowed ? rows.slice(0, visible) : rows;
 
+  const range = (label, minKey, maxKey, unit) => (
+    <div role="group" aria-label={label} className="rng">
+      <span>{label}</span>
+      <input
+        className="search num"
+        type="number"
+        min="0"
+        placeholder="min"
+        aria-label={`${label}, at least`}
+        value={ranges[minKey]}
+        onChange={(e) => setRanges((prev) => ({ ...prev, [minKey]: e.target.value }))}
+      />
+      <span>to</span>
+      <input
+        className="search num"
+        type="number"
+        min="0"
+        placeholder="max"
+        aria-label={`${label}, at most`}
+        value={ranges[maxKey]}
+        onChange={(e) => setRanges((prev) => ({ ...prev, [maxKey]: e.target.value }))}
+      />
+      {unit && <span>{unit}</span>}
+    </div>
+  );
+
+  let status = `${f.full(items.length)} items have come up, ${f.full(totalSeen)} times in all.`;
+  if (rows.length < items.length) status = `${f.full(rows.length)} of ${f.full(items.length)} items match.`;
+
   return (
-      <div className="fib-page fib-page--wide">
-        <Section
-            title="Items"
-            sub={`${items.length} distinct items across ${f.num(totalSeen)} appearances in the sampled matches.`}
-            aside={<Search value={query} onChange={setQuery} placeholder="Find an item" label="Find an item" hotkey />}
-        >
-          {records.length > 0 ? (
-            <div className="fib-item-records">
-              {records.map((rec) => {
-                const ph = phaseOf(rec.item.itemName);
-                const phase = ph ? PHASE[ph] : null;
-                return (
-                  <button
-                    key={rec.sort}
-                    type="button"
-                    className="fib-item-record"
-                    aria-pressed={sort === rec.sort}
-                    onClick={() => setSort(rec.sort)}
-                    style={{ '--phase': phase ? phase.tone : 'var(--fib-netherite)' }}
-                  >
-                    <span className="fib-item-record-media" aria-hidden="true">
-                      <ItemImage name={rec.item.itemName} size={128} />
-                    </span>
-                    <span className="fib-item-record-body">
-                      <span className="fib-label">{rec.title}</span>
-                      <span className="fib-item-record-name">{f.itemLabel(rec.item.itemName)}</span>
-                      <span className="fib-item-record-figure">
-                        <b>{rec.figure}</b> {rec.unit}
-                      </span>
-                      <span className="fib-meta">{rec.note}{phase ? <> · <span style={{ color: phase.ink }}>{phase.label}</span></> : null}</span>
-                    </span>
+    <section className="page">
+      <h1>Items</h1>
+      <p className="lede" aria-live="polite">{items.length ? status : 'Every item that comes up in a round is listed here once the round ends.'}</p>
+      <Async state={state} what="the items" onRetry={() => setAttempt((n) => n + 1)}>
+        {() => (items.length === 0 ? <div className="state"><b>No items yet</b>The first finished round fills this in.</div> : (
+          <>
+            <section className="sec">
+              <div className="sh"><h2>Records</h2><span className="r">Pick one to sort the index by it</span></div>
+              <div className="shelf">
+                {records.map((rec) => (
+                  <button key={rec.sort} type="button" aria-pressed={sort === rec.sort} onClick={() => setSort(rec.sort)}>
+                    <Item name={rec.item.itemName} size="t84" />
+                    <b>{f.itemLabel(rec.item.itemName)}</b>
+                    <span className="figure">{rec.figure}</span>
+                    <small>{rec.title}</small>
                   </button>
-                );
-              })}
-            </div>
-          ) : null}
-
-          <div className="fib-faceted">
-            <FacetRail activeCount={activeFacets} onClear={() => setFacets(EMPTY_FACETS)}>
-              <FacetGroup title="Match phase" hint="When in a match the item can start coming up.">
-                {PHASE_FACETS.map((p) => (
-                    <CheckRow
-                        key={p.id}
-                        checked={facets.phases.includes(p.id)}
-                        onChange={(on) => togglePhase(p.id, on)}
-                        count={phaseCounts[p.id]}
-                        swatch={p.tone}
-                    >
-                      {p.label}
-                    </CheckRow>
                 ))}
-              </FacetGroup>
-
-              <FacetGroup title="Appearances" hint="Times the item has come up, found or skipped.">
-                <RangeInputs
-                    min={facets.seenMin} max={facets.seenMax}
-                    onMin={(v) => setFacet({ seenMin: v })}
-                    onMax={(v) => setFacet({ seenMax: v })}
-                />
-              </FacetGroup>
-
-              <FacetGroup title="Skip rate" hint="Share of appearances players gave up on.">
-                <RangeInputs
-                    min={facets.skipMin} max={facets.skipMax}
-                    onMin={(v) => setFacet({ skipMin: v })}
-                    onMax={(v) => setFacet({ skipMax: v })}
-                    suffix="%" step={5}
-                />
-              </FacetGroup>
-            </FacetRail>
-
-            <div className="fib-faceted-body">
-              <div className="fib-items-bar">
-                {/* One of N, so the same sliding-thumb control the scope pickers use.
-                    This was a chip row, which made two different segmented
-                    vocabularies for the same job across the module. */}
-                <Segmented options={SORTS} value={sort} onChange={setSort} label="Sort items" />
-                {/* Phase legend — the colour code the cards carry, named. */}
-                <div className="fib-phase-legend" aria-hidden="true">
-                  {Object.values(PHASE).map((p) => (
-                      <span key={p.label}><i style={{ background: p.tone }} />{p.label}</span>
-                  ))}
-                </div>
               </div>
+            </section>
 
-          {items.length === 0 ? (
-              <Empty title="No items yet">
-                The index lists every item that has appeared in a tracked match. As soon as a
-                match finishes, the items it turned up show up here.
-              </Empty>
-          ) : rows.length === 0 ? (
-              <Empty
-                  title={query.trim() ? `No item matches “${query.trim()}”` : 'No item matches those filters'}
-                  action={activeFacets > 0 ? (
-                      <button type="button" className="fib-btn" onClick={() => setFacets(EMPTY_FACETS)}>
-                        Clear filters
-                      </button>
-                  ) : null}
-              >
-                {activeFacets > 0
-                    ? 'Every item in the index falls outside the ranges set in the rail. Widen one, or clear them and start again.'
-                    : 'Only items that have actually come up in a tracked match are indexed. Check the spelling, or clear the search to browse them all.'}
-              </Empty>
-          ) : (
-              <>
-              <div className="fib-pcard-grid fib-items-cards">
-                {shown.map((r) => {
-                  const ph = phaseOf(r.itemName);
-                  const phase = ph ? PHASE[ph] : null;
-                  return (
-                      <PCard
-                          key={r.itemName}
-                          tone={phase ? phase.tone : 'var(--fib-netherite)'}
-                          media={<ItemImage name={r.itemName} size={128} className="fib-pcard-sprite" />}
-                          title={f.itemLabel(r.itemName)}
-                          sub={phase ? (
-                              <span className="fib-pcard-phase" style={{ color: phase.ink }}>
-                                {phase.label}
-                              </span>
-                          ) : null}
-                          foot={
-                            /* The two metrics that AREN'T the active sort, so the
-                               card carries all three without repeating the headline. */
-                            SORTS.filter((s) => s.id !== sort).map((s) => {
-                              const danger = s.id === 'skipped' && r.skipRate > 25;
-                              return (
-                                  <span
-                                      key={s.id}
-                                      className="fib-meta"
-                                      style={danger ? { color: 'var(--fib-negative)' } : undefined}
-                                  >
-                                    {s.brief(r)}
-                                  </span>
-                              );
-                            })
-                          }
+            <section className="sec">
+              <div className="ctrls" style={{ marginTop: 0 }}>
+                <input
+                  ref={searchRef}
+                  className="search"
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Find an item"
+                  aria-label="Find an item"
+                />
+                <Tog label="Sort items" options={SORTS} value={sort} onChange={setSort} />
+              </div>
+              <div className="ctrls">
+                <div className="tog" role="group" aria-label="Item pool">
+                  {PHASES.map((p) => {
+                    const on = phases.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setPhases((prev) => (on ? prev.filter((id) => id !== p.id) : [...prev, p.id]))}
                       >
-                        <Figure
-                            size="lg"
-                            value={active.pick(r)}
-                            format={active.format}
-                            unit={active.unit}
-                            count={false}
-                        />
-                        {/* The headline's field: this item's share of the best in
-                            whatever metric is sorted on, so the number is never bare. */}
-                        <CardMeter
-                            label={active.metric}
-                            fill={active.pick(r) / activeMax}
-                            tone="diamond"
-                        />
-                      </PCard>
-                  );
-                })}
+                        {p.label} <span className="quiet">{f.num(phaseCounts[p.id] ?? 0)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {range('Seen', 'seenMin', 'seenMax')}
+                {range('Jokered', 'skipMin', 'skipMax', '%')}
+                {narrowed && <button type="button" className="link" onClick={clear}>Clear filters</button>}
               </div>
-              {windowed && visible < rows.length ? (
-                  <div
-                      ref={sentinelRef}
-                      className="fib-meta fib-items-count"
-                      role="status"
-                  >
-                    Showing {f.num(shown.length)} of {f.num(rows.length)}
-                  </div>
-              ) : rows.length < items.length ? (
-                  /* Filtered down to something that fits. The count still has to be
-                     stated: a grid that silently holds 40 of 616 items reads as the
-                     whole index, and the reader has no way to tell it is not. */
-                  <div className="fib-meta fib-items-count" role="status">
-                    {f.num(rows.length)} of {f.num(items.length)} items match
-                  </div>
-              ) : null}
-              </>
-          )}
-            </div>
-          </div>
-        </Section>
-      </div>
+
+              {rows.length === 0 ? (
+                <div className="state">
+                  <b>{query.trim() ? `No item matches “${query.trim()}”` : 'No item matches those filters'}</b>
+                  {narrowed ? 'Every item falls outside the filters set above.' : 'Only items that have come up in a round are listed.'}
+                </div>
+              ) : (
+                <ul className="grid">
+                  {shown.map((r) => {
+                    const share = active.pick(r) / best;
+                    return (
+                      <li key={r.itemName}>
+                        <Item name={r.itemName} size="t84" />
+                        <b>{f.itemLabel(r.itemName)}</b>
+                        <span className="figure">{active.figure(r)}<small>{active.unit(r)}</small></span>
+                        <div className="bar" role="img" aria-label={`${Math.round(share * 100)}% of the highest in the index`} style={{ '--w': share * 100 }}><i /></div>
+                        <small>
+                          {SORTS.filter((other) => other.id !== sort).map((other) => other.brief(r)).join(', ')}
+                          {r.phase !== 'NONE' ? `, ${PHASES.find((p) => p.id === r.phase).label.toLowerCase()} pool` : ''}
+                        </small>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {shown.length < rows.length && <div ref={sentinelRef} style={{ height: 1 }} />}
+            </section>
+          </>
+        ))}
+      </Async>
+    </section>
   );
 }
