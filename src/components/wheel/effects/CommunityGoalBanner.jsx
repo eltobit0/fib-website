@@ -1,26 +1,9 @@
-﻿// ============================================
-// CommunityGoalBanner.jsx
-// ============================================
-// Community Goal event banner - the whole server works staged targets together
-// Features: countdown, staged progress bar, timer, result with per-stage payout
-//
-// Structure follows the other event banners deliberately: one horizontal row of pill
-// boxes (icon, title, status, timer) over floating decorations, a shimmer sweep and a
-// bottom glow line. The progress bar lives inside a pill rather than on its own row so
-// this banner is the same height as Gold Rush, KOTW and First Blood.
-//
-// Progress arrives pre-throttled from the server (see COMMUNITY_GOAL_BROADCAST_DELAY_MS
-// in globalEvents.js): a bar that ticked up the instant a rare landed would tell whoever
-// was mid-spin what they had just pulled, seconds before their own wheel did. Scoring
-// every spin did not retire that concern - the bar moves constantly now, so it is the
-// size of the jump that leaks a mythic. The server still holds every tick back.
-//
-// Two things about the numbers, both set by the server:
-//   - progress is POINTS, not drops. Every spin scores; rarity decides how much.
-//   - the target GROWS during the event as new players take their first spin, so the
-//     stage thresholds are not fixed for the whole five minutes. StagedBar calls this
-//     out when it happens, because a bar whose fill drops while the number rises reads
-//     as a bug otherwise.
+﻿// Community Goal event banner: the whole server works staged targets together. One row of pills like the other
+﻿// event banners (same height as Gold Rush, KOTW and First Blood), the progress bar living inside a pill.
+﻿//
+﻿// Progress arrives pre-throttled (COMMUNITY_GOAL_BROADCAST_DELAY_MS in globalEvents.js): a bar ticking the instant
+﻿// a rare landed would tell a mid-spin player what they pulled, and the size of the jump leaks a mythic. Progress is
+﻿// POINTS, not drops, and the target GROWS as new players take their first spin, so StagedBar calls that out.
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { API_BASE_URL } from '../../../config/constants.js';
@@ -31,10 +14,6 @@ import { useSound } from '../../../context/SoundContext.jsx';
 import { Target, Timer, Users, Sparkles, Gem, HandHeart, Trophy } from 'lucide-react';
 import { countdownInterval, visibleInterval } from '../../../config/power.js';
 import { CommunityForgeHeader } from './CommunityForge.jsx';
-
-// ============================================
-// CONSTANTS
-// ============================================
 
 // Teal/cyan theme - deliberately unused by the other three events
 // (Gold Rush amber, KOTW crimson/gold, First Blood blood red)
@@ -57,15 +36,10 @@ const tierColor = key => TIER_COLORS[key] || CG_PRIMARY;
 // How long the "goal raised" notice and its ring stay up after the target climbs.
 const GOAL_RAISED_MS = 2500;
 
-// How long after the clock expires the banner waits for the result stream before
-// falling back to hiding itself. See the active-timer effect: hiding at 0:00
-// exactly races the end broadcasts, and the banner used to fade out and then
-// slide back in when community_goal_result arrived a moment later.
+// Grace after the clock expires before the banner hides itself: hiding at 0:00 races the end broadcasts, and the
+// banner used to fade out and slide back in when community_goal_result arrived.
 const RESULT_GRACE_MS = 3000;
 
-// ============================================
-// Floating Decorations
-// ============================================
 function FloatingGoals({ isMobile }) {
     const decorations = [
         { Icon: Target, left: '6%', size: 0.9, delay: 0 },
@@ -119,12 +93,7 @@ function FloatingGoals({ isMobile }) {
     );
 }
 
-// ============================================
-// Staged Progress Bar
-// ============================================
-// Sits inside a pill in the main row. Spans to the FINAL stage so the markers are at
-// their true relative positions and the bar shows how much is left to climb, rather
-// than snapping to full the moment the first stage falls.
+// Sits inside a pill. Spans to the FINAL stage so markers sit at true relative positions.
 function StagedBar({ progress, tiers, isMobile, raised }) {
     const max = tiers.length > 0 ? tiers[tiers.length - 1].threshold : 0;
     if (max <= 0) return null;
@@ -152,28 +121,10 @@ function StagedBar({ progress, tiers, isMobile, raised }) {
                 animation: raised ? `goalRaised ${GOAL_RAISED_MS}ms ease-out` : undefined,
             }}
         >
-            {/* Fills without animating `width`, which relaid out the banner row on
-                every progress broadcast. The three pieces each replace one thing
-                width was doing, because no single property does all of it here:
-
-                  background-size  compresses the gradient into the filled part,
-                                   so the leading edge stays the solid end of the
-                                   ramp instead of fading out as the bar shortens.
-                  clip-path        cuts the element back to `pct`, and `round
-                                   999px` is what keeps the pill caps — a plain
-                                   scaleX would squash them into ellipses, which
-                                   is why the Gold Rush bar's fix does not port
-                                   here: that one is a square 3px rule.
-                  drop-shadow      is the glow. It has to be a filter rather than
-                                   box-shadow, because clip-path clips a
-                                   box-shadow away entirely but is applied before
-                                   a filter — so the glow traces the clipped pill.
-                                   ~half the blur of the box-shadow it replaces.
-
-                All three are paint/composite, none is layout. The old
-                `background 0.6s ease` is gone rather than carried over: gradients
-                do not interpolate, so it never animated the stage-colour change
-                it looked like it was animating. */}
+            {/* Fills without animating `width` (it relaid out the row on every broadcast): `background-size` keeps the leading
+            edge solid, `clip-path` with `round 999px` cuts to `pct` and keeps the pill caps (scaleX would squash them), and
+            `drop-shadow` is the glow because box-shadow is clipped away by clip-path. All paint/composite, none layout.
+            The old background transition is gone: gradients do not interpolate. */}
             <div style={{
                 position: 'absolute',
                 top: 0,
@@ -221,9 +172,6 @@ function StagedBar({ progress, tiers, isMobile, raised }) {
     );
 }
 
-// ============================================
-// Main Community Goal Banner Component
-// ============================================
 function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false, forge = false, onForgeVisibility }) {
     const {
         globalEventStatus,
@@ -249,11 +197,8 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
     const isActive = isCommunityGoal && globalEventStatus?.active;
     const isPending = isCommunityGoal && globalEventStatus?.pending;
 
-    // The window between the event ending server-side and the summary being shown. The
-    // result is held back so it cannot land mid-spin, and the banner deliberately does
-    // not change during it: the running layout stays exactly as it was, frozen, and then
-    // flips straight to the result. Any intermediate state announces the end of the event
-    // over a wheel that has not finished spinning.
+    // Between the event ending server-side and the summary: the result is held back so it cannot land mid-spin, and the
+    // banner stays frozen as it was, then flips straight to the result.
     const showResult = !!communityGoalResult;
     const isSettling = communityGoalResultPending && !showResult;
     const showLiveLayout = isActive || isSettling;
@@ -265,10 +210,8 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
         ?? globalEventStatus?.data?.participationReward
         ?? 0;
 
-    // A stage costs points AND rare-or-better drops, and either half can be the one still
-    // outstanding. Mirror the server's rule exactly (globalEvents.js
-    // getReachedCommunityGoalTier) rather than reading the bar alone - a full bar that has
-    // not paid needs an explanation, not a contradiction.
+    // A stage costs points AND rare-or-better drops. Mirror the server's rule (globalEvents.js getReachedCommunityGoalTier),
+    // since a full bar that has not paid needs an explanation.
     const specialDrops = communityGoal?.specialDrops ?? 0;
     const tierMet = t => progress >= t.threshold && specialDrops >= (t.specials || 0);
     const reachedTier = [...tiers].reverse().find(tierMet) || null;
@@ -279,17 +222,9 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
     const nextTierSpecialsShort = nextTier ? Math.max(0, (nextTier.specials || 0) - specialDrops) : 0;
     const currentPayout = communityGoal?.payout ?? (participationReward + (reachedTier?.bonus || 0));
 
-    // The stage thresholds climb whenever someone takes their first spin of the event, so
-    // the bar's fill can drop while the points go up. That is the server being honest about
-    // needing more, but unannounced it just looks like losing ground - so say so for a
-    // couple of seconds. Keyed on the final stage because that is what the bar spans.
-    // Detected during render rather than in an effect, and clocked off `remainingTime`
-    // rather than Date.now(). Both are deliberate: an effect here would be a fourth
-    // setState-in-effect in this file, and reading the wall clock during render is impure
-    // (it makes the notice appear or vanish on any incidental re-render). `remainingTime`
-    // already ticks once a second from the active timer, counting down, so the difference
-    // between the value at the raise and the value now IS the elapsed time - pure, and it
-    // costs no extra timer.
+    // Stage thresholds climb when someone takes their first spin, so the fill can drop while points rise; say so for a
+    // couple of seconds. Detected in render and clocked off `remainingTime` (pure: the wall clock in render is impure
+    // and an effect here would be another setState-in-effect).
     const finalThreshold = tiers.length > 0 ? tiers[tiers.length - 1].threshold : 0;
     const [seenThreshold, setSeenThreshold] = useState(finalThreshold);
     const [raisedAtRemaining, setRaisedAtRemaining] = useState(0);
@@ -312,16 +247,9 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
         ? `${participationReward}-${participationReward + topBonus}`
         : (isActive ? String(currentPayout) : null);
 
-    // Start/stop soundtrack. hasSoundtrackStartedRef is never reset by the expiry fallback
-    // below - only by the event genuinely ending - or a re-run of this effect would read
-    // the cleared flag as a new event and restart the music we just stopped.
-    //
-    // The stop also waits out the settle window and the summary, exactly as
-    // showLiveLayout does for the banner. `isActive` goes false on the end broadcast,
-    // which is seconds ahead of the summary because the result waits for the local
-    // wheel to land - so stopping on it alone told the player the goal had resolved
-    // while their own reel was still turning and the bar was still frozen mid-run.
-    // Freezing the layout and cutting the music is not a freeze.
+    // hasSoundtrackStartedRef is reset only by the event genuinely ending, never by the expiry fallback, or a re-run
+    // would read the cleared flag as a new event. The stop waits out the settle window and summary like showLiveLayout:
+    // `isActive` goes false seconds before the summary, while the player's own reel is still turning.
     const holdSoundtrack = isSettling || showResult;
 
     useEffect(() => {
@@ -372,21 +300,14 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
     // end message never arrives
     useEffect(() => {
         if (!isActive || !globalEventStatus?.expiresAt) {
-            // Hold the last value while the result is being announced - see isSettling.
-            // An admin ending the event early would otherwise snap the clock to 0:00
-            // while somebody's wheel is still turning.
+            // Hold the last value while the result is announced (see isSettling) so an early admin end does not snap the clock to 0:00.
             if (!isSettling) setRemainingTime(0);
             return;
         }
         const update = () => {
             const remaining = Math.max(0, globalEventStatus.expiresAt - Date.now());
             setRemainingTime(remaining);
-            // Fallback: if timer has hit 0 and the result stream has not arrived
-            // within its grace window, hide the banner. Hiding at 0:00 exactly
-            // races the end broadcasts - the banner used to fade out and slide
-            // back in when community_goal_result landed a moment later. isSettling
-            // holds it through the announcement, and the grace covers the gap
-            // before settling even starts; only a genuinely silent stream sees it.
+            // Fallback: hide if the timer hit 0 and no result arrives within the grace window. isSettling covers the announcement.
             if (remaining <= 0 && isVisible && !isSettling
                 && Date.now() - globalEventStatus.expiresAt > RESULT_GRACE_MS) {
                 setIsVisible(false);
@@ -436,19 +357,11 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
     // because the active-timer effect needs isSettling too.
     const shouldShowBanner = isVisible || showResult || isSettling;
 
-    // Exit fades rather than pops: the result block dissolves and the handoff
-    // reads as a scene change, not a blink. `isClosing` is derived — the moment
-    // shouldShowBanner drops, this render still paints with the slide-down
-    // halted and opacity falling; a timeout then retires it. The result is
-    // frozen through the fade (below) so the banner goes out showing what it
-    // came to show, not an empty shell.
+    // Exit fades rather than pops. `isClosing` is derived: once shouldShowBanner drops, this render paints with the
+    // slide-down halted while a timeout retires it, and the result is frozen through the fade.
     const [isGone, setIsGone] = useState(true);
     const isClosing = !shouldShowBanner && !isGone;
-    // Snap back: "a fresh event inside the fade" must actually come back. isGone
-    // is a latch - once a fade completes it stays true, so without this reset
-    // every later event of the session would be suppressed and the banner would
-    // only ever show again after a reload. Render-phase correction, same pattern
-    // as the EventSelectionWheel's.
+    // Snap back: isGone is a latch, so without this reset only the first event of a session would ever show. Render-phase correction.
     if (shouldShowBanner && isGone) setIsGone(false);
     useEffect(() => {
         if (!isClosing) return undefined;
@@ -456,10 +369,7 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
         return () => clearTimeout(id);
     }, [isClosing]);
 
-    // The result may already be gone from context by the time the banner fades;
-    // remembering the last one keeps the fade showing the result, not a
-    // fallback colour. Adjusting state during render is the sanctioned pattern
-    // for "remember what changed" — a ref would trip the render-time ref rules.
+    // Remember the last result so the fade shows it, not a fallback colour. State, since a ref would trip the render-time ref rules.
     const [lastResult, setLastResult] = useState(null);
     if (communityGoalResult && communityGoalResult !== lastResult) setLastResult(communityGoalResult);
 
@@ -499,14 +409,7 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
 
     return (
         <div style={{
-            // `inline` is what moved this out of the viewport's top
-            // edge and into the page. It used to be `position: fixed;
-            // top: 0`, which on a HUD with a permanent topbar covered it
-            // for the whole event, and made two simultaneous events
-            // overlap each other. In flow it sits in the gap between the
-            // live ticker and the reel, which is space the layout already
-            // had spare — so the banner keeps every detail it ever had
-            // instead of being reduced to fit somewhere it did not belong.
+            // `inline` puts the banner in the gap between the live ticker and the reel; `position: fixed; top: 0` was covered by the topbar and overlapped simultaneous events.
             ...(inline
                 ? { position: 'relative' }
                 : { position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100 }),
@@ -539,9 +442,7 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                     from { opacity: 0; transform: translateY(-10px); }
                     to { opacity: 1; transform: translateY(0); }
                 }
-                /* The bar's target just moved up because someone joined. Ring the track
-                   rather than the fill: the fill is busy animating down to its new
-                   percentage, and two things moving at once reads as a glitch. */
+                /* The target just moved up because someone joined: ring the track, not the fill, which is busy animating down. */
                 @keyframes goalRaised {
                     0%   { box-shadow: inset 0 1px 4px rgba(0,0,0,0.6), 0 0 0 0 ${CG_ACCENT}00; }
                     20%  { box-shadow: inset 0 1px 4px rgba(0,0,0,0.6), 0 0 0 3px ${CG_ACCENT}66; }
@@ -666,11 +567,7 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                                         </>
                                     )}
                                 </span>
-                                {/* The server had the points for a higher stage and was held
-                                    back by the special-item requirement. Saying so turns a
-                                    stage that silently failed to arrive into a result they can
-                                    argue with down the line - which is the whole reason the
-                                    gate is a stated rule rather than an emergent one. */}
+                                {/* The server had the points for a higher stage and the special-item requirement held it back; saying so keeps the gate a stated rule. */}
                                 {resultNow.gatedTierName && (
                                     <>
                                         <span style={{ color: CG_PRIMARY, opacity: 0.6 }}>|</span>
@@ -703,11 +600,7 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                                 {resultNow.topContributors?.length > 0 && (
                                     <>
                                         <span style={{ color: CG_PRIMARY, opacity: 0.6 }}>|</span>
-                                        {/* Ranked by points server-side, so the leader is shown by
-                                            points too. Their special-item count is not
-                                            interchangeable with it - the top scorer can perfectly
-                                            well have pulled none, and printing "x0" beside a
-                                            trophy read as a bug. */}
+                                        {/* Ranked by points, so the leader shows points; their special-item count is independent and "x0" beside a trophy read as a bug. */}
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <Trophy size={13} color={COLORS.gold} />{' '}
                                             <strong style={{ color: CG_TEXT }}>
@@ -786,11 +679,7 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                                         whiteSpace: 'nowrap',
                                         transition: 'color 0.3s ease',
                                     }}>
-                                        {/* Deliberately about as wide as the text it stands in
-                                            for. The row wraps, and this label lives for 2.5s -
-                                            a longer string would bounce the banner's height and
-                                            shift the wheel under it, twice, for no reason. The
-                                            why is in the bar's own tooltip. */}
+                                        {/* About as wide as the text it replaces: this label lives 2.5s and the row wraps, so a longer string would bounce the banner's height. */}
                                         {goalRaised
                                             ? 'goal raised'
                                             : !nextTier
@@ -799,19 +688,13 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                                                    spinning fixes it. */
                                                 : nextTierPointsShort > 0
                                                     ? <>{nextTierPointsShort} to {nextTier.name}</>
-                                                    /* Points are in and the stage still has not
-                                                       paid, so the specials are what is missing.
-                                                       Without this the bar just sits full and
-                                                       nothing happens. */
+                                                    // Points are in and the stage has not paid, so the specials are what is missing.
                                                     : <>{nextTier.name} needs {nextTierSpecialsShort} special item{nextTierSpecialsShort !== 1 ? 's' : ''}</>}
                                     </span>
                                 </div>
                             )}
 
-                            {/* Timer - frozen, not replaced, while settling. The banner must
-                                not change state until the player has visibly got their own
-                                result; anything else announces the end of the event over a
-                                wheel that is still spinning. */}
+                            {/* Timer: frozen, not replaced, while settling; changing state earlier announces the end over a wheel still spinning. */}
                             {showLiveLayout && (
                                 <div style={{ ...pill(`${isCriticalTime ? '#ff4444' : CG_PRIMARY}88`, {
                                     gap: '6px',
@@ -874,32 +757,14 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                             marginTop: isMobile ? '6px' : '8px',
                             flexWrap: 'wrap',
                         }}>
-                            {/* Label and sentence are one flex item, not two. Every
-                                other boundary in this row has a `|` to explain the
-                                12px gap; this one does not, so a gap here reads as a
-                                typo rather than as separation — "Goal:" adrift from
-                                the clause it introduces. Inside one item they are
-                                separated by an ordinary word space, which is what the
-                                punctuation already implies. */}
+                            {/* Label and sentence are one flex item: this boundary has no `|`, so a flex gap would read as a typo. */}
                             <span>
                                 <span style={{ color: CG_TEXT, fontWeight: 600 }}>Goal:</span>{' '}
                                 Every spin scores - <strong style={{ color: getRarityInk('rare') }}>rarer is worth more</strong>
                             </span>
                             <span style={{ color: CG_PRIMARY, opacity: 0.5 }}>|</span>
-                            {/* A stage's price is points AND special items, so the legend has
-                                to show both or the specials gate looks like the bar failing to
-                                pay. The special-item requirement is only printed where there is
-                                one, which keeps Iron reading as the plain "turn up" marker it
-                                is.
-
-                                "Special item", not "rare", throughout this banner: rare is one
-                                rung of the ladder, and the gate counts six. The server agrees
-                                — `isSpecialPull` in services/rarities.js is
-                                ['insane','mythic','legendary','relic','exotic','rare'] — so the
-                                copy now says what `specialDrops` has always counted. Six since
-                                relic landed, which is exactly why this says "special item" and
-                                not a tier name: the wording did not have to change when the
-                                ladder grew. */}
+                            {/* A stage's price is points AND special items, so the legend shows both (only where there is one). "Special item",
+                            not "rare": the gate counts six rungs (`isSpecialPull` in services/rarities.js: insane, mythic, legendary, relic, exotic, rare). */}
                             {tiers.map(tier => {
                                 const met = tierMet(tier);
                                 const needsSpecials = (tier.specials || 0) > 0;
@@ -921,19 +786,10 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                                             <span
                                                 title={`${tier.name} also needs ${tier.specials} special item${tier.specials !== 1 ? 's' : ''} (rare or better) across the server`}
                                                 style={{
-                                                    // Dimmed once the server has enough - a
-                                                    // requirement already satisfied should stop
-                                                    // competing for attention with the number
-                                                    // still being chased.
+                                                    // Dimmed once the server has enough, so a satisfied requirement stops competing with the number still chased.
                                                     opacity: specialDrops >= tier.specials ? 0.55 : 1,
-                                                    // The mode's teal, not a tier's ink. This star
-                                                    // counts five rungs of the ladder, so painting
-                                                    // it as one of them says the gate wants rares
-                                                    // specifically - the same claim the copy used
-                                                    // to make in words. Teal belongs to no tier,
-                                                    // which is the point of it, and it stays
-                                                    // distinct from the CG_ACCENT the rest of this
-                                                    // row is set in. 7.8:1 on the banner ground.
+                                                    // The mode's teal, not a tier's ink: the star counts five rungs, so a tier colour would claim the gate wants rares
+                                                    // specifically. Distinct from CG_ACCENT; 7.8:1 on the banner ground.
                                                     color: CG_PRIMARY,
                                                     fontWeight: 700,
                                                 }}
@@ -948,13 +804,7 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                                 );
                             })}
                             <span style={{ color: CG_PRIMARY, opacity: 0.5 }}>|</span>
-                            {/* The sentence is wrapped so the flex gap has only two
-                                items to sit between: the icon and the text. Left bare,
-                                `<strong>` splits the run into three anonymous flex
-                                items — "Lucky Spins ", "each", ", just for taking
-                                part" — and the 4px gap lands between the word and its
-                                comma, printing "each , just". A gap is for spacing
-                                boxes, and a sentence with emphasis in it is one box. */}
+                            {/* The sentence is wrapped so the flex gap has two items to sit between; bare `<strong>` splits it into three and prints "each , just". */}
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                 <Sparkles size={isMobile ? 10 : 12} color="#22C55E" />
                                 <span>Lucky Spins <strong style={{ color: '#22C55E' }}>each</strong>, just for taking part</span>
@@ -972,9 +822,7 @@ function CommunityGoalBanner({ isMobile = false, isAdmin = false, inline = false
                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                         title="Special items (rare or better) found by anyone this event"
                                     >
-                                        {/* Matches the +N★ requirement badge on the stage
-                                            markers - the running count and the thing it is
-                                            counting towards have to be the same colour. */}
+                                        {/* Matches the +N star requirement badge on the stage markers. */}
                                         <span style={{ color: CG_PRIMARY, fontWeight: 700 }}>&#9733;</span>
                                         {specialDrops} special item{specialDrops !== 1 ? 's' : ''} found
                                     </span>

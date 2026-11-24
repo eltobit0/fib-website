@@ -116,7 +116,6 @@ const CATEGORY_CONFIG = [
             'FISHING_ROD', 'CARROT_ON_A_STICK', 'WARPED_FUNGUS_ON_A_STICK',
             'PAINTING', 'ITEM_FRAME', 'GLOW_ITEM_FRAME', 'ARMOR_STAND',
             'DAYLIGHT_DETECTOR',
-            // Bamboo building blocks
             'BAMBOO_BLOCK', 'STRIPPED_BAMBOO_BLOCK', 'BAMBOO_MOSAIC',
             'BAMBOO_PLANKS', 'BAMBOO_STAIRS', 'BAMBOO_SLAB', 'BAMBOO_MOSAIC_STAIRS', 'BAMBOO_MOSAIC_SLAB',
             'BAMBOO_FENCE', 'BAMBOO_FENCE_GATE', 'BAMBOO_DOOR', 'BAMBOO_TRAPDOOR',
@@ -132,25 +131,20 @@ const CATEGORY_CONFIG = [
         customItems: [
             'STONE', 'COBBLESTONE', 'MOSSY_COBBLESTONE', 'SMOOTH_STONE',
             'STONE_BRICKS', 'MOSSY_STONE_BRICKS', 'CRACKED_STONE_BRICKS', 'CHISELED_STONE_BRICKS',
-            // Deepslate variants
             'DEEPSLATE', 'COBBLED_DEEPSLATE', 'POLISHED_DEEPSLATE', 'DEEPSLATE_BRICKS', 'DEEPSLATE_TILES',
             'CHISELED_DEEPSLATE', 'CRACKED_DEEPSLATE_BRICKS', 'CRACKED_DEEPSLATE_TILES', 'INFESTED_DEEPSLATE',
             'COBBLED_DEEPSLATE_STAIRS', 'COBBLED_DEEPSLATE_SLAB', 'COBBLED_DEEPSLATE_WALL',
             'POLISHED_DEEPSLATE_STAIRS', 'POLISHED_DEEPSLATE_SLAB', 'POLISHED_DEEPSLATE_WALL',
             'DEEPSLATE_BRICK_STAIRS', 'DEEPSLATE_BRICK_SLAB', 'DEEPSLATE_BRICK_WALL',
             'DEEPSLATE_TILE_STAIRS', 'DEEPSLATE_TILE_SLAB', 'DEEPSLATE_TILE_WALL',
-            // Other stone types
             'GRANITE', 'POLISHED_GRANITE', 'DIORITE', 'POLISHED_DIORITE', 'ANDESITE', 'POLISHED_ANDESITE',
             'CALCITE',
-            // Tuff variants
             'TUFF', 'POLISHED_TUFF', 'TUFF_BRICKS', 'CHISELED_TUFF', 'CHISELED_TUFF_BRICKS',
             'TUFF_STAIRS', 'TUFF_SLAB', 'TUFF_WALL',
             'POLISHED_TUFF_STAIRS', 'POLISHED_TUFF_SLAB', 'POLISHED_TUFF_WALL',
             'TUFF_BRICK_STAIRS', 'TUFF_BRICK_SLAB', 'TUFF_BRICK_WALL',
-            // Resin variants
             'RESIN_CLUMP', 'RESIN_BLOCK', 'RESIN_BRICKS', 'CHISELED_RESIN_BRICKS',
             'RESIN_BRICK_STAIRS', 'RESIN_BRICK_SLAB', 'RESIN_BRICK_WALL',
-            // Other bricks
             'BRICKS', 'MUD_BRICKS', 'PACKED_MUD',
             'SANDSTONE', 'CHISELED_SANDSTONE', 'CUT_SANDSTONE', 'SMOOTH_SANDSTONE',
             'RED_SANDSTONE', 'CHISELED_RED_SANDSTONE', 'CUT_RED_SANDSTONE', 'SMOOTH_RED_SANDSTONE',
@@ -159,11 +153,8 @@ const CATEGORY_CONFIG = [
             'CAULDRON', 'WATER_CAULDRON', 'LAVA_CAULDRON', 'POWDER_SNOW_CAULDRON',
             'LODESTONE', 'END_STONE', 'END_STONE_BRICKS', 'PURPUR_BLOCK', 'PURPUR_PILLAR',
             'END_STONE_BRICK_STAIRS', 'END_STONE_BRICK_SLAB', 'END_STONE_BRICK_WALL', 'PURPUR_STAIRS', 'PURPUR_SLAB',
-            // Blackstone interactables
             'POLISHED_BLACKSTONE_BUTTON', 'POLISHED_BLACKSTONE_PRESSURE_PLATE',
-            // Stone interactables
             'STONE_PRESSURE_PLATE', 'STONE_BUTTON',
-            // Nether stone types
             'BASALT', 'SMOOTH_BASALT', 'POLISHED_BASALT',
             'BLACKSTONE', 'POLISHED_BLACKSTONE', 'POLISHED_BLACKSTONE_BRICKS', 'CRACKED_POLISHED_BLACKSTONE_BRICKS',
             'CHISELED_POLISHED_BLACKSTONE', 'GILDED_BLACKSTONE',
@@ -198,38 +189,29 @@ const CATEGORY_CONFIG = [
         id: 'copper',
         name: 'Copper',
         tags: ['copper', 'copper_chests', 'copper_ores'],
-        // Note: 'bars', 'chains', 'lanterns' tags removed - those are iron items
+        // No 'bars', 'chains' or 'lanterns' tags here: those are iron items.
         customItems: [
             'COPPER_INGOT', 'RAW_COPPER', 'COPPER_BLOCK', 'RAW_COPPER_BLOCK',
-            // Base copper oxidation states
             'EXPOSED_COPPER', 'WEATHERED_COPPER', 'OXIDIZED_COPPER',
             'WAXED_COPPER_BLOCK', 'WAXED_EXPOSED_COPPER', 'WAXED_WEATHERED_COPPER', 'WAXED_OXIDIZED_COPPER',
-            // Cut copper
             'CUT_COPPER', 'EXPOSED_CUT_COPPER', 'WEATHERED_CUT_COPPER', 'OXIDIZED_CUT_COPPER',
             'WAXED_CUT_COPPER', 'WAXED_EXPOSED_CUT_COPPER', 'WAXED_WEATHERED_CUT_COPPER', 'WAXED_OXIDIZED_CUT_COPPER',
             'CUT_COPPER_STAIRS', 'EXPOSED_CUT_COPPER_STAIRS', 'WEATHERED_CUT_COPPER_STAIRS', 'OXIDIZED_CUT_COPPER_STAIRS',
             'WAXED_CUT_COPPER_STAIRS', 'WAXED_EXPOSED_CUT_COPPER_STAIRS', 'WAXED_WEATHERED_CUT_COPPER_STAIRS', 'WAXED_OXIDIZED_CUT_COPPER_STAIRS',
             'CUT_COPPER_SLAB', 'EXPOSED_CUT_COPPER_SLAB', 'WEATHERED_CUT_COPPER_SLAB', 'OXIDIZED_CUT_COPPER_SLAB',
             'WAXED_CUT_COPPER_SLAB', 'WAXED_EXPOSED_CUT_COPPER_SLAB', 'WAXED_WEATHERED_CUT_COPPER_SLAB', 'WAXED_OXIDIZED_CUT_COPPER_SLAB',
-            // Chiseled copper
             'CHISELED_COPPER', 'EXPOSED_CHISELED_COPPER', 'WEATHERED_CHISELED_COPPER', 'OXIDIZED_CHISELED_COPPER',
             'WAXED_CHISELED_COPPER', 'WAXED_EXPOSED_CHISELED_COPPER', 'WAXED_WEATHERED_CHISELED_COPPER', 'WAXED_OXIDIZED_CHISELED_COPPER',
-            // Copper grate
             'COPPER_GRATE', 'EXPOSED_COPPER_GRATE', 'WEATHERED_COPPER_GRATE', 'OXIDIZED_COPPER_GRATE',
             'WAXED_COPPER_GRATE', 'WAXED_EXPOSED_COPPER_GRATE', 'WAXED_WEATHERED_COPPER_GRATE', 'WAXED_OXIDIZED_COPPER_GRATE',
-            // Copper bulb
             'COPPER_BULB', 'EXPOSED_COPPER_BULB', 'WEATHERED_COPPER_BULB', 'OXIDIZED_COPPER_BULB',
             'WAXED_COPPER_BULB', 'WAXED_EXPOSED_COPPER_BULB', 'WAXED_WEATHERED_COPPER_BULB', 'WAXED_OXIDIZED_COPPER_BULB',
-            // Copper door
             'COPPER_DOOR', 'EXPOSED_COPPER_DOOR', 'WEATHERED_COPPER_DOOR', 'OXIDIZED_COPPER_DOOR',
             'WAXED_COPPER_DOOR', 'WAXED_EXPOSED_COPPER_DOOR', 'WAXED_WEATHERED_COPPER_DOOR', 'WAXED_OXIDIZED_COPPER_DOOR',
-            // Copper trapdoor
             'COPPER_TRAPDOOR', 'EXPOSED_COPPER_TRAPDOOR', 'WEATHERED_COPPER_TRAPDOOR', 'OXIDIZED_COPPER_TRAPDOOR',
             'WAXED_COPPER_TRAPDOOR', 'WAXED_EXPOSED_COPPER_TRAPDOOR', 'WAXED_WEATHERED_COPPER_TRAPDOOR', 'WAXED_OXIDIZED_COPPER_TRAPDOOR',
-            // Copper lantern (from 1.21.5)
             'COPPER_LANTERN', 'EXPOSED_COPPER_LANTERN', 'WEATHERED_COPPER_LANTERN', 'OXIDIZED_COPPER_LANTERN',
             'WAXED_COPPER_LANTERN', 'WAXED_EXPOSED_COPPER_LANTERN', 'WAXED_WEATHERED_COPPER_LANTERN', 'WAXED_OXIDIZED_COPPER_LANTERN',
-            // Other copper items
             'LIGHTNING_ROD', 'SPYGLASS'
         ]
     },
@@ -265,7 +247,6 @@ const CATEGORY_CONFIG = [
         tags: ['terracotta'],
         customItems: [
             'DECORATED_POT', 'FLOWER_POT', 'BRICK',
-            // Glazed terracotta
             'WHITE_GLAZED_TERRACOTTA', 'ORANGE_GLAZED_TERRACOTTA', 'MAGENTA_GLAZED_TERRACOTTA', 'LIGHT_BLUE_GLAZED_TERRACOTTA',
             'YELLOW_GLAZED_TERRACOTTA', 'LIME_GLAZED_TERRACOTTA', 'PINK_GLAZED_TERRACOTTA', 'GRAY_GLAZED_TERRACOTTA',
             'LIGHT_GRAY_GLAZED_TERRACOTTA', 'CYAN_GLAZED_TERRACOTTA', 'PURPLE_GLAZED_TERRACOTTA', 'BLUE_GLAZED_TERRACOTTA',
@@ -333,13 +314,9 @@ const CATEGORY_CONFIG = [
             'CRIMSON_FUNGUS', 'WARPED_FUNGUS', 'CRIMSON_ROOTS', 'WARPED_ROOTS',
             'NETHER_SPROUTS', 'WEEPING_VINES', 'TWISTING_VINES',
             'CHORUS_FLOWER', 'CHORUS_PLANT', 'CHORUS_FRUIT', 'POPPED_CHORUS_FRUIT',
-            // Mushrooms
             'BROWN_MUSHROOM', 'RED_MUSHROOM', 'BROWN_MUSHROOM_BLOCK', 'RED_MUSHROOM_BLOCK', 'MUSHROOM_STEM',
-            // Pale garden
             'PALE_HANGING_MOSS', 'PALE_MOSS_BLOCK', 'PALE_MOSS_CARPET', 'LEAF_LITTER',
-            // Dry grass
             'SHORT_DRY_GRASS', 'TALL_DRY_GRASS',
-            // Other plants
             'MANGROVE_ROOTS', 'MUDDY_MANGROVE_ROOTS', 'FIREFLY_BUSH'
         ]
     },
@@ -353,7 +330,6 @@ const CATEGORY_CONFIG = [
             'MYCELIUM', 'PODZOL', 'SCULK', 'SCULK_VEIN', 'SCULK_CATALYST', 'SCULK_SHRIEKER', 'SCULK_SENSOR', 'CALIBRATED_SCULK_SENSOR',
             'SNOW', 'SNOW_BLOCK', 'POWDER_SNOW_BUCKET', 'ICE', 'PACKED_ICE', 'BLUE_ICE', 'FROSTED_ICE',
             'CRIMSON_NYLIUM', 'WARPED_NYLIUM',
-            // Nether dirt types
             'NETHERRACK', 'NETHER_WART_BLOCK', 'WARPED_WART_BLOCK'
         ]
     },
@@ -368,7 +344,6 @@ const CATEGORY_CONFIG = [
             'BAKED_POTATO', 'POISONOUS_POTATO',
             'DRIED_KELP', 'HONEY_BOTTLE', 'HONEYCOMB',
             'ROTTEN_FLESH', 'SPIDER_EYE', 'FERMENTED_SPIDER_EYE',
-            // Crops & seeds
             'WHEAT', 'WHEAT_SEEDS', 'HAY_BLOCK',
             'CARROT', 'POTATO', 'BEETROOT', 'BEETROOT_SEEDS',
             'PUMPKIN_SEEDS',
@@ -486,7 +461,6 @@ const CATEGORY_CONFIG = [
             'HONEYCOMB', 'HONEY_BOTTLE', 'HONEY_BLOCK',
             'GOAT_HORN', 'ARMADILLO_SCUTE',
             'BREEZE_ROD', 'WIND_CHARGE', 'HEAVY_CORE',
-            // Nether mob drops
             'BLAZE_ROD', 'WITHER_SKELETON_SKULL', 'MAGMA_CREAM'
         ]
     },
@@ -505,7 +479,6 @@ const CATEGORY_CONFIG = [
             'SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE', 'TIDE_ARMOR_TRIM_SMITHING_TEMPLATE',
             'VEX_ARMOR_TRIM_SMITHING_TEMPLATE', 'WARD_ARMOR_TRIM_SMITHING_TEMPLATE',
             'WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE', 'WILD_ARMOR_TRIM_SMITHING_TEMPLATE',
-            // Trial Chambers smithing templates
             'FLOW_ARMOR_TRIM_SMITHING_TEMPLATE', 'BOLT_ARMOR_TRIM_SMITHING_TEMPLATE'
         ]
     },
@@ -622,34 +595,27 @@ function categorizeItem(material, tagCategoryMap = null) {
         return 'stone';
     }
 
-    // Iron doors and trapdoors
     if (material === 'IRON_DOOR' || material === 'IRON_TRAPDOOR') {
         return 'iron';
     }
 
-    // Iron chain
     if (material === 'IRON_CHAIN' || material === 'CHAIN') {
         return 'iron';
     }
 
-    // Music discs
     if (material.startsWith('MUSIC_DISC_')) {
         return 'music_discs';
     }
 
-    // Glazed terracotta
     if (material.endsWith('_GLAZED_TERRACOTTA')) {
         return 'terracotta';
     }
 
-    // Blackstone variants
     if (material.includes('BLACKSTONE')) {
         return 'stone';
     }
 
-    // Handle stairs and slabs by their material prefix
     if (material.endsWith('_STAIRS') || material.endsWith('_SLAB')) {
-        // Wood types
         const woodPrefixes = ['OAK', 'SPRUCE', 'BIRCH', 'JUNGLE', 'ACACIA', 'DARK_OAK', 'MANGROVE', 'CHERRY', 'PALE_OAK', 'CRIMSON', 'WARPED', 'BAMBOO'];
         for (const prefix of woodPrefixes) {
             if (material.startsWith(prefix + '_')) {

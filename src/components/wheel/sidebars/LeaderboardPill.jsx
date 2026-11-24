@@ -5,32 +5,12 @@ import { getDiscordAvatarUrl } from '../../../utils/helpers.js';
 import { useAuth } from '../../../context/AuthContext.jsx';
 import { useCollectionLeaderboard } from '../../../hooks/useCollectionLeaderboard.js';
 
-/**
- * The leaderboard, reduced to what belongs on screen permanently.
- *
- * The 380px vertical board that used to sit to the right of the reel was the
- * single biggest claim on the page's width, and almost all of it was spent on
- * standings the player does not need continuously — ranks four through twelve,
- * four sort tabs, per-row spin counts and rarity breakdowns. The one row anyone
- * checks between spins is their own.
- *
- * So this keeps that row and the podium, and hands everything else to the full
- * Leaderboard modal, which already existed behind the nav button and is
- * unchanged. Nothing was lost; it moved one click away, and the reel got the
- * whole right-hand column.
- *
- * `sort=collection` is hardcoded because that is the board's default and the one
- * the pill's "#n" is meaningful for. The modal is where you change sort.
- */
+// The leaderboard reduced to the permanent minimum: your own row and the podium, with everything else in the full Leaderboard modal. `sort=collection` is hardcoded: it is the board's default and the one the pill's "#n" is meaningful for.
 export function LeaderboardPill({ onOpenFull }) {
     const [hovered, setHovered] = useState(false);
     const { user } = useAuth();
 
-    // The fetch, the 5-minute poll and the rank lookup moved into
-    // `useCollectionLeaderboard`. The result flanks need the same board — the same
-    // request, the same cadence, the same "which row is mine" — and two components
-    // polling one endpoint on two timers would disagree about your rank for up to
-    // five minutes at a time.
+    // The fetch, 5-minute poll and rank lookup live in `useCollectionLeaderboard`, shared with the result flanks: two timers on one endpoint would disagree about your rank for up to five minutes.
     const { leaderboard, loading, myRank } = useCollectionLeaderboard(user?.id);
     const topThree = leaderboard.slice(0, 3);
 
@@ -46,10 +26,7 @@ export function LeaderboardPill({ onOpenFull }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: `${SPACE.sm}px`,
-                // Matches the topbar's control height. At its natural 34px it was
-                // the one thing in the row sitting on a different baseline — four
-                // pixels is not enough to look deliberate and is plenty to look
-                // like a mistake.
+                // Matches the topbar's control height: at its natural 34px it sat on a different baseline.
                 height: '38px',
                 boxSizing: 'border-box',
                 padding: `0 ${SPACE.md}px 0 12px`,
@@ -77,9 +54,7 @@ export function LeaderboardPill({ onOpenFull }) {
                 </span>
             )}
 
-            {/* The podium, as avatars only. Three faces is enough to say who is
-                winning; names would double the pill's width for information the
-                modal already presents properly. */}
+            {/* The podium as avatars only: names would double the pill's width. */}
             <span style={{ display: 'flex', alignItems: 'center' }}>
                 {topThree.map((entry, i) => (
                     <img

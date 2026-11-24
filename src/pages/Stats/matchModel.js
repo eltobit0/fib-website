@@ -1,33 +1,10 @@
-/**
- * FIB Stats — derivations for one match: who a row is, when the item pools
- * opened, and what a competitor's run consisted of. Pure functions over the
- * match record, shared by the match page and its report components.
- */
-
 import { idLabel, itemSegments, itemPhase } from './adapter.js';
 import { RARITY_KEYS } from './tokens.js';
 
 export const labelFor = (row) => row.members.map(idLabel).join(' & ');
 
-/* ── The pool schedule ───────────────────────────────────────────────── */
-
-/*
- * When each item pool opened, from the plugin's own rule
- * (plugin/.../manager/UnlockSchedule.java):
- *
- *   rounds of 50 minutes or more   MID at minute 5, LATE at minute 15
- *   shorter rounds                 MID at 11.11% of the round, LATE at 28.88%
- *
- * each rounded to a whole minute the way `unlockMinute` rounds it. Quickie
- * caps the pools (1: Early only, 2: Early + Mid) and Hard off keeps Late out.
- *
- * Two honest limits. The rule is keyed on the round's CONFIGURED length, which
- * the match record does not carry, so the recorded duration stands in for it,
- * rounded to the minute - the same number for any round that ran to its timer.
- * And it is today's rule: a match played under an older schedule is drawn on
- * this one. Both are why the chart labels the lines "opens" in plain words and
- * never claims a precision the data cannot back.
- */
+/* Mirrors the plugin's UnlockSchedule.java: rounds of 50+ minutes open MID at minute 5 and LATE at 15,
+   shorter ones at 11.11% / 28.88%. The configured length is not recorded, so the recorded duration stands in. */
 const FIXED_MIN_MINUTES = 50;
 
 export function phaseSchedule(duration, settings = {}) {
@@ -47,20 +24,11 @@ export function phaseSchedule(duration, settings = {}) {
   return phases.filter((p) => p.from < duration);
 }
 
-/* ── Per-competitor derivations ──────────────────────────────────────── */
-
 export const TIER_RANK = Object.fromEntries(RARITY_KEYS.map((k, i) => [k, i]));
 
-/*
- * A find that was actually hunted. A back-to-back is the next item turning out
- * to be in the inventory already, so it lands in the same second as the one
- * before it - "0s" - and crowning it the fastest find calls luck speed. The
- * fastest-find figures skip those (and any other zero-time entry) and measure
- * items somebody went and got.
- */
+/* Back-to-backs land in 0s, so they are skipped: the fastest find should be an item someone went and got. */
 export const huntedFind = (s) => !s.skipped && !s.b2b && s.took > 0;
 
-/** Everything a report and the records read off one competitor's item log. */
 export function runOf(entry) {
   const segments = itemSegments(entry);
   const finds = segments.filter((s) => !s.skipped);

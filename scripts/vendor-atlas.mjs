@@ -1,45 +1,7 @@
 /**
- * Packs the vendored item sprites into a single atlas for the wheel's canvas.
- *
- * Why this exists: the wheel used to fetch every sprite in the pool — ~1,500
- * files — before it would let anyone spin, because a strip draws items at random
- * and any one that had not arrived rendered as a barrier. That bought the "no
- * missing textures" guarantee at the price of a cold start measured in tens of
- * seconds, and moving the files between hosts only changed who absorbed it.
- *
- * An atlas buys the same guarantee for one request. One image means every sprite
- * becomes available at the same instant, so a half-loaded strip is not a state
- * that can exist, and the spin button can gate on a single load again.
- *
- * On the numbers, measured rather than assumed:
- *
- *   today, individual files   1,537 requests   13.1 MB
- *   atlas 128px PNG                1 request   15.8 MB   <- bigger than today
- *   atlas 128px WebP lossless      1 request    9.7 MB   25.6 MP
- *   atlas  96px WebP lossless      1 request    6.4 MB   14.4 MP  <- chosen
- *
- * Two things drove those choices. PNG is the wrong container: each individual
- * sprite optimises its own palette, while one big atlas is forced to 32-bit
- * RGBA, so a full-resolution PNG atlas is *larger* than the files it replaces.
- * WebP lossless gets that back without touching a pixel.
- *
- * And TILE is 96, not the pack's native 128, to stay under ~16.7 MP. Mobile
- * Safari subsamples decoded images past roughly that area, which would quietly
- * undo the resolution we were paying to keep. 96 costs a 1.17x upscale on the
- * result item at DPR 2 (it draws 56 CSS px, so 112 device px) and is still a
- * slight downscale in the strip, which draws ~46 CSS px. Note the sprites are
- * genuine 128x128 art — an earlier version of this comment claimed they were 8x
- * upscales of 16x16 originals, which is wrong and would have justified a much
- * smaller tile. Only nether_star has any block structure.
- *
- * This does NOT replace public/fib-items/. Only canvas call sites can use an
- * atlas (drawImage takes a source rect); every <img> in the activity feed,
- * collection book, profile and wiki pages still wants individual files. Both are
- * generated from the same source, so they cannot disagree about what a sprite
- * looks like. A browser that cannot decode WebP simply fails to load the atlas
- * and falls back to those files, which is the same path the unpacked sprites
- * already take.
- *
+ * Packs the vendored sprites into one atlas for the wheel's canvas: one request, so a half-loaded strip can't exist.
+ * WebP lossless (a PNG atlas is bigger than the files); TILE 96 keeps it under mobile Safari's ~16.7 MP subsampling limit.
+ * Canvas only: every <img> still uses public/fib-items/, built from the same source.
  *   node scripts/vendor-atlas.mjs               # TILE=96, WebP lossless
  *   node scripts/vendor-atlas.mjs --tile 128    # native resolution, 25.6 MP
  */
@@ -53,27 +15,8 @@ import sharp from 'sharp';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(root, 'public/fib-items');
 
-/**
- * The pack's own custom items, packed alongside the pool.
- *
- * They used to be left out on the grounds that they are few and change
- * independently — true, and it cost them their sharpness. Everything in the
- * atlas is reduced to TILE **once, with a nearest kernel**, so at runtime the
- * reel draws a 96px tile at ~90px: a 0.94x resample that is effectively 1:1.
- * Anything outside the atlas is fetched at its native 128 and downscaled to ~90
- * by the browser with `imageSmoothingEnabled = true`, because the strip has to
- * smooth (see the note on the gutter below) — a 0.70x smooth resample of pixel
- * art, every frame. The Totem of Antimatter, the Eye of Antimatter, the
- * Kiln-Fired Brush and the Weathered Book were visibly soft next to every
- * vanilla item for exactly that reason, and raising the source art from 16px to
- * 128px made it slightly worse rather than better: 16 -> 90 was a clean upscale,
- * 128 -> 90 is an awkward fractional downscale.
- *
- * Keys are prefixed `custom/` because the two directories genuinely collide —
- * `barrier.png` and `wheel.png` exist in both, and a flat namespace would have
- * one silently win. `atlas.js` maps `/fib-custom/<name>.png` onto the same
- * prefix.
- */
+// Custom items are packed too, or the browser smooth-downscales them every frame and they look soft.
+// Keys are prefixed `custom/` because barrier.png and wheel.png exist in both dirs; atlas.js maps /fib-custom/ onto it.
 const CUSTOM_SRC = join(root, 'public/fib-custom');
 const CUSTOM_PREFIX = 'custom/';
 const OUT_IMAGE = join(root, 'public/fib-atlas.webp');
@@ -82,27 +25,8 @@ const OUT_JSON = join(root, 'public/fib-atlas.json');
 /** Past roughly this area mobile Safari subsamples decoded images. */
 const MAX_MEGAPIXELS = 16.7;
 
-/**
- * Transparent-safe gutter between tiles, in pixels per side.
- *
- * Tiles used to be packed edge to edge, and that was correct for exactly as long
- * as the canvas drew them with `imageSmoothingEnabled = false`: nearest neighbour
- * samples one texel and can never read outside the source rect handed to
- * drawImage. The moment smoothing was turned on — which it had to be, because the
- * strip *downscales* these and nearest-neighbour downscaling makes sprites crawl
- * — the sampler started reading across tile boundaries, and items picked up
- * fringes of whatever happened to be packed beside them alphabetically.
- *
- * The gutter is filled by **extrusion**, not by transparency. Repeating each
- * sprite's own edge pixel outward means a sampler that reaches past the boundary
- * pulls in more of that sprite instead of its neighbour, so the bleed becomes
- * invisible rather than merely different. Padding with transparent pixels would
- * swap coloured fringes for dark ones — the same bug wearing a different colour.
- *
- * 2px rather than 1: at a 1.3x downscale the browser's filter kernel is wider
- * than a single texel, and the cost is only area. Keep an eye on the megapixel
- * warning below when changing it.
- */
+// Smoothing reads across tile edges, so the gutter is extruded from each sprite's own edge (transparency would leave dark fringes).
+// Watch the megapixel warning when changing it.
 const PAD = 2;
 
 const tileArg = process.argv.indexOf('--tile');
@@ -131,8 +55,7 @@ async function main() {
     process.exit(1);
   }
 
-  // The custom items are optional: a checkout without them still packs the pool
-  // rather than failing, and the client falls back per item exactly as before.
+  // Optional: without custom items the pool still packs and the client falls back per item.
   try {
     const custom = (await readdir(CUSTOM_SRC))
       .filter((f) => f.endsWith('.png'))
@@ -147,21 +70,8 @@ async function main() {
     process.exit(1);
   }
 
-  // Square-ish, row-major. Sorted so the layout is deterministic: regenerating
-  // without adding items must produce a byte-identical atlas, or every deploy
-  // churns a 6 MB binary in git for no reason.
-  //
-  // **The pool sorts first, the custom items after it — never interleaved.**
-  // Sorting on the prefixed key put `custom/...` among the c's, at index 356 of
-  // 1551, which shifted the 1,195 sprites after it by eight positions. That is
-  // harmless while the index and the image are the same build and catastrophic
-  // the moment they are not: every sprite past the insertion point draws its
-  // neighbour's tile. It surfaced as a collection book full of wrong items.
-  //
-  // Appending instead means an index is only ever *added* at the end, so a stale
-  // reader and a fresh one still agree about every sprite they both know. The
-  // version stamp below closes the rest of the gap; this makes the failure mode
-  // benign rather than merely unlikely.
+  // Deterministic, so a rerun is byte-identical. Pool first, custom items appended, never interleaved:
+  // an insertion shifts every later index, and a stale image then draws each sprite's neighbour.
   const rank = (e) => (e.dir === SRC ? 0 : 1);
   files.sort((a, b) => rank(a) - rank(b) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   const cols = Math.ceil(Math.sqrt(files.length));
@@ -170,27 +80,20 @@ async function main() {
   const width = cols * CELL;
   const height = rows * CELL;
 
-  // Composed by blitting raw RGBA rather than through sharp's composite(): 1,500
-  // composite operations in one pipeline is far slower and much heavier on
-  // memory than writing the pixels ourselves, and this way the nearest-neighbour
-  // resize is the only resampling that happens to the art.
+  // Raw RGBA blits rather than 1,500 sharp composite() calls: far faster, and the nearest resize is the only resampling.
   const atlas = Buffer.alloc(width * height * 4);
   const sprites = {};
 
   for (const [i, entry] of files.entries()) {
     const name = entry.key;
     const { data } = await sharp(join(entry.dir, entry.file))
-      // `nearest` is not optional. Any smooth kernel turns pixel art into mush,
-      // and these are 8x upscales, so a blurred downscale is very visible.
+      // `nearest` is not optional: any smooth kernel turns pixel art into mush.
       .resize(TILE, TILE, { kernel: 'nearest', fit: 'fill' })
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
 
-    // Written cell by cell with the source coordinate clamped, which draws the
-    // sprite and extrudes its border in one pass: inside the cell's padding the
-    // clamp resolves to the nearest real edge pixel, so the gutter is a smear of
-    // the sprite's own outline. See PAD.
+    // Clamped source coordinates draw the sprite and extrude its border in one pass. See PAD.
     const col = i % cols;
     const row = Math.floor(i / cols);
     const cellX = col * CELL;
@@ -209,44 +112,20 @@ async function main() {
       }
     }
 
-    // Keyed by name, holding the flat index. The index is meaningless without
-    // `cols`, which is why both live in this one file — a JSON that disagreed
-    // with the PNG about the grid would not break one sprite, it would shift
-    // every sprite after the insertion point.
+    // Meaningless without `cols`, which is why both live in this one file.
     sprites[name] = i;
   }
 
   await mkdir(dirname(OUT_IMAGE), { recursive: true });
   await sharp(atlas, { raw: { width, height, channels: 4 } })
-    // Lossless, not quality-90. The lossy encoder is roughly half the size, but
-    // these are hard-edged sprites on transparency, which is precisely what
-    // WebP's lossy mode rings around.
+    // Lossless: WebP's lossy mode rings around hard-edged sprites on transparency.
     .webp({ lossless: true, effort: 6 })
     .toFile(OUT_IMAGE);
 
-  // ── The version stamp ──────────────────────────────────────────────────────
-  //
-  // The index and the image are one artifact split across two files, and until
-  // now both were fetched from plain unversioned URLs — so a browser was free to
-  // refresh one and keep the other. That is not theoretical: it happened during
-  // development and produced a collection book where every sprite past the first
-  // custom item drew its neighbour, because the cached image was the previous
-  // build and the index was the current one.
-  //
-  // Hashing the *pixels* rather than the file list is deliberate: the point is to
-  // detect that the image a client holds is not the image this index describes,
-  // and only the pixels can answer that. Re-running the packer with no changes
-  // produces the same hash, so the deterministic-output property above survives.
-  //
-  // atlas.js appends this to the image request, and the JSON is fetched first —
-  // so even a stale index pulls the image that matches *it*. The pair is then
-  // always self-consistent; at worst it is uniformly old, which renders correctly.
+  // Hash of the pixels, appended by atlas.js to the image URL, so a cached image can never pair with a different index.
   const version = createHash('sha256').update(atlas).digest('hex').slice(0, 12);
 
-  // `pad` and `cell` are what the client needs to address a sprite now that the
-  // grid pitch is no longer the tile size. Both are written explicitly rather
-  // than derived, so an atlas built before the gutter existed (no `pad` key) is
-  // still readable — atlas.js defaults them to 0 and TILE.
+  // Written explicitly so a pre-gutter atlas (no `pad`) still reads; atlas.js defaults them to 0 and TILE.
   const meta = { version, tile: TILE, pad: PAD, cell: CELL, cols, rows, width, height, count: files.length, sprites };
   await writeFile(OUT_JSON, JSON.stringify(meta));
 

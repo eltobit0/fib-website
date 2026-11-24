@@ -1,33 +1,5 @@
-/**
- * Every command the plugin registers, in players' words.
- *
- * Hand-written, because the plugin's own descriptions are for the plugin ("Fix skips",
- * and one that reads "uhhh I guess this is self explanatory?"). What is NOT made up:
- * the list itself and who and when. Each entry was checked against the plugin on main
- * (Sept 2026): its registration in build.gradle.kts, its usage, its preconditions()
- * (OP, OP_WHEN_EVENT, ROUND_RUNNING, PAUSED, PRE_GAME, a setting) and any requireOp()
- * inside a subcommand. That audit removed /trade, which the plugin does not register,
- * and added /collection, which the page had never listed.
- *
- * scripts/vendor-pool.mjs compares the names here with the plugin's registrations on
- * every build and prints a [WARNING] when they differ, so the next command added to
- * the plugin shows up as a warning rather than as a gap nobody notices. A command left
- * off on purpose goes in UNLISTED instead, so the check knows it is not a gap.
- *
- *   who     'all' everyone, 'op' operators, 'event' operators when the Event setting is
- *           on (Precondition.OP_WHEN_EVENT), everyone otherwise
- *   when    the conditions the plugin checks before it runs, in words
- *   service needs the FIB service, which only runs on McPlayHD.net
- *   forms   the ways to type it; a form can narrow who (a subcommand behind requireOp)
- *   says    what the game answers in chat to the form's example, line for line, in the
- *           plugin's own MiniMessage; {item:MATERIAL} is an item's icon, the way the
- *           resource pack's font draws one in chat. Names, numbers and places in it are
- *           an example's; the wording and colours are the plugin's. 'info' is the item's
- *           own /info text from the plugin's descriptions.yml (info.data.js, generated). A form whose
- *           command answers with a menu, a teleport or a title says nothing here.
- *   heard   'everyone' when the whole server sees the answer, not only you
- *   then    what happens after the chat, when it is not chat (a menu opening)
- */
+// Checked against the plugin's registrations; vendor-pool.mjs warns when the names differ, so deliberate omissions go in UNLISTED.
+// `says` is the plugin's own MiniMessage ({item:MATERIAL} is an item glyph); 'info' comes from info.data.js (generated).
 
 export const GROUPS = [
     { key: 'item', name: 'Your item' },
@@ -39,7 +11,6 @@ export const GROUPS = [
 ];
 
 export const COMMANDS = [
-    // ── Your item
     { name: 'info', group: 'item', who: 'all', forms: [
         { args: '', text: 'During a round: the item you are hunting, its /info description and its recipes. Otherwise: the item in your hand.' },
         { args: '<item>', text: 'The same for any item.', example: '/info sniffer_egg', says: 'info', then: 'Then its recipes open.' },
@@ -49,7 +20,6 @@ export const COMMANDS = [
           says: ['<gray>Check out the minecraft wiki for <green>Sniffer Egg <white>[<aqua>Click here<white>]'] },
     ] },
 
-    // ── Getting around
     { name: 'spawn', group: 'moving', who: 'all', when: ['Not while paused'], forms: [
         { args: '', text: 'Teleports you to the round\'s spawn.' },
     ] },
@@ -73,7 +43,6 @@ export const COMMANDS = [
         { args: '', text: 'Shows your ping.', example: '/ping', says: ['<green>Your ping: <yellow>38ms'] },
     ] },
 
-    // ── Your kit
     { name: 'bp', group: 'kit', who: 'all', when: ['During a round'], forms: [
         { args: '', text: 'Opens your backpack (your team\'s, in a team round).' },
     ] },
@@ -86,7 +55,6 @@ export const COMMANDS = [
           says: ['<dark_gray>» <dark_purple>Locator <dark_gray>┃ <gray>Dismissed <dark_aqua>2 <gray>locators.'] },
     ] },
 
-    // ── Talking and teams
     { name: 'shout', group: 'people', who: 'all', forms: [
         { args: '<message>', text: 'Sends one message to everyone, when chat would otherwise go to your team.', example: '/shout anyone got string?' ,
           says: ['<gold>Steve <dark_gray>» <white>anyone got string?'], heard: 'everyone' },
@@ -115,7 +83,6 @@ export const COMMANDS = [
           says: ['<gray>You cancelled the vote.', '<red><b>The vote has been cancelled by an operator!</b>'] },
     ] },
 
-    // ── Stats and collection (the FIB service)
     { name: 'stats', group: 'records', who: 'all', service: true, forms: [
         { args: '', text: 'Lists the ways to ask for stats.', example: '/stats',
           says: ['', '<dark_gray>» <gold><b>Stats</b> <dark_gray>«', '',
@@ -161,7 +128,6 @@ export const COMMANDS = [
         { args: 'grant | revoke | reset <player> [achievement]', text: 'Hands out or takes back achievements.', example: '/achievements grant Steve b2b_king', who: 'op' },
     ] },
 
-    // ── Running a round
     { name: 'start', group: 'round', who: 'op', when: ['Before a round'], forms: [
         { args: '<minutes> <jokers>', text: 'Starts a round of that length, with that many jokers each.', example: '/start 60 7' },
         { args: '<preset>', text: 'Starts a round from a saved preset of settings.' },
@@ -208,8 +174,5 @@ export const COMMANDS = [
     ] },
 ];
 
-/*
- * Registered by the plugin and left off the page on purpose: operator tooling that
- * players are not meant to read about (see Rules in DESIGN.md). Never rendered.
- */
+// Operator tooling left off on purpose (DESIGN.md Rules). Never rendered.
 export const UNLISTED = ['checkmods'];

@@ -1,8 +1,3 @@
-// ============================================
-// FirstBloodBanner.jsx
-// ============================================
-// First Blood event banner - race to land first special item
-// Features: countdown, timer, winner announcement with item
 
 import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { API_BASE_URL } from '../../../config/constants.js';
@@ -14,10 +9,6 @@ import { Crosshair, Timer, X, Zap, Target, FlaskConical, Swords, Droplet, Sparkl
 import { countdownInterval } from '../../../config/power.js';
 import { FirstBloodRoomHeader } from './FirstBloodRoom.jsx';
 
-// ============================================
-// CONSTANTS
-// ============================================
-
 // Blood/Combat theme
 const FB_PRIMARY = '#DC2626';      // Blood Red
 const FB_SECONDARY = '#991B1B';    // Dark Blood
@@ -27,21 +18,11 @@ const FB_BG_DARK = '#0C0A09';      // Darker background
 const FB_TEXT = '#FAFAF9';         // Light text
 const FB_GOLD = '#F59E0B';         // Gold for rewards
 
-// How long after the clock expires the banner waits for the result stream before
-// falling back to hiding itself. See the active-timer effect for why hiding at
-// 0:00 exactly races the end broadcasts.
+// Grace after the clock expires before hiding: hiding at 0:00 races the end broadcasts (see the active-timer effect).
 const RESULT_GRACE_MS = 3000;
 
-// Rarity colours come from the shared ladder — see utils/rarityHelpers.jsx. This
-// was a local RARITY_COLORS map that still had legendary on purple (now exotic's
-// colour) and no exotic entry at all, so an exotic win rendered in the banner's
-// fallback orange.
-//
-// The winner's name is set as text over the banner, so it takes the ink step.
+// Rarity colours come from the shared ladder (utils/rarityHelpers.jsx). The winner's name is text, so it takes the ink step.
 
-// ============================================
-// Floating Target Decorations
-// ============================================
 function FloatingTargets({ isMobile }) {
     const decorations = [
         { Icon: Target, left: '6%', size: 0.9, delay: 0 },
@@ -95,9 +76,6 @@ function FloatingTargets({ isMobile }) {
     );
 }
 
-// ============================================
-// Main First Blood Banner Component
-// ============================================
 function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, room = false, onRoomVisibility }) {
     const { globalEventStatus, updateGlobalEventStatus, firstBloodWinner, firstBloodResultPending } = useActivity();
     const { playSfx, startFirstBloodSoundtrack, stopFirstBloodSoundtrack } = useSound();
@@ -138,28 +116,13 @@ function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, r
         }
     }
 
-    // The window between the race being claimed server-side and the winner being shown.
-    // The result is held back so it cannot land mid-spin, and the banner deliberately
-    // does not change during it: it keeps the running layout, frozen, and then flips
-    // straight to the winner. Anything else here - a "deciding" state, a stopped clock -
-    // tells the player the race is over seconds before their own spin has resolved.
+    // Between the race being claimed and the winner being shown. The result is held back so it cannot land mid-spin, so the
+    // banner keeps the running layout frozen and flips straight to the winner; any intermediate state spoils the end.
     const isSettling = firstBloodResultPending && !showWinnerInBanner;
 
-    // The music is part of the result, so it is held back with it.
-    //
-    // The race ends server-side the moment someone claims it, and `isActive` goes
-    // false on that broadcast — several seconds before the winner is shown, because
-    // the reveal waits for the local wheel to land. Cutting the soundtrack there was
-    // the loudest spoiler on the page: the track stopped dead while the banner was
-    // still counting and the player's own reel was still turning, so everyone knew
-    // the race was over before anything said so. The banner already freezes rather
-    // than changing during this window (see isSettling above); the audio has to
-    // observe the same silence, and for the same reason.
-    //
-    // So the track runs through the settle window *and* through the winner display,
-    // and stops where the announcement ends - the explicit stop in the winner effect
-    // below. Once showWinnerInBanner clears, this effect runs again and resets the
-    // ref, which is what re-arms the next event.
+    // The music is part of the result, so it is held back with it: `isActive` goes false on the claim, seconds before the
+    // winner is shown, and cutting the track there spoiled the end. It runs through the settle window and the winner display
+    // and stops at the winner effect below; once showWinnerInBanner clears, this effect resets the ref, which re-arms the next event.
     const holdSoundtrack = isSettling || showWinnerInBanner;
 
     // Start/stop First Blood soundtrack when event starts/ends
@@ -200,18 +163,11 @@ function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, r
             wasActiveRef.current = true;
             wasPendingRef.current = false;
         } else if (!isActive && !isPending && (wasActiveRef.current || wasPendingRef.current)) {
-            // Only hide once there is nothing left to announce. `holdSoundtrack`
-            // covers the winner display and the settle window before it — the same
-            // gap the banner keeps its running layout through. Testing only
-            // showWinnerInBanner here left the settle window uncovered, so this was
-            // the path that actually cut the music early: the end broadcast lands
-            // while the result is still pending, which is by definition before the
-            // winner is on screen.
+            // Only hide once nothing is left to announce: `holdSoundtrack` covers the winner display and the settle window before it
+            // (testing only showWinnerInBanner left the settle window uncovered and cut the music early).
             if (!holdSoundtrack) {
                 console.log('[FirstBlood] Event ENDED');
-                // Stop soundtrack when event ends (e.g., admin ended it, or it
-                // expired with nobody claiming it and no result to wait for)
-                // Main useEffect will handle hasSoundtrackStartedRef reset
+                // Stop soundtrack when the event ends with nothing to wait for (admin ended it, or it expired unclaimed).
                 stopFirstBloodSoundtrack?.();
             }
             hasPlayedSoundRef.current = false;
@@ -240,10 +196,7 @@ function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, r
     // Active timer
     useEffect(() => {
         if (!isActive || !globalEventStatus?.expiresAt) {
-            // While settling, leave the clock on its last value. The race ends the moment
-            // someone claims it, which is typically mid-spin for everyone else - zeroing
-            // the timer there would announce "time ran out" when it did not, and would
-            // tell the player the race is over before their own wheel has landed.
+            // While settling, leave the clock on its last value: zeroing it would announce "time ran out" before the player's wheel landed.
             if (!isSettling) setRemainingTime(0);
             return;
         }
@@ -252,13 +205,8 @@ function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, r
             const remaining = Math.max(0, globalEventStatus.expiresAt - Date.now());
             setRemainingTime(remaining);
 
-            // Fallback: if timer hits 0, hide banner and stop music even if SSE hasn't arrived.
-            // Not at 0:00 exactly: the end broadcasts land within a moment of the clock
-            // expiring, and hiding here races them — the banner used to fade out at 0:00
-            // and slide back in when first_blood_result arrived a moment later, pinned
-            // between two states. The result stream gets RESULT_GRACE_MS to land (the
-            // settle flag keeps the banner up once it does); only a genuinely silent
-            // stream sees it hide.
+            // Fallback: if the timer hits 0, hide and stop music even if SSE has not arrived, but not at 0:00 exactly: that races
+            // the end broadcasts and the banner used to fade out and slide back in. RESULT_GRACE_MS lets the result land.
             if (remaining <= 0 && isVisible && !showWinnerInBanner && !isSettling
                 && Date.now() - globalEventStatus.expiresAt > RESULT_GRACE_MS) {
                 console.log('[FirstBlood] Timer expired - hiding banner (fallback)');
@@ -328,29 +276,18 @@ function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, r
     const isCriticalTime = remainingTime > 0 && remainingTime < 30000;
     const countdownSecs = Math.ceil(countdownTime / 1000);
 
-    // Determine if we should show the banner. isSettling (declared above) keeps it up
-    // through the gap between the race being claimed and the winner being announced,
-    // instead of the banner vanishing for those seconds and then sliding back in.
+    // isSettling keeps the banner up through the gap between the claim and the winner announcement.
     const showLiveLayout = isActive || isSettling;
     const shouldShowBanner = isVisible || showWinnerInBanner || isSettling;
 
-    // Exit fades rather than pops: the winner block dissolves and the handoff to
-    // the next occupant of this slot reads as a scene change, not a blink.
-    // `isClosing` is derived — the moment shouldShowBanner drops, this render
-    // still paints with the slide-down halted and opacity falling; a timeout
-    // then retires it. A fresh event inside the fade snaps it back: isGone is a
-    // latch, so without the reset below every later event of the session would
-    // be suppressed until a reload (render-phase correction, same pattern as
-    // the EventSelectionWheel's).
+    // Exit fades rather than pops. `isClosing` is derived: once shouldShowBanner drops, this render paints with the
+    // slide-down halted while a timeout retires it. A fresh event inside the fade snaps back: isGone is a latch, so
+    // without the reset below only the first event of a session would show (render-phase correction).
     const [isGone, setIsGone] = useState(true);
     const isClosing = !shouldShowBanner && !isGone;
     if (shouldShowBanner && isGone) setIsGone(false);
 
-    // One winner for both layouts. During the exit fade the context has already
-    // dropped `firstBloodWinner`, so the retained `lastWinner` is what keeps the
-    // block on screen while it dissolves — the room header always did this, and
-    // the non-room banner used to read the context directly and snap to the
-    // running layout for the length of the fade.
+    // One winner for both layouts: during the exit fade the context has dropped `firstBloodWinner`, so `lastWinner` keeps the block on screen.
     const displayWinner = showWinnerInBanner || isClosing
         ? firstBloodWinner?.winner || lastWinner
         : null;
@@ -380,14 +317,7 @@ function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, r
             {/* Banner */}
             {(shouldShowBanner || isClosing) && (
                 <div style={{
-                    // `inline` is what moved this out of the viewport's top
-                    // edge and into the page. It used to be `position: fixed;
-                    // top: 0`, which on a HUD with a permanent topbar covered it
-                    // for the whole event, and made two simultaneous events
-                    // overlap each other. In flow it sits in the gap between the
-                    // live ticker and the reel, which is space the layout already
-                    // had spare — so the banner keeps every detail it ever had
-                    // instead of being reduced to fit somewhere it did not belong.
+                    // `inline` puts the banner in the gap between the live ticker and the reel; `position: fixed; top: 0` was covered by the topbar and overlapped simultaneous events.
                     ...(inline
                         ? { position: 'relative' }
                         : { position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100 }),
@@ -609,9 +539,7 @@ function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, r
                                         </div>
                                     )}
 
-                                    {/* Status indicator - stays put through the settling
-                                        window so the banner does not change before the
-                                        player's own spin has resolved */}
+                                    {/* Status indicator: stays put through the settling window. */}
                                     {showLiveLayout && (
                                         <div style={{
                                             display: 'flex',
@@ -712,19 +640,9 @@ function FirstBloodBanner({ isMobile = false, isAdmin = false, inline = false, r
                                     <span>First to land <strong style={{ color: getRarityInk('rare') }}>Rare</strong> or higher wins!</span>
                                     <span style={{ color: FB_PRIMARY, opacity: 0.5 }}>|</span>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Diamond size={isMobile ? 10 : 12} color={getRarityInk('rare')} /> 9-12</span>
-                                    {/* Exotic, which this row shipped without while the
-                                        server was already paying it: FIRST_BLOOD_REWARDS
-                                        has a band of its own. A player who
-                                        took First Blood with an exotic was awarded a
-                                        number the banner had no row for. `Gem` is the
-                                        ladder's own icon for the tier, and the colour is
-                                        `getRarityInk`, already imported and used by the
-                                        winner line above. */}
+                                    {/* Exotic: FIRST_BLOOD_REWARDS has a band of its own. `Gem` is the ladder's icon for the tier, `getRarityInk` the colour. */}
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Gem size={isMobile ? 10 : 12} color={getRarityInk('exotic')} /> 13-16</span>
-                                    {/* Relic sits one band above exotic in FIRST_BLOOD_REWARDS,
-                                        matching its place on the ladder. The bands no longer
-                                        overlap, so these six spans are disjoint - if you retune
-                                        the server table, keep them that way here too. */}
+                                    {/* Relic sits one band above exotic in FIRST_BLOOD_REWARDS; these six spans are disjoint, so keep them so if the server table is retuned. */}
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Map size={isMobile ? 10 : 12} color={getRarityInk('relic')} /> 18-21</span>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Star size={isMobile ? 10 : 12} color={getRarityInk('legendary')} /> 23-27</span>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Sparkles size={isMobile ? 10 : 12} color={getRarityInk('mythic')} /> 29-34</span>

@@ -7,32 +7,16 @@ import './DailyBounty.css';
 import './MysteryBoxOpening.css';
 
 /*
- * THE MYSTERY BOX, UNWRAPPED BY HAND - the bounty's prize as an object on the
- * screen, and the moment it becomes the wheel.
- *
- * The box is NOT opened here. The reel is the opening: the box's contents are
- * drawn by the server when it is spun (services/dailyBounty.js openBox), and the
- * gilded reel of specials is where that happens. What this scene does is the
- * handing over. The winner is shown the box, taps it, and it bursts - lid off,
- * gilt out - and pours itself into the reel band, which takes the coat
- * (WheelSpinner's `boxCoating`) and is the mystery reel from then on.
- *
- * An earlier version of this ran the whole spin inside the scene: the box
- * rattled while the reel turned underneath and the item rose out of it on
- * landing. The owner turned it down on sight - it sat over the reel, and the
- * reel is the event. Nothing covers the reel now; the scene is gone before the
- * spin can start.
- *
- * Two callbacks, because the hand-over overlaps: `onGild` fires as the gilt
- * reaches the band, so the reel turns gold under the landing particles rather
- * than after them, and `onDone` when the last of them has settled.
- *
- * "Later" is the other way out, and it is a move too, not a dismissal: the box
- * shrinks and flies to the shelf in the reel header (MysteryBoxShelf, below),
- * which catches it, and from which it can be taken down again. It is also the
- * only way out during an event, when the box may not be opened at all - the
- * primary button becomes "Keep for later" and does exactly what "Later" does.
- */
+* THE MYSTERY BOX, UNWRAPPED BY HAND - the bounty's prize and the moment it becomes the wheel.
+*
+* The box is NOT opened here: the reel is the opening (contents are drawn by the server in services/dailyBounty.js
+* openBox). The winner taps the box, it bursts and pours into the reel band, which takes the coat (WheelSpinner's
+* `boxCoating`). Nothing may cover the reel; the scene is gone before the spin can start.
+*
+* `onGild` fires as the gilt reaches the band, `onDone` when the last of it has settled. "Later" is also a move: the
+* box flies to the shelf in the reel header (MysteryBoxShelf), and it is the only way out during an event, when the
+* primary button becomes "Keep for later".
+*/
 
 const giltVars = {
     '--gilt-pale': COLORS.mysteryGilt[0],
@@ -273,12 +257,7 @@ export function MysteryBoxOpening({
     );
 }
 
-/**
- * The coat going onto the reel band, mounted inside it by WheelSpinner for the
- * length of the hand-over (remounted by key, so a second box restarts it).
- * The sheen spreads out from the middle, where the box went in; two bright
- * edges run ahead of it to the ends; glints flare where the stream landed.
- */
+/** The coat going onto the reel band, mounted by WheelSpinner for the hand-over (remounted by key). The sheen spreads from the middle; glints flare where the stream landed. */
 export function MysteryCoat() {
     const [glints] = useState(() => Array.from({ length: 34 }, (_, i) => {
         const u = (Math.random() + Math.random()) / 2;
@@ -308,19 +287,11 @@ export function MysteryCoat() {
 }
 
 /**
- * The shelf: the boxes a player holds and has not opened yet, as a small gilt
- * box in the reel header with a count. Tapping it takes one down - the same
- * scene as a claim, without the claim's line.
- *
- * Always mounted, even empty (then an invisible zero-width anchor), because a
- * box being put away has to have somewhere to fly to, and the flight is
- * measured before the count ticks.
- *
- * During an event the box is still shown, dimmed and marked as waiting: the
- * player should be able to see what they have, just not open it.
- *
- * `caught` is bumped each time a box lands on it, which replays the catch.
- */
+* The shelf: unopened boxes as a small gilt box with a count in the reel header; tapping takes one down.
+* Always mounted, even empty (an invisible zero-width anchor), because a box being put away needs somewhere to fly
+* to and the flight is measured before the count ticks. During an event it is dimmed and marked waiting.
+* `caught` is bumped each time a box lands on it, which replays the catch.
+*/
 export function MysteryBoxShelf({ ref, count = 0, held = false, caught = 0, compact = false, onOpen }) {
     if (count <= 0) {
         return <span ref={ref} className="fib-mbox-shelf-anchor" aria-hidden="true" />;

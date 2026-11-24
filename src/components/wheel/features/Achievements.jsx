@@ -21,14 +21,7 @@ function fmtDate(dateStr) {
     return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' }).toUpperCase();
 }
 
-/*
- * The category register's order, and it is the player's own path through the
- * game rather than the alphabet: the ones you meet first at the top, the ones
- * you meet by accident at the bottom. Any category the API adds that is not in
- * this list still gets a row — appended, in the order the payload gives — so a
- * new kind of achievement appears on the board the day it ships rather than
- * silently joining whatever the object order happens to be.
- */
+// Category register order: the player's own path through the game. A category the API adds that is not listed still gets a row, appended in payload order.
 const REGISTER_ORDER = ['beginner', 'spins', 'collection', 'duplicates', 'events', 'special'];
 
 /* Special is the hidden-achievement category, revealed as achievements are earned. */
@@ -54,9 +47,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
     /* The category register's selection, the way the collection board's tier
        register works: a row is a door, and clicking the open one closes it. */
     const [categoryFilter, setCategoryFilter] = useState(null);
-    /* The lens, and it is a separate question from the category — "unlocked
-       rares" is a sentence, so the two controls must compose rather than be one
-       eight-way chip row, which is what they were. */
+    // The lens is a separate question from the category, so the two controls compose rather than being one eight-way chip row.
     const [lens, setLens] = useState('all');
     const [search, setSearch] = useState('');
     const [hiddenStats, setHiddenStats] = useState({ unlocked: 0, total: 0 });
@@ -69,12 +60,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
     }, [userId, isOwnProfile]);
 
     async function loadData() {
-        // Reset before every run, not just the first. This effect re-fires on
-        // userId / isOwnProfile, and without this a second run kept whatever the
-        // first left behind: `loading` stays false so the previous player's board
-        // sits there un-dimmed while the new one loads, and `error` is never
-        // cleared, so one failed fetch showed its message over every later
-        // success.
+        // Reset before every run: this effect re-fires on userId / isOwnProfile, and otherwise the previous player's board sits un-dimmed and one failed fetch's error shows over every later success.
         setLoading(true);
         setError(null);
         try {
@@ -115,9 +101,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
             }
         } catch (e) {
             console.error('Failed to load achievements:', e);
-            // The old board answered a failed fetch with "No achievements
-            // found", which is a measurement, and there wasn't one. §9's rule
-            // about NULL never being rendered as zero, one level up.
+            // A failed fetch is not "No achievements found", which is a measurement (§9: null is never rendered as zero).
             setError(e.message || 'Could not reach the achievement service');
         } finally {
             setLoading(false);
@@ -159,13 +143,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
     const unlockedCount = unlockedIds.size;
     const hiddenCount = useMemo(() => achievementList.filter(a => a.hidden || a.category === 'special').length, [achievementList]);
 
-    /*
-     * A row's own facts, computed once for the register and the list both.
-     *
-     * `progressValue` is null rather than 0 for the 54-odd achievements no
-     * career stat measures. Zero is a measurement; these have none, and the
-     * difference decides both whether a bar is drawn and where the row sorts.
-     */
+    // A row's own facts, computed once for the register and the list. `progressValue` is null, not 0, for the ~54 achievements no career stat measures: zero is a measurement, and it decides whether a bar is drawn and where the row sorts.
     const rows = useMemo(() => visible.map(a => {
         const isUnlocked = unlockedIds.has(a.id);
         const isCensored = unlockedCensored.has(a.id);
@@ -192,11 +170,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
         };
     }), [visible, unlockedIds, unlockedCensored, unlockedAt, progress]);
 
-    /* ── THE REGISTER ────────────────────────────────────────────────────────
-       One ruled row per category, each a door into the list below — the tier
-       register's grammar, with the tier swapped for the kind. The lamp lights on
-       a category you have finished, which is the same claim the collection board
-       makes and the only one either board makes without being asked. */
+    // The register: one ruled row per category, each a door into the list. The lamp lights on a finished category.
     const register = useMemo(() => categories.map(key => {
         const inCat = rows.filter(r => r.category === key);
         const held = inCat.filter(r => r.isUnlocked).length;
@@ -211,15 +185,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
         };
     }).filter(r => r.total > 0), [categories, rows]);
 
-    /*
-     * The list, filtered then ordered.
-     *
-     * The order IS the case-and-chase split: everything still open comes first,
-     * sorted by how close it is, then the open ones nothing can measure, then
-     * what you have already done, newest first. A board that opened on a wall of
-     * green ticks would be answering a question the player did not ask — they
-     * know what they have.
-     */
+    // The list, filtered then ordered: open ones by how close they are, then unmeasurable open ones, then done ones newest first (a wall of ticks answers a question nobody asked).
     const shown = useMemo(() => {
         const q = search.trim().toLowerCase();
         const filtered = rows.filter(r => {
@@ -233,9 +199,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
         return filtered.sort((a, b) => {
             if (a.isUnlocked !== b.isUnlocked) return a.isUnlocked ? 1 : -1;
             if (a.isUnlocked) {
-                // Newest first among the finished. Sorted on the raw timestamp,
-                // never on the formatted string — "02 JAN" sorts before "31 DEC"
-                // alphabetically, and the board would read as shuffled.
+                // Newest first among the finished, sorted on the raw timestamp, never the formatted string ("02 JAN" sorts before "31 DEC").
                 const at = new Date(unlockedAt.get(a.id) || 0).getTime();
                 const bt = new Date(unlockedAt.get(b.id) || 0).getTime();
                 return bt - at;
@@ -259,9 +223,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
             aria-label={isOwnProfile ? 'Your achievements' : `${username}'s achievements`}
             style={{
                 position: 'fixed', inset: 0,
-                // The scrim ladder's middle step, the same one the collection
-                // board and the leaderboard stand behind: the stage is pushed
-                // back, never blacked out.
+                // Scrim ladder's middle step, as on the collection board and leaderboard.
                 background: 'rgba(0,0,0,0.8)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: 1000, padding: isPhone ? 0 : '24px',
@@ -274,11 +236,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
                 height: isPhone ? '100%' : 'min(88vh, 820px)',
                 display: 'flex', flexDirection: 'column',
                 backgroundImage: DECK.face,
-                // The board's three edges: a lit rail along the top, a dark
-                // under-line and a light front lip at the bottom. Copied from the
-                // collection board deliberately rather than approximated — two
-                // structures in one city are made of the same material or they
-                // are two cities.
+                // The board's three edges (lit rail, dark under-line, light front lip), copied from the collection board rather than approximated: one material across the surface.
                 boxShadow: [
                     `inset 0 1px 0 ${rail(0.12)}`,
                     'inset 0 -2px 0 rgba(0,0,0,0.55)',
@@ -289,10 +247,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
                 overflow: 'hidden',
             }}>
 
-                {/* The upper deck — head and register — gives way on a phone so
-                    the list keeps a floor, the way the collection board's
-                    platform does. The numbers are a few rows you can scroll back
-                    to; the achievements are what you came for. */}
+                {/* The upper deck gives way on a phone so the list keeps a floor, as on the collection board's platform. */}
                 <div
                     className={isPhone ? 'fib-board-scroll' : undefined}
                     style={{
@@ -341,11 +296,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
                             ><X size={16} /></Plinth>
                         </div>
 
-                        {/* The figures. Three drums, and the third is a different
-                            question on your own board than on a visitor's: yours
-                            says how many secrets exist, theirs says how many of
-                            them they have found — which is all the API will tell
-                            you, and all it should. */}
+                        {/* Three drums; the third differs by viewer: yours is how many secrets exist, a visitor's is how many they found, which is all the API tells. */}
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(3, auto)',
@@ -383,10 +334,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
                             ))}
                         </div>
 
-                        {/* The platform line, filled to the board's completion.
-                            It is the old rounded progress pill's job, done by the
-                            board's own baseline — no label, because UNLOCKED and
-                            REMAINING are standing directly above it. */}
+                        {/* The platform line, filled to completion; no label, UNLOCKED and REMAINING stand above it. */}
                         <BoardMeter
                             value={totalAchievements > 0 ? unlockedCount / totalAchievements : 0}
                             tone={DECK.amber}
@@ -414,19 +362,9 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
                     </div>
                 </div>
 
-                {/* ── THE LIST ─────────────────────────────────────────────
-                    Cut one step deeper than the board it sits in, with the
-                    board's own edge as its top seam — the collection platform's
-                    recess, holding rows instead of a canvas. */}
+                {/* The list: cut one step deeper than the board, with the board's edge as its top seam. */}
                 <div style={{
-                    // `1 1 0`, not `1 1 auto`. The collection board's platform is
-                    // a canvas whose element has no intrinsic height, so an auto
-                    // basis costs it nothing; this list is real DOM rows, and an
-                    // auto basis made its flex basis the height of all 48 of them.
-                    // The free space went hugely negative and the upper deck —
-                    // the only sibling that may shrink — absorbed the whole
-                    // difference, so on a phone the head was clipped through its
-                    // own labels and the register vanished entirely.
+                    // `1 1 0`, not `1 1 auto`: this list is real DOM rows, and an auto basis made the flex basis the height of all 48, so the upper deck absorbed the shortfall and on a phone the head was clipped and the register vanished.
                     flex: '1 1 0',
                     minHeight: isPhone ? '240px' : 0,
                     display: 'flex', flexDirection: 'column',
@@ -439,13 +377,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
                         display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
                         padding: isPhone ? '10px 16px' : '12px 26px',
                     }}>
-                        {/* The readout names what is actually below it, which
-                            means the lens and not only the category: it read
-                            "All achievements · 3 shown" with the lens on
-                            CHASING, and a heading contradicting its own count
-                            is worse than no heading. The category wins when one
-                            is picked, because that is the narrower claim and
-                            the lens is still lit in the head. */}
+                        {/* The readout names what is below it, so the lens counts as well as the category (it read "All achievements · 3 shown" under CHASING); the category wins when picked. */}
                         <FlapText
                             text={categoryFilter
                                 ? categoryLabel(categoryFilter)
@@ -457,10 +389,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
 
                         <div style={{ flex: '1 1 auto', minWidth: '12px' }} />
 
-                        {/* Search, because 86 rows without one is a scroll rather
-                            than an interface — §7's words, and the reason the
-                            collection board carries the same control in the same
-                            place in the same material. */}
+                        {/* Search: 86 rows without one is a scroll, as on the collection board. */}
                         <Plinth className="fib-board-search" style={{
                             display: 'flex', alignItems: 'center', gap: '7px',
                             padding: '0 4px 0 10px', height: '30px',
@@ -496,9 +425,7 @@ export function Achievements({ onClose, userId, username, isOwnProfile = true })
                         </Plinth>
                     </div>
 
-                    {/* The list's column headings sit INSIDE the scroller, so they
-                        and the rows share whatever the scrollbar takes. §9 records
-                        what happens when they do not. */}
+                    {/* The list's column headings sit INSIDE the scroller so they share whatever the scrollbar takes (§9). */}
                     <div className="fib-board-scroll" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto' }}>
                         {loading ? (
                             <Notice>Reading the board…</Notice>

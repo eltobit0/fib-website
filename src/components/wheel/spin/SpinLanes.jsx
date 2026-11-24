@@ -3,121 +3,23 @@ import { COLORS } from '../config/constants';
 import { FINAL_INDEX, ITEM_WIDTH, STRIP_HEIGHT } from '../../../config/constants.js';
 import { CanvasSpinningStrip } from '../canvas/CanvasSpinningStrip.jsx';
 
-/**
- * The 5x and triple takeovers: parallel tracks on the band.
- *
- * Every lane is a reel — a transit line — and they arrive abreast, one line per
- * spin. The arrangement follows the platform's own orientation: horizontal
- * mini-lines on desktop (five trains pulling in side by side), vertical lanes on
- * mobile, which is what the reel itself does.
- *
- * The old design stacked full-width strips inside a rounded card, with a
- * separate results grid below. The lanes replaced the card; each lane lands its
- * own winner at the platform line, and the readout row in the stage carries what
- * the narrow lanes cannot (names, chance, NEW). Nothing here is a box: what
- * divides two tracks is a seam in the deck, the same register as the band's
- * rails.
- *
- * ── THE TRACKS FILL THE BAND (2026-08-19, owner review) ──────────────────────
- *
- * The first version of this laid the lanes out as a **centred island of fixed
- * widths**: 5 × 200 + 4 × 10 = 1040px inside a band that runs to both screen
- * edges, so four hundred-odd pixels of live deck sat dead on either side and the
- * takeover read as a small widget dropped onto a big stage. That is the one
- * thing an edge-to-edge band cannot do. Three things compounded it and they all
- * had the same cause — a lane was being treated as a little band of its own:
- *
- * 1. **The width.** Lanes are `flex: 1` now and the row fills the band. At
- *    1920 that is ~381px a track for the 5x and ~638px for the triple.
- * 2. **The pitch.** 96px (5x) and 116px (triple) shrank the sprites below the
- *    reel's own scale, so the takeover rendered the same items smaller than the
- *    thing it replaced. There is **one desktop pitch and it is the reel's**
- *    (`ITEM_WIDTH`); the lane count changes how much track you can see, never
- *    how big the items are.
- * 3. **The edges.** Each lane's canvas was drawing the *band's* left/right
- *    vignette — 12% of its own width to black on each side — so a 200px lane
- *    lost ~48px to darkness at both ends and became a peephole. Worse, five of
- *    them in a row is the corduroy failure at lane scale: dark, light, dark,
- *    light. `laneMode` on the canvas suppresses that and runs the top hairline
- *    and floor lip at constant alpha, so the band's edges cross every track as
- *    one line; the outer falloff is drawn once here, at the row.
- *
- * The lanes are the band cut into tracks — not several bands parked next to
- * each other.
- */
+// The 5x and triple takeovers: parallel tracks, one reel per spin, abreast (horizontal on desktop, vertical lanes on mobile, as the reel itself). Nothing is a box: a seam in the deck divides two tracks.
+// The tracks FILL the band (`flex: 1`, not a centred island), and there is one desktop pitch, the reel's `ITEM_WIDTH`; lane count changes how much track you see, never item size. `laneMode` on the canvas suppresses its band vignette (five of them is corduroy) and runs the hairline and lip at constant alpha; the outer falloff is drawn once, at the row.
 
-/**
- * The one geometry for the lane takeovers, owned here so the animation code in
- * WheelSpinner and the drawing code in this component can never disagree about
- * the pitch again. (They did: the animation targeted the old card widths — 120
- * desktop / 58 mobile for the 5x, 90 / 70 for the triple — while the lanes drew
- * at 96 / 56 and 116 / 78, so at rest the winning tile was one or two strips
- * away from the platform line and the 5x lanes read entirely empty.)
- *
- * Desktop is `ITEM_WIDTH` for both modes: the tracks are wide enough that the
- * pitch is free, so it takes the reel's own and the sprite scale never changes
- * between a normal spin and a bonus one.
- *
- * Mobile is the exception, because there the *lane width* is the constraint and
- * it moves with the lane count — five vertical lanes across a 360px phone leave
- * about 65px each, so the 5x cannot take the reel's 70. It is 64 (was 56, which
- * was the compressed case); the triple keeps 78, which its ~120px lanes carry
- * comfortably.
- */
+// The one geometry for the lane takeovers, owned here so WheelSpinner's animation and this component's drawing cannot disagree on the pitch (they did, and the winner landed strips off the platform line). Desktop is `ITEM_WIDTH` for both modes. Mobile is lane-width limited: 64 for the 5x (about 65px per lane on 360px), 78 for the triple.
 export const LANE_PITCH = (isMobile, isTripleLucky) =>
     isMobile
         ? (isTripleLucky ? 78 : 64)
         : ITEM_WIDTH;
 
-/**
- * The track seam's width, exported because the stage's readout row lays itself
- * out on the same grid — plaque N has to sit under track N, and it can only do
- * that if it subtracts the same seams from the same width. See LaneResultsRow.
- */
+// The track seam's width, exported because the stage's readout row lays out on the same grid: plaque N must sit under track N (see LaneResultsRow).
 export const LANE_SEAM = (isMobile) => (isMobile ? 4 : 7);
 
-/**
- * Desktop's lanes are the band's own height, a design constant. The phone's fill
- * whatever the surface row can spare — `100%`, not a number.
- *
- * They were pinned at 260px, chosen when the phone's reel was a fixed 140×260 box.
- * The shaft has since grown to take the whole column (~557px at 390×800), so a
- * 260px lane left roughly three hundred pixels of empty mount below the tracks
- * before the readout — the "big band with nothing in it". Nothing was wrong with
- * the lanes; they were simply still measured against a reel that no longer exists.
- */
+// Desktop lanes are the band's own height (a design constant); the phone's fill the surface row (`100%`), since the shaft takes the whole column.
 export const LANE_HEIGHT = (isMobile) => (isMobile ? '100%' : `${STRIP_HEIGHT}px`);
 
-/**
- * The seam between two tracks.
- *
- * Deeper than the per-slot seam inside a lane and it has to be: a slot boundary
- * and a track boundary in the same register would leave five reels reading as
- * one. So it is a wider dark channel with its own lit edge — but built from the
- * same rule, which is that a groove is only visible where light reaches it.
- *
- * **Widened on owner review**: at 3px, bottom-weighted from 35%, the division
- * was there but you had to look for it, and the point of five tracks is that you
- * do not. It is now a real channel — 7px desktop, 4px mobile — read as *unlit
- * band* rather than as a drawn line: the dark core does the separating and the
- * lit edge only tells you the two faces meet. That is the important distinction
- * and the reason this did not simply get a brighter stroke. A bright 1px rule
- * every 380px is a frame around each track, which is the boxes the whole surface
- * refuses; an unlit gutter is two pieces of deck with a cut between them.
- *
- * The corduroy warning in DESIGN.md is about the *slot* pitch — fifteen channels
- * across a screen turns the band into stripes. Four is structure, and the tier
- * washes stop at 88% of their column anyway, so the light never reaches the
- * channel to begin with.
- *
- * On desktop everything is lit from the floor, so the seam fades to nothing at
- * the top of the band and reaches full strength at the lip; it now starts from
- * 20% rather than 35% because a channel this wide reading as a short stub at the
- * bottom looked like a chip in the deck rather than a cut through it. On mobile
- * the light travels with each tile rather than pooling at the floor, so it fades
- * symmetrically at both ends instead — a bottom-weighted seam there would be a
- * groove with no light in it.
- */
+// The seam between two tracks: a wider dark channel with its own lit edge (7px desktop, 4px mobile), deeper than the per-slot seam so five reels do not read as one. It reads as an unlit band, not a drawn line (a bright rule per track is the frame the surface refuses), and the corduroy warning concerns slot pitch, not four seams.
+// On desktop it fades from the floor (starting at 20%, or it reads as a chip); on mobile the light travels with each tile, so it fades symmetrically.
 function TrackSeam({ isMobile }) {
     const w = LANE_SEAM(isMobile);
     // The lit edge is the last pixel; everything before it is the channel.
@@ -167,11 +69,7 @@ export function SpinLanes({
                 <React.Fragment key={laneIdx}>
                     <div style={{
                         position: 'relative',
-                        // The whole fix in one declaration: the tracks divide the
-                        // band between them instead of sitting in the middle of
-                        // it. `minWidth: 0` because a flex item's default
-                        // `min-width: auto` would let the canvas's measured width
-                        // hold the row open.
+                        // The tracks divide the band between them. `minWidth: 0` because a flex item's default `min-width: auto` would let the canvas's measured width hold the row open.
                         flex: '1 1 0',
                         minWidth: 0,
                         height: '100%',
@@ -189,14 +87,7 @@ export function SpinLanes({
                             spinProgress={0}
                             isRecursion={false}
                             laneMode
-                            // No `stripWidth`: the track's width is whatever the
-                            // flex row gives it, and the canvas measures its own
-                            // box. Passing a number here is what pinned the old
-                            // island open.
-                            // Neither axis is a number on a phone any more: the
-                            // tracks fill the surface row, so the canvas measures
-                            // its own box on both. Desktop keeps the band's own
-                            // constant.
+                            // No `stripWidth` and no pixel height on a phone: the track's box is whatever the flex row gives it and the canvas measures its own. Desktop keeps the band's own constant.
                             stripHeight={isMobile ? undefined : STRIP_HEIGHT}
                             finalIndex={FINAL_INDEX}
                             accentColor={accentColor}
@@ -208,14 +99,7 @@ export function SpinLanes({
                 </React.Fragment>
             ))}
 
-            {/* The platform line — mobile only, and one line for the whole row.
-                It was five: each lane drew its own 3px glow plus a pair of
-                pointers, so a 5x on a phone put five bars and ten arrows on a
-                260px band. The comment beside it already claimed it was "one
-                line all the lanes share"; it is now. Desktop needs none of this
-                — each track's detent is its canvas's own, seated in the band's
-                edges, and a DOM line over the sprite is the exact thing the
-                detent replaced. */}
+            {/* The platform line, mobile only and one for the whole row (not one per lane). Desktop needs none: each track's detent is its canvas's own. */}
             {isMobile && (
                 <>
                     <div aria-hidden="true" style={{
@@ -248,11 +132,7 @@ export function SpinLanes({
                 </>
             )}
 
-            {/* The band's falloff into the page, drawn once for the row.
-                Same 12% / rgba(0,0,0,0.5) the reel's canvas draws for itself —
-                it belongs to the band, so with the band cut into tracks it moves
-                up here rather than being repeated per track. Below the street
-                glow (z-index 3 on the strip container), above the canvases. */}
+            {/* The band's falloff into the page, drawn once for the row (12% / rgba(0,0,0,0.5), as the reel's canvas does). Below the street glow (z-index 3 on the strip container), above the canvases. */}
             {!isMobile && (
                 <>
                     <div aria-hidden="true" style={{

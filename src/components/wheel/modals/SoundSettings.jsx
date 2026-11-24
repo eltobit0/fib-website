@@ -2,16 +2,9 @@ import React from 'react';
 import { Volume2, VolumeX, Music, Zap, Sparkles, Star, Gem, Diamond, Map, X, RotateCcw, Play, Square, Swords, Droplet, Target, TrainFront, PackageOpen, Spade, CircleDot } from 'lucide-react';
 import { useSound } from '../../../context/SoundContext.jsx';
 import { COLORS, EVENT_IDENTITY } from '../config/constants';
-// The rarity rows take their colour from the ladder rather than naming hues here.
-// They used to be literals, and they had drifted: Legendary was COLORS.purple while
-// the ladder calls Legendary gold and gives purple to Exotic - so adding the Exotic
-// row put two purple swatches next to each other, each labelled as a different tier.
+// The rarity rows take their colour from the ladder, not literals (Legendary was COLORS.purple, which the ladder gives to Exotic).
 import { getRarityColor, getRarityIcon } from '../../../utils/rarityHelpers.jsx';
 import { TopbarIconButton } from '../topbar/TopbarControls.jsx';
-
-// ============================================
-// Sound Settings Component
-// ============================================
 
 // Slider component
 function VolumeSlider({ value, onChange, disabled, color = COLORS.accent, ariaLabel = 'Volume' }) {
@@ -585,10 +578,7 @@ export function SoundSettingsPanel({ onClose }) {
                                 />
                             </div>
 
-                            {/* The Arrival's bed. Amber because that is the
-                                colour of the scene's lamps — see AMBER in
-                                ArrivalTrain3D.jsx — and because the ladder's
-                                tiers own every other hue on this panel. */}
+                            {/* The Arrival's bed is amber, the colour of the scene's lamps (AMBER in ArrivalTrain3D.jsx); the ladder's tiers own every other hue on this panel. */}
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -624,16 +614,7 @@ export function SoundSettingsPanel({ onClose }) {
                                 />
                             </div>
 
-                            {/* THE PARLOUR's bed.
-
-                                `COLORS.redInk` and not the table's own
-                                `COLOURS.red.hex` (#B01B28): the hex is a fill,
-                                chosen to be a roulette pocket seen from above,
-                                and it is 2.4:1 against this panel. The ink is
-                                the same hue lifted for text — and an icon is
-                                text. That is the wheel's rule, in
-                                rarityHelpers.jsx, and it applies here for the
-                                same reason it applies there. */}
+                            {/* THE PARLOUR's bed: `COLORS.redInk`, not the table's `COLOURS.red.hex` (#B01B28), which is a fill and 2.4:1 on this panel. An icon is text, so it takes the ink (the rule in rarityHelpers.jsx). */}
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -669,13 +650,7 @@ export function SoundSettingsPanel({ onClose }) {
                                 />
                             </div>
 
-                            {/* HIGH ROLLER's bed. The event's own gold from
-                                EVENT_IDENTITY, which is already a light enough
-                                step to read as text on this panel, and the
-                                spade from config/eventIcons.js - the Parlour
-                                row above had it before blackjack did, and
-                                gave it up for the roulette glyph so the two
-                                tables are not told apart by colour alone. */}
+                            {/* HIGH ROLLER's bed: the event's gold from EVENT_IDENTITY, already light enough as text, and the spade from config/eventIcons.js (the Parlour gave it up for the roulette glyph so the two tables are not told apart by colour alone). */}
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -818,14 +793,7 @@ export function SoundSettingsPanel({ onClose }) {
                                 disabled={!settings.enabled}
                                 isActive={previewingSound === 'recursion'}
                             />
-                            {/*
-                                ONE row for four files. The Arrival's crates are
-                                `trainsfx_crate1..4` — four takes of the same impact at
-                                four pitches, so a row of them does not stutter — and
-                                nobody wants to hold an opinion about the third pitch
-                                on its own. `playArrivalCrate` reads this one key; the
-                                preview plays take one as the representative.
-                            */}
+                            {/* ONE row for four files: the Arrival's crates are `trainsfx_crate1..4`, four pitches of one impact, so no one wants an opinion on the third. `playArrivalCrate` reads this one key; the preview plays one take. */}
                             <SoundRow
                                 icon={<PackageOpen size={16} />}
                                 label="Arrival Crates"
@@ -836,15 +804,7 @@ export function SoundSettingsPanel({ onClose }) {
                                 disabled={!settings.enabled}
                                 isActive={previewingSound === 'arrivalCrate1'}
                             />
-                            {/*
-                                Insane's crown comes from the ladder so it is stroked with
-                                the holo gradient. It has to: `COLORS.insane` is the
-                                platinum *fallback*, and the ladder now spends that same
-                                hue on Legendary — so a flat insane crown next to a
-                                legendary star was two identical gold rows. The tile and
-                                toggle still take the flat fallback, which is all a 32px
-                                swatch can carry.
-                            */}
+                            {/* Insane's crown comes from the ladder so it is stroked with the holo gradient: `COLORS.insane` is the platinum fallback, which the ladder now spends on Legendary, so a flat crown would match a legendary star. The tile and toggle keep the flat fallback. */}
                             <SoundRow
                                 icon={getRarityIcon('insane', 16)}
                                 label="Insane Item"
@@ -974,21 +934,7 @@ export function SoundSettingsPanel({ onClose }) {
     );
 }
 
-/**
- * Compact sound button for the topbar.
- *
- * It used to draw itself: a 36px radius-8 tile with a permanent fill, no hover
- * state and its own border colour. Sitting in the user capsule between five
- * transparent circles that did have hover states, it was the one control on the
- * row that looked pressed when it wasn't and dead when you moused over it.
- *
- * It is a `TopbarIconButton` now like everything else, and its state is carried
- * where state belongs — in the icon (Volume2 / VolumeX) and, when music is
- * actually playing, in the tone. The `isPlaying` accent is kept because it says
- * something the icon does not: enabled means "will play", playing means "is
- * playing right now", and muting from the topbar is the reason people reach for
- * this button mid-spin.
- */
+// Compact sound button for the topbar, a `TopbarIconButton`: state lives in the icon (Volume2 / VolumeX) and, when music is playing, the tone (enabled means "will play", playing means "is playing now", the reason people reach for it mid-spin).
 export function SoundButton({ onClick }) {
     const { settings, isPlaying } = useSound();
     const label = settings.enabled

@@ -1,950 +1,288 @@
-/**
- * FIB Stats — the player record.
- *
- * Two views: `Players` (find someone) and `PlayerProfile` (the record itself).
- *
- * The profile is the only view in the module that earns a long scroll, and it
- * is ordered by the questions a player actually arrives with, in the order
- * they arrive with them:
- *
- *   HERO        who is this, and are they any good (the verdict)
- *   RECORD      the career, in two tiers: six headline figures, then eight more
- *   COLLECTION  what do they pull — the record's last figure, broken out
- *   FORM        how are they doing LATELY — the live question
- *   HONOURS     what have they earned: a trophy case, then what is in reach
- *   IN SHORT    the one-line version, worth quoting
- *
- * The record sits directly under the identity because "is this player any
- * good" is the question someone arrives with, and it should not require a
- * scroll. Collection follows it directly: the record's supporting tier ends on
- * Total back-to-backs, and Collection opens with that same number broken down
- * by rarity, so the figure and its breakdown are adjacent rather than a
- * section apart. Both are past tense. Form comes after them because "are they
- * improving" is a present-tense question, and the reader feels that shift more
- * sharply when the whole record has been laid out first.
- *
- * There is no Career section at the foot of the page any more. It was a ledger
- * — label, value, share-of-best bar, the field's best — and every number it
- * held now sits in one of the record's two tiers, carrying its standing in the
- * field instead of a bar. Keeping both would have printed the career twice.
- *
- * A sticky identity bar docks at the top once the hero scrolls out: whose
- * record this is must survive the scroll.
- *
- * Scope (solo / duos / combined) is owned by the shell, not by this file, so
- * switching scope here and then walking to the leaderboards keeps the reader
- * in the same frame of reference.
- */
-
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LEADERBOARD_SCOPES, matchStandings } from './adapter.js';
-import { RARITY_KEYS } from './tokens.js';
-import {
-  unifyStats, lifetimeStats, totalPulls, achievementGroups, achievementSummary, splitAchievements,
-} from './achievements.js';
-import {
-  loadPlayer, loadPlayerMatches, loadCatalogue, loadPlayerAchievements,
-  loadStatField, loadCollection,
-} from './api.js';
-import { idUuid, idName, idLabel, matchDuration } from './adapter.js';
+import React, { useMemo, useState } from 'react';
+import { idUuid, idLabel, itemKey, itemLabel, matchStandings, ITEM_POOL } from './adapter.js';
+import { lifetimeStats, achievementGroups, splitAchievements } from './achievements.js';
+import { loadPlayer, loadPlayerMatches, loadCatalogue, loadPlayerAchievements, loadCollection, loadOverview } from './api.js';
 import { useAsync } from './useAsync.js';
-import { canObserve } from './env.js';
-import {
-  Section, Figure, Avatar, Sprite, Medal, Segmented, Search, Empty,
-  RarityRamp, PlayerLink, Reveal, Counter, AsyncView, PCard, CardMeter,
-  ItemImage, PodiumHead,
-} from './Primitives.jsx';
-import { ScoreTrend } from './Charts.jsx';
+import { Async, Face, Item, Skin, Sprite, Tier, Who } from './ui.jsx';
+import { RARITY } from './statsKit.js';
 import * as f from './format.js';
-import { renderMiniMessage } from './MiniMessage.jsx';
 
-/* ── The record ───────────────────────────────────────────────────────── */
-
-export function PlayerProfile({ uuid, scope, onScopeChange, onBack, onOpenPlayer, onOpenMatch, onOpenCollection }) {
-  const [partnerIndex, setPartnerIndex] = useState(0);
-
-  const profileState = useAsync(() => loadPlayer(uuid), [uuid]);
-  // The score trend needs this player's matches — a separate, optional fetch whose failure or
-  // absence must not block the profile.
-  const historyState = useAsync(() => loadPlayerMatches(uuid), [uuid]);
-  // Achievements are their own two calls (catalogue + this player's unlocks), loaded alongside the
-  // profile rather than folded into it — the honours section can lag or fail on its own. The
-  // catalogue is the same for everyone, so it is cheap and cacheable upstream.
-  const catalogueState = useAsync(loadCatalogue, []);
-  const achievementsState = useAsync(() => loadPlayerAchievements(uuid), [uuid]);
-  /* The field every figure states its placing against, and the collection totals
-     the four COLLECTION achievements measure progress against. Both are optional
-     by design: without the field the figures render bare (as they did for every
-     release before this one), and without the collection those four rows show no
-     bar. Neither blocks the profile, and neither is refetched per scope — the
-     field is scoped client-side from one payload. */
-  const fieldState = useAsync(
-      () => (scope === 'duo' ? Promise.resolve({ data: null }) : loadStatField(scope)),
-      [scope],
-  );
-  const collectionState = useAsync(() => loadCollection(uuid), [uuid]);
-
-  return (
-      <AsyncView
-          state={profileState}
-          loadingLabel="Loading profile…"
-          notFound={
-            <div className="fib-page">
-              <Empty title="No such player" action={<button type="button" className="fib-btn" onClick={onBack}>Back to players</button>}>
-                No ranked player with that name or id. They may not have finished a match yet.
-              </Empty>
-            </div>
-          }
-      >
-        {(payload) => (
-            <PlayerProfileBody
-                uuid={uuid} scope={scope} onScopeChange={onScopeChange}
-                onBack={onBack} onOpenPlayer={onOpenPlayer} onOpenMatch={onOpenMatch}
-                onOpenCollection={onOpenCollection}
-                payload={payload}
-                history={historyState.data}
-                catalogue={catalogueState.data}
-                achievements={achievementsState.data}
-                statField={fieldState.data}
-                collection={collectionState.data}
-                partnerIndex={partnerIndex} setPartnerIndex={setPartnerIndex}
-            />
-        )}
-      </AsyncView>
-  );
-}
-
-function PlayerProfileBody({
-                             uuid, scope, onScopeChange, onBack, onOpenPlayer, onOpenMatch, onOpenCollection,
-                             payload, history, catalogue, achievements, statField, collection,
-                             partnerIndex, setPartnerIndex,
-                           }) {
-  const heroRef = useRef(null);
-  const [barOn, setBarOn] = useState(false);
-
-  /* The sticky identity bar appears exactly when the hero stops covering the
-     question "whose record is this". The observer's first callback fires on
-     attach, so the bar always starts from the truth rather than a reset. */
-  useEffect(() => {
-    const el = heroRef.current;
-    if (!el || !canObserve()) return undefined;
-    const io = new IntersectionObserver(
-        ([entry]) => setBarOn(!entry.isIntersecting),
-        { threshold: 0 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [uuid, scope]);
-
-  const model = useMemo(() => {
-    // payload is { profile, partners, rank }; each section may be null (the composition degrades
-    // per section), so every read tolerates absence.
-    const profile = payload.profile ?? null;
-
-    // The partners section is raw FibTeamStats objects ({ player1, player2, ...stats }). Normalize
-    // each into { uuid, name, team }: `team` is the pair's stats, and uuid/name is whichever member
-    // is NOT the profile's own player — "the partner". The render reads this shape throughout.
-    const partners = (payload.partners ?? []).map((teamStats) => {
-      const p1 = teamStats.player1;
-      const p2 = teamStats.player2;
-      const partner = idUuid(p1) === uuid ? p2 : p1;
-      return {
-        uuid: idUuid(partner),
-        name: idName(partner),
-        team: teamStats,
-      };
-    });
-
-    // Scope picks which stat block to show. solo/combined come off the profile bundle directly;
-    // duo reads the selected partnership's team stats.
-    const rawStats =
-        scope === 'combined' ? profile?.team
-            : scope === 'duo' ? (partners[partnerIndex] ?? partners[0])?.team ?? null
-                : profile?.solo;
-    const stats = unifyStats(rawStats, scope);
-
-    // Trend from the optional history fetch. Null until that endpoint exists; the Form section
-    // already treats "fewer than two" as its empty case, so an empty list flows through cleanly.
-    const matches = history?.matches ?? [];
-    const mine = matches.filter((m) => m.participants?.some((p) => idUuid(p.player) === uuid));
-    const trend = mine
-        .slice()
-        .sort((a, b) => new Date(a.endedAt) - new Date(b.endedAt))
-        .slice(-14)
-        .map((m) => {
-          const me = m.participants.find((p) => idUuid(p.player) === uuid);
-          return { value: me.finalScore, won: me.won, label: f.date(m.endedAt), matchId: m.matchId };
-        });
-
-    /*
-     * The field each figure states its placing against: one column of values per
-     * metric, fetched from the leaderboards for the scope being shown (see
-     * `loadStatField`). Duo never gets one — a partnership's totals are not
-     * comparable to individuals', and "2nd of 6" against the wrong denominator is
-     * worse than no note at all — and `PlayerProfile` does not even request it.
-     */
-    const field = scope === 'duo' ? null : (statField?.values ?? null);
-
-    /* Lifetime totals, for achievement progress. Deliberately NOT the scoped
-       block: "Die 500 times" counts every death a player has ever had, so
-       flipping the scope selector to Duos must not make a global achievement
-       look further away than it is.
-
-       This used to read `team` alone, on the belief that it was the combined
-       roll-up. It is not — it combines a player's TEAMS and holds no solo game
-       at all — and since a player with no team gets a zero-filled block rather
-       than a null, the `?? solo` fallback never fired. Solo-only players read 0
-       against every lifetime achievement. `lifetimeStats` adds the two halves;
-       the argument is written out there. */
-    const career = lifetimeStats(profile?.solo, profile?.team);
-
-    const achGroups = achievementGroups(catalogue, achievements, {
-      career,
-      streaks: profile?.streaks ?? null,
-      collection,
-    });
-
-    return {
-      profile, stats, trend, partners, field,
-      summary: achievementSummary(catalogue, achievements),
-      rank: payload.rank ?? null,
-      achGroups,
-      recent: mine.slice(0, 5),
-    };
-  }, [payload, history, catalogue, achievements, statField, collection, scope, partnerIndex, uuid]);
-
-  const { profile, stats, field, trend, achGroups, summary, rank, partners, recent } = model;
-  const name = idName(profile?.player) ?? uuid.slice(0, 8);
-  const winRate = f.winRate(stats.gamesWon, stats.gamesPlayed);
-
-  // Under five matches a win rate is noise dressed as a statistic. The profile
-  // still shows everything, but stops presenting the rate as a verdict.
-  const thin = (stats.gamesPlayed ?? 0) < 5;
-
-  const scopeOptions = LEADERBOARD_SCOPES.map((s) => ({ ...s, label: s.label }));
-
-  const rarityCounts = Object.fromEntries(
-      RARITY_KEYS.map((k) => [k, stats.rarities?.[k.toLowerCase()] ?? 0]),
-  );
-  const pulls = totalPulls(stats);
-
-  /* Combined scope with no partnerships, or duo scope with none — the player
-     has only ever played solo. Say that rather than rendering zeros. */
-  const noTeams = (scope === 'combined' || scope === 'duo') && (!partners || partners.length === 0);
-
-  return (
-      <div className="fib-page">
-        <div className="fib-playerbar" data-on={barOn || undefined} aria-hidden="true">
-          <Avatar uuid={uuid} size={26} />
-          <b>{name}</b>
-          {rank?.rank != null ? <Medal place={rank.rank} /> : null}
-          <span className="fib-spacer" />
-          <span className="fib-playerbar-stat">{winRate.toFixed(0)}%</span>
-          <span className="fib-meta">{f.num(stats.gamesWon)} of {f.num(stats.gamesPlayed)} won</span>
-        </div>
-
-        {/* ── HERO: the verdict ────────────────────────────────────────── */}
-        <Reveal as="header" className="fib-hero">
-          <div ref={heroRef}>
-            <button type="button" className="fib-btn fib-btn--quiet fib-hero-back" onClick={onBack}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M14 6l-6 6 6 6" />
-              </svg>
-              Players
-            </button>
-
-            <div className="fib-hero-grid">
-              <div className="fib-hero-id">
-                {/*
-                  The player stands on what they earned: the podium's block for a
-                  top-three solo rank (gold, iron, copper), grass for everyone
-                  else - the same ground the directory card stands them on. The
-                  flat face in a well this replaced was the one object on the page
-                  that could have been from any game.
-                */}
-                <div className="fib-hero-stand" aria-hidden="true">
-                  <ItemImage
-                    name={({ 1: 'gold_block', 2: 'iron_block', 3: 'copper_block' })[rank?.rank] ?? 'grass_block'}
-                    size={128}
-                    className="fib-hero-block"
-                    loading="eager"
-                  />
-                  <PodiumHead uuid={uuid} size={112} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <h1 className="fib-hero-name">{name}</h1>
-                  {rank?.rank != null ? (
-                      <div className="fib-hero-rank">
-                        <Medal place={rank.rank} />
-                        <span>
-                      Rank {rank.rank} of {rank.totalRanked}
-                          <em> · by matches won, solo</em>
-                    </span>
-                      </div>
-                  ) : (
-                      <div className="fib-hero-rank">
-                        <span className="fib-meta">Unranked — no solo record yet</span>
-                      </div>
-                  )}
-                  <div className="fib-meta" style={{ marginTop: 10 }}>
-                    {summary.earned} of {summary.total} achievements
-                  </div>
-                </div>
-              </div>
-
-              <div className="fib-hero-figures">
-                <Figure
-                    size="hero"
-                    tone={thin ? undefined : 'gold'}
-                    value={winRate}
-                    format={(n) => n.toFixed(0)}
-                    unit="%"
-                    label={thin ? 'Win rate — too few matches to mean much' : 'Win rate'}
-                    note={`${f.num(stats.gamesWon)} of ${f.num(stats.gamesPlayed)} matches won`}
-                />
-              </div>
-            </div>
-
-            <div className="fib-hero-scope">
-              <Segmented
-                  options={scopeOptions}
-                  value={scope}
-                  onChange={onScopeChange}
-                  label="Statistics scope"
-              />
-              {scope === 'duo' && partners?.length > 1 ? (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span className="fib-label">with</span>
-                    <Segmented
-                        options={partners.map((p, i) => ({ id: String(i), label: p.name ?? (p.uuid ? p.uuid.slice(0, 8) : '?') }))}
-                        value={String(partnerIndex)}
-                        onChange={(v) => setPartnerIndex(Number(v))}
-                        label="Duo partner"
-                    />
-                  </div>
-              ) : null}
-            </div>
-          </div>
-        </Reveal>
-
-        {noTeams ? (
-            <Section title="No duos yet">
-              <Empty title={`${name} has only played solo`}>
-                Duo statistics appear once this player finishes a match on a team. Every duo is
-                tracked as its own pair, so partnering with someone new starts a fresh record
-                rather than adding to an existing one.
-              </Empty>
-            </Section>
-        ) : (
-            <>
-              {/* ── THE RECORD ───────────────────────────────────────────── */}
-              <Record stats={stats} field={field} streaks={profile?.streaks} />
-
-              {/* ── COLLECTION ───────────────────────────────────────────── */}
-              <Section
-                  title="Collection"
-                  sub={`${f.num(stats.totalItemsFound)} items found, ${f.num(pulls)} of them back-to-back pulls.`}
-                  aside={onOpenCollection ? (
-                      <button type="button" className="fib-btn" onClick={() => onOpenCollection(uuid)}>
-                        Open full collection
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M9 6l6 6-6 6" />
-                        </svg>
-                      </button>
-                  ) : null}
-              >
-                <div className="fib-collection">
-                  <div>
-                    <h3 className="fib-subhead" style={{ marginTop: 0 }}>Signature items</h3>
-                    {stats.topThreeItems?.length ? (
-                        <div className="fib-shelf">
-                          {stats.topThreeItems.map((it) => (
-                              <figure key={it.itemName} className="fib-artifact fib-sprite-lift">
-                                <Sprite name={it.itemName} size={64} pad={16} />
-                                <figcaption>
-                                  <b>{f.itemLabel(it.itemName)}</b>
-                                  <span className="fib-meta">{f.num(it.count)} found</span>
-                                </figcaption>
-                              </figure>
-                          ))}
-                        </div>
-                    ) : (
-                        <Empty title="No item history yet">
-                          Signature items appear once a match has been played — they are the three
-                          items this player has collected more than any other.
-                        </Empty>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="fib-subhead" style={{ marginTop: 0 }}>
-                      Back-to-back pulls by rarity
-                    </h3>
-                    {pulls > 0 ? (
-                        <RarityRamp counts={rarityCounts} keys={RARITY_KEYS} />
-                    ) : (
-                        <Empty title="No back-to-back pulls yet">
-                          Collecting an item immediately after the previous one triggers a
-                          back-to-back roll. The rarer the roll, the further up this ramp it lands.
-                        </Empty>
-                    )}
-                    <p className="fib-meta" style={{ marginTop: 'var(--fib-space-4)' }}>
-                      Bars are scaled to this player&rsquo;s largest tier, not to the total —
-                      common pulls would otherwise flatten every rare one to nothing.
-                    </p>
-                  </div>
-                </div>
-              </Section>
-
-              {/* Career used to sit here as a ledger. It moved to `Record` at the
-              top of the page — every number it held is in one of the two tiers
-              up there now, so keeping it would have printed the whole career
-              twice. */}
-
-              {/* ── FORM ─────────────────────────────────────────────────── */}
-              <Section
-                  title="Form"
-                  sub={
-                    trend.length > 1
-                        ? 'Score in every recent match, oldest on the left.'
-                        : 'A trend needs at least two matches.'
-                  }
-              >
-                {trend.length > 1 ? (
-                    <>
-                      <ScoreTrend points={trend} label={`${name}'s score per match`} />
-                      <div className="fib-panel fib-panel--flush" style={{ marginTop: 'var(--fib-space-5)' }}>
-                        {recent.map((m) => {
-                          const me = m.participants.find((p) => idUuid(p.player) === uuid);
-                          const standings = matchStandings(m);
-                          return (
-                              <button
-                                  key={m.matchId}
-                                  type="button"
-                                  className="fib-row-link"
-                                  onClick={() => onOpenMatch?.(m.matchId)}
-                              >
-                                <Medal place={me.placement} />
-                                <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-                                  <div style={{ fontWeight: 500 }}>
-                                    {m.mode === 'SOLO' ? 'Solo' : 'Team'} · {standings.length} competitors
-                                  </div>
-                                  <div className="fib-meta">
-                                    {f.date(m.endedAt)} · {f.duration(matchDuration(m))}
-                                  </div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                  <div style={{
-                                    fontFamily: 'var(--fib-font-mono)', fontVariantNumeric: 'tabular-nums',
-                                    fontSize: 'var(--fib-text-lg)',
-                                    color: me.won ? 'var(--fib-gold)' : 'var(--fib-ink)',
-                                  }}>
-                                    {me.finalScore}
-                                  </div>
-                                  <div className="fib-meta">{me.won ? 'won' : f.ordinal(me.placement)}</div>
-                                </div>
-                              </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                ) : (
-                    <Empty title="Not enough matches to plot yet">
-                      The form chart draws one point per completed match. It appears as soon as
-                      {' '}{name} has finished a second one.
-                    </Empty>
-                )}
-              </Section>
-
-              {/* ── HONOURS ──────────────────────────────────────────────── */}
-              <Honours name={name} groups={achGroups} summary={summary} />
-
-              {/* ── IN SHORT ─────────────────────────────────────────────── */}
-              <Signature
-                  name={name}
-                  stats={stats}
-                  summary={summary}
-                  rank={rank}
-                  partners={partners}
-                  onOpenPlayer={onOpenPlayer}
-              />
-            </>
-        )}
-      </div>
-  );
-}
-
-/**
- * The record — the six numbers a player opens their own profile to check,
- * directly under the identity and at display weight.
- *
- * These lived here in an earlier version, were folded into the career ledger at
- * the foot of the page, and are back at the top by request. The complaint was
- * fair: the ledger is a lookup layout, and burying "matches won" in row two of
- * a twelve-row table answers "what is this number, exactly" while refusing to
- * answer "is this player any good", which is the question someone actually
- * arrives with.
- *
- * What does NOT come back is the furniture. The earlier version drew these as
- * `StatCard`s — an icon in a tinted box, a label, a value, and a different
- * accent per card (blue, amber, green, cyan, red) — six of them in a grid. That
- * is the identical-card-grid pattern, and it spent five accent colours in a
- * module where gold means rank and diamond means rarity and nothing else means
- * anything. The numbers are the point; the boxes never were. So: divided cells,
- * one accent (gold, on the one figure that counts victories), and the numbers
- * at 48px in a 3x2 grid — three across gives each figure a third of the page
- * rather than a sixth, which is the room the size needs.
- *
- * ── The two tiers ──
- *
- * Six headline figures, then the rest of the career underneath at a third the
- * size. The whole career now lives here, so there is no ledger at the foot of
- * the page any more; this block replaced it rather than duplicating it. The
- * trade is real and worth naming: the ledger drew each number's share of the
- * field's best as a bar, plus that best as a figure. The compact tier cannot
- * carry a bar at this size, so it carries the standing instead.
- *
- * Which is arguably the better half of that bargain. A figure that has a field
- * says where it places in it — "2nd of 8" — a fact the old StatCard's decorative
- * subValue ("back-to-back rares") never carried, counted rather than asserted,
- * the same rule the achievement tiers follow.
- *
- * ── Which figures get one, and why not all of them ──
- *
- * The field comes from the leaderboards, one call per metric, because the
- * alternative (a request per rostered player) rate-limited this backend hard
- * enough to take the origin down with it — see `loadStatField`. Eight of the
- * fourteen figures therefore carry a placing: the six board categories, plus
- * matches played and items per match off the roster. Current win streak carries
- * its own best instead, which says more than a placing would. The remaining five
- * — longest item streak, time per item, total back-to-backs, wheel spins,
- * antimatter trips — have no board and no roster column, so they render bare.
- *
- * That is a real gap and it is deliberately visible rather than papered over: a
- * fabricated denominator would be worse than a missing one. It closes the day a
- * bulk stats endpoint exists; nothing here changes but the field's source.
- */
-function Record({ stats, field, streaks }) {
-  /*
-   * Standing in the field: how many players are strictly ahead on this metric,
-   * plus one. Counted, never asserted — and inverted where fewer is better, so
-   * fewest deaths reads as 1st.
-   *
-   * `metric` names a column in the field (see `loadStatField`). A metric with no
-   * column returns null and its figure renders bare, which is the honest state
-   * for the five stats no leaderboard and no roster row carries. So is a null
-   * field: duo scope, or a fetch that failed. Nothing here guesses.
-   *
-   * The field is already filtered to columns with at least three entrants, where
-   * a placing stops being noise dressed as a ranking.
-   */
-  const standing = (metric, value, sense) => {
-    const column = field?.[metric];
-    if (!column || !Number.isFinite(value)) return null;
-    const ahead = column.filter((v) => (sense === 'low' ? v < value : v > value)).length;
-    return `${f.ordinal(ahead + 1)} of ${column.length}`;
-  };
-
-  const perMatch = f.itemsPerGame(stats.totalItemsFound, stats.gamesPlayed);
-  const perItem = f.secondsPerItem(stats.totalTimeSpentOnItems, stats.totalItemsFound);
-  const pulls = totalPulls(stats);
-
-  /*
-   * Three stories and a footnote, each told by one headline figure and the
-   * numbers that explain it.
-   *
-   * *This was six headline figures in a 3x2 grid over eight more in a 4x2
-   * grid* - fourteen numbers whose only grouping was their size, which a
-   * critique in September 2026 read as "numbers that are just there". The
-   * figures, their notes and their standings are unchanged; what changed is
-   * that each now sits under the question it answers. How they win. How they
-   * hunt. How lucky they get. And, set small, what the world did to them on the
-   * way. Each group is labelled by an item sprite for its KIND, the same
-   * kind-not-data rule the achievement glyphs follow.
-   */
-  const STORIES = [
-    {
-      id: 'winning', title: 'Winning', item: 'gold_ingot',
-      lead: {
-        label: 'Matches won', value: stats.gamesWon, tone: 'gold',
-        note: standing('gamesWon', stats.gamesWon),
-      },
-      rest: [
-        { label: 'Matches played', value: stats.gamesPlayed, note: standing('gamesPlayed', stats.gamesPlayed) },
-        {
-          /* No field to stand in: streak lives on the player record, not in the
-             comparable payload. Its own best is the honest context. */
-          label: 'Current win streak', value: streaks?.currentWinStreak ?? 0,
-          note: Number.isFinite(streaks?.highestWinStreak) ? `best ${f.num(streaks.highestWinStreak)}` : null,
-        },
-        { label: 'Highest score', value: stats.highestScore, format: f.full, note: standing('highestScore', stats.highestScore) },
-      ],
-    },
-    {
-      id: 'hunting', title: 'Hunting', item: 'spyglass',
-      lead: {
-        label: 'Items found', value: stats.totalItemsFound, format: f.full,
-        note: standing('totalItemsFound', stats.totalItemsFound),
-      },
-      rest: [
-        { label: 'Items per match', value: perMatch, format: (n) => f.dec(n, 1), note: standing('itemsPerMatch', perMatch) },
-        {
-          // Time, not a bare second count: `duration` writes m + s past a minute.
-          label: 'Time per item', value: perItem, format: f.duration,
-          note: standing('secondsPerItem', perItem, 'low'),
-        },
-        /* No board and no roster column carries this one, so it renders bare. */
-        { label: 'Longest item streak', value: stats.longestItemStreak, note: standing('longestItemStreak', stats.longestItemStreak) },
-      ],
-    },
-    {
-      /* Total back-to-backs leads here because Collection sits directly below
-         and opens with the same number broken down by rarity. */
-      id: 'luck', title: 'Luck', item: 'rabbit_foot',
-      lead: {
-        label: 'Back-to-back pulls', value: pulls,
-        note: standing('totalPulls', pulls),
-      },
-      rest: [
-        { label: 'Back-to-back best', value: stats.highestB2BStreak, note: standing('highestB2BStreak', stats.highestB2BStreak) },
-        { label: 'Wheel spins', value: stats.wheelOfFortuneUses, note: standing('wheelOfFortuneUses', stats.wheelOfFortuneUses) },
-      ],
-    },
-  ];
-
-  const WORLD = [
-    {
-      label: 'Distance travelled', value: stats.blocksTravelled, format: f.distance, unit: 'blocks',
-      note: standing('blocksTravelled', stats.blocksTravelled),
-    },
-    { label: 'Deaths', value: stats.deaths, note: standing('deaths', stats.deaths, 'low') },
-    {
-      label: 'Antimatter trips', value: stats.enteredAntimatterTeleporter,
-      note: standing('enteredAntimatterTeleporter', stats.enteredAntimatterTeleporter),
-    },
-  ];
-
-  return (
-      <Reveal as="section" className="fib-record-block" aria-label="The record">
-        <div className="fib-stories">
-          {STORIES.map((story) => (
-              <section key={story.id} className="fib-story" aria-labelledby={`fib-story-${story.id}`}>
-                <h2 className="fib-story-head" id={`fib-story-${story.id}`}>
-                  <ItemImage name={story.item} size={32} className="fib-story-emblem" loading="eager" />
-                  {story.title}
-                </h2>
-                {/* The lead counts up; the supporting figures arrive already true,
-                    which is what marks the lead as the headline. */}
-                <Figure
-                    size="xl"
-                    value={story.lead.value}
-                    format={story.lead.format}
-                    label={story.lead.label}
-                    tone={story.lead.tone}
-                    note={story.lead.note}
-                />
-                <dl className="fib-story-rest">
-                  {story.rest.map((fig) => (
-                      <div key={fig.label}>
-                        <dt>{fig.label}</dt>
-                        <dd>
-                          <b>{Number.isFinite(fig.value) ? (fig.format ?? f.num)(fig.value) : '—'}</b>
-                          {fig.note ? <span className="fib-meta">{fig.note}</span> : null}
-                        </dd>
-                      </div>
-                  ))}
-                </dl>
-              </section>
-          ))}
-        </div>
-
-        <div className="fib-story-world">
-          <h2 className="fib-story-head">
-            <ItemImage name="filled_map" size={32} className="fib-story-emblem" loading="eager" />
-            Out in the world
-          </h2>
-          <dl className="fib-story-world-figs">
-            {WORLD.map((fig) => (
-                <div key={fig.label}>
-                  <dt>{fig.label}</dt>
-                  <dd>
-                    <b>{Number.isFinite(fig.value) ? (fig.format ?? f.num)(fig.value) : '—'}</b>
-                    {fig.unit ? <em> {fig.unit}</em> : null}
-                    {fig.note ? <span className="fib-meta">{fig.note}</span> : null}
-                  </dd>
-                </div>
-            ))}
-          </dl>
-        </div>
-      </Reveal>
-  );
-}
-
-/* ── Honours ──────────────────────────────────────────────────────────── */
-
-/*
- * One item per achievement kind: a clock for a single round, a bottle o'
- * enchanting for a lifetime total (it accrues), a chest for the collection, an
- * enchanted book for achievements about achievements.
- *
- * These identify the *kind* of achievement, which is the only thing the
- * catalogue tells us about it - there is no per-achievement artwork in the
- * plugin's payload, and inventing one per row would be decoration pretending to
- * be data. They were hand-drawn line glyphs (a stopwatch, a trophy, crates, a
- * star); the kinds are the same, the objects are now the game's own.
- */
-const ACH_ITEM = {
-  ROUND: 'clock',
-  GLOBAL: 'experience_bottle',
-  COLLECTION: 'chest',
-  META: 'enchanted_book',
+const HISTORY = 50;
+const SHOWN_ROUNDS = 10;
+const SHOWN_ACHIEVEMENTS = 8;
+const SHOWN_ROW = 16;
+const times = (n, one, many) => `${f.full(n)} ${n === 1 ? one : many}`;
+const show = (v, fmt = f.full) => (v == null ? '-' : fmt(v));
+const rate = (won, played) => (played > 0 ? f.pct(f.winRate(won, played)) : '-');
+const perItem = (o) => (o?.totalItemsFound > 0 ? f.clock(o.totalTimeSpentOnItems / 1000 / o.totalItemsFound) : '-');
+const streakLine = (st) => {
+  if (!st) return null;
+  if (st.currentWinStreak > 1) return `On a ${st.currentWinStreak} round win streak, best ${st.highestWinStreak}.`;
+  if (st.currentWinStreak === 1) return `Won their last round. Best win streak ${st.highestWinStreak}.`;
+  return st.highestWinStreak > 0 ? `Best win streak ${st.highestWinStreak}.` : null;
 };
 
-const achGlyph = (scope) => (
-  <ItemImage name={ACH_ITEM[scope] ?? ACH_ITEM.GLOBAL} size={32} className="fib-case-sprite" />
-);
-
-/** The kind filters, in the catalogue's own scope order. `all` is not a scope. */
-const ACH_FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'ROUND', label: 'In a round' },
-  { id: 'GLOBAL', label: 'Lifetime' },
-  { id: 'COLLECTION', label: 'Collection' },
-  { id: 'META', label: 'Meta' },
-];
-
-/**
- * The case and the chase.
- *
- * This section used to be one list: every achievement in the catalogue, grouped
- * by scope, each row a title, a description, and — on the 53 a player did not
- * have — the right-aligned word "Locked". Eighty-six rows of identical furniture,
- * ordered alphabetically, which meant the two questions a player actually brings
- * here both went unanswered. "What have I got" was buried among what they hadn't,
- * and "what am I closest to" required reading every locked row and doing the
- * arithmetic in their head.
- *
- * So: two blocks, different furniture, per DESIGN.md's "The Case and the Chase".
- *
- *   the case   what they hold, as objects — a glyph in a lit well, gold-rimmed
- *              because an earned achievement is a prize, newest first, because a
- *              trophy case is read as "what did I just get"
- *   the chase  what is left, as a progress list, closest first, each row carrying
- *              its own numerator ("412 of 500") and a bar
- *
- * Progress is derived — see ACHIEVEMENT_PROGRESS in achievements.js — and only
- * where a career stat genuinely measures it. The 54 single-round achievements
- * ("Collect 3 items in the final minute") carry no bar, because no lifetime total
- * says how close you are to one. They sort last and say what they need instead of
- * pretending to a percentage.
- *
- * A search box and a kind filter sit above both, because 86 rows without either
- * is a scroll, not an interface.
- */
-function Honours({ name, groups, summary }) {
-  const [kind, setKind] = useState('all');
-  const [query, setQuery] = useState('');
-
-  const { earned, chase } = useMemo(() => splitAchievements(groups), [groups]);
-
-  const q = query.trim().toLowerCase();
-  const match = (a) =>
-      (kind === 'all' || a.scope === kind)
-      && (!q || a.plainTitle.toLowerCase().includes(q) || a.plainDescription.toLowerCase().includes(q));
-
-  const shownEarned = earned.filter(match);
-  const shownChase = chase.filter(match);
-  const filtered = kind !== 'all' || q !== '';
-
-  /* Only offer a kind the catalogue actually contains — a filter that yields
-     nothing on every profile is a control that lies about the data. */
-  const filters = ACH_FILTERS.filter(
-      (o) => o.id === 'all' || groups.some((g) => g.scope === o.id));
-
-  return (
-      <Section
-          title="Achievements"
-          sub={`${summary.earned} of ${summary.total} earned. The real in-game achievements — what ${name} holds, and what is closest to falling next.`}
-          aside={<Search value={query} onChange={setQuery} placeholder="Find an achievement" label="Find an achievement" />}
-      >
-        {groups.length === 0 ? (
-            <Empty title="No achievements yet">
-              {name} hasn't unlocked anything yet. Achievements are earned in-game — win a
-              match, hit a streak, complete the collection — and appear here the moment they land.
-            </Empty>
-        ) : (
-            <>
-              {filters.length > 2 ? (
-                  <div className="fib-ach-filters">
-                    <Segmented
-                        options={filters}
-                        value={kind}
-                        onChange={setKind}
-                        label="Filter achievements by kind"
-                    />
-                  </div>
-              ) : null}
-
-              {/* ── THE CASE ─────────────────────────────────────────────── */}
-              <h3 className="fib-subhead">
-                Earned
-                <span className="fib-meta"> · {f.num(shownEarned.length)}{filtered ? ` of ${f.num(earned.length)}` : ''}</span>
-              </h3>
-              {shownEarned.length === 0 ? (
-                  <Empty title={filtered ? 'Nothing earned matches that' : 'Nothing earned yet'}>
-                    {filtered
-                        ? 'Clear the search or pick another kind to see the rest of the case.'
-                        : `Every achievement ${name} unlocks lands here, newest first.`}
-                  </Empty>
-              ) : (
-                  <ul className="fib-case">
-                    {shownEarned.map((a) => (
-                        <li key={a.id} className="fib-case-tile">
-                          {/* `data-tier` lights the well's rim; the colour itself is
-                              set in CSS (emerald — see the case/chase block in
-                              styles.js), so the tier name here is only the switch. */}
-                          <div className="fib-well fib-case-well" data-tier="earned">
-                            {achGlyph(a.scope)}
-                          </div>
-                          <div className="fib-case-body">
-                            <b>{renderMiniMessage(a.title)}</b>
-                            <p className="fib-meta">{renderMiniMessage(a.description)}</p>
-                            <span className="fib-meta fib-case-when">
-                          {a.earnedAt ? f.date(a.earnedAt) : a.scopeLabel}
-                              {a.teammates.length > 0 ? ` · with ${a.teammates.map(idLabel).join(', ')}` : ''}
-                        </span>
-                          </div>
-                        </li>
-                    ))}
-                  </ul>
-              )}
-
-              {/* ── THE CHASE ────────────────────────────────────────────── */}
-              <h3 className="fib-subhead fib-chase-head">
-                Closest to earning
-                <span className="fib-meta"> · {f.num(shownChase.length)}{filtered ? ` of ${f.num(chase.length)}` : ''} left</span>
-              </h3>
-              {shownChase.length === 0 ? (
-                  <Empty title={filtered ? 'Nothing left matches that' : 'Everything earned'}>
-                    {filtered
-                        ? 'Clear the search or pick another kind to see what is still open.'
-                        : `${name} holds every achievement in the catalogue. There is nothing left to chase.`}
-                  </Empty>
-              ) : (
-                  <ol className="fib-chase">
-                    {shownChase.map((a) => (
-                        <li key={a.id} className="fib-chase-row">
-                          <div className="fib-chase-body">
-                            <b>{renderMiniMessage(a.title)}</b>
-                            <p>{renderMiniMessage(a.description)}</p>
-                          </div>
-                          <div className="fib-chase-track">
-                            {a.progress ? (
-                                <>
-                                  <div
-                                      className="fib-ramp-track"
-                                      style={{ height: 6, color: 'var(--fib-blue)' }}
-                                      role="img"
-                                      aria-label={`${a.plainTitle}: ${f.num(a.progress.current)} of ${f.num(a.progress.target)}`}
-                                  >
-                                    <i style={{ '--fill': a.progress.ratio }} />
-                                  </div>
-                                  <span className="fib-chase-count">
-                                {f.num(a.progress.current)} of {f.num(Math.round(a.progress.target))}
-                              </span>
-                                </>
-                            ) : (
-                                /* No career total measures a single-round feat, so this row states
-                                   its kind instead of faking a percentage. */
-                                <span className="fib-meta fib-chase-unmeasured">{a.scopeLabel}</span>
-                            )}
-                          </div>
-                        </li>
-                    ))}
-                  </ol>
-              )}
-            </>
-        )}
-      </Section>
-  );
+function favourites(s, t) {
+  const m = new Map();
+  [...(s?.topThreeItems ?? []), ...(t?.topThreeItems ?? [])].forEach((x) => m.set(itemKey(x.itemName), (m.get(itemKey(x.itemName)) ?? 0) + x.count));
+  return [...m].map(([item, n]) => ({ item, n })).sort((a, b) => b.n - a.n).slice(0, 4);
 }
 
-/**
- * The closing statement: the whole record compressed to the handful of facts a
- * player would actually quote about themselves. Deliberately the only place in
- * the module set at display scale in prose form rather than as a stat block —
- * it is the sentence, not the spreadsheet.
- */
-function Signature({ name, stats, summary, rank, partners, onOpenPlayer }) {
-  const best = partners?.length
-      ? partners.reduce((a, b) =>
-          f.winRate(b.team.gamesWon, b.team.gamesPlayed) > f.winRate(a.team.gamesWon, a.team.gamesPlayed) ? b : a)
-      : null;
+export function PlayerProfile({ uuid, onOpenPlayer, onOpenMatch, onOpenCollection }) {
+  const [attempt, setAttempt] = useState(0);
+  const profileState = useAsync(() => loadPlayer(uuid), [uuid, attempt]);
+  const history = useAsync(() => loadPlayerMatches(uuid, HISTORY), [uuid]).data;
+  const catalogue = useAsync(loadCatalogue, []).data;
+  const unlocked = useAsync(() => loadPlayerAchievements(uuid), [uuid]).data;
+  const collection = useAsync(() => loadCollection(uuid), [uuid]).data;
+  const overview = useAsync(loadOverview, []).data;
+  const [allAchievements, setAllAchievements] = useState(false);
+
+  const rounds = useMemo(() => (history?.matches ?? []).flatMap((m) => {
+    const rows = matchStandings(m);
+    const mine = rows.find((r) => r.members.some((p) => idUuid(p) === uuid));
+    if (!mine) return [];
+    const others = rows.filter((r) => r !== mine);
+    return [{ m, mine, others, best: Math.max(0, ...others.map((r) => r.score)) }];
+  }), [history, uuid]);
+
+  const rivals = useMemo(() => {
+    const h = new Map();
+    rounds.forEach(({ mine, others }) => others.forEach((o) => o.members.forEach((p) => {
+      const e = h.get(idUuid(p)) ?? { player: p, w: 0, l: 0 };
+      if (mine.won && !o.won) e.w += 1;
+      else if (o.won && !mine.won) e.l += 1;
+      h.set(idUuid(p), e);
+    })));
+    return [...h.values()].filter((e) => e.w + e.l > 0).sort((a, b) => (b.w + b.l) - (a.w + a.l)).slice(0, 6);
+  }, [rounds]);
+
+  const album = useMemo(() => {
+    if (!collection) return null;
+    const items = collection.items ?? [];
+    const got = new Set(items.map((i) => itemKey(i.itemName).toUpperCase()));
+    return {
+      unique: items.filter((i) => i.playerCount <= 1).map((i) => i.itemName),
+      latest: [...items].sort((a, b) => b.firstCollected - a.firstCollected).slice(0, 12),
+      most: [...items].sort((a, b) => b.timesCollected - a.timesCollected).slice(0, 8).map((i) => i.itemName),
+      missing: ITEM_POOL.filter((k) => !got.has(k)),
+    };
+  }, [collection]);
 
   return (
-      <Section title="In short">
-        <div className="fib-signature">
-          <p className="fib-signature-line">
-            {/* Each figure reserves its settled width in `ch` before it counts up.
-                The numbers are monospace, so a character count is an exact width —
-                without this the count-up grows from one digit to three and shoves
-                the words after it sideways, the one place the module's tabular
-                digits don't cover (a block figure has no in-line neighbour to
-                push; a sentence does). */}
-            <strong>{name}</strong> has played{' '}
-            <b style={{ minWidth: `${f.full(stats.gamesPlayed).length}ch` }}>
-              <Counter value={stats.gamesPlayed} format={f.full} />
-            </b> matches, won{' '}
-            <b style={{ minWidth: `${f.full(stats.gamesWon).length}ch` }}>
-              <Counter value={stats.gamesWon} format={f.full} />
-            </b>, and pulled{' '}
-            <b style={{ minWidth: `${f.full(stats.totalItemsFound).length}ch` }}>
-              <Counter value={stats.totalItemsFound} format={f.full} />
-            </b> items out of the world.
-            {summary.total > 0 ? (
-                <> They've earned <em>{summary.earned}</em> of {summary.total} achievements.</>
-            ) : null}
-          </p>
+    <Async state={profileState} what="this player" onRetry={() => setAttempt((n) => n + 1)}>
+      {(payload) => {
+        const { solo: s, team: t, streaks, player } = payload.profile ?? {};
+        const rank = payload.rank;
+        const name = idLabel(player ?? { uuid });
+        const played = (s?.gamesPlayed ?? 0) + (t?.totalGamesPlayed ?? 0);
+        const won = (s?.gamesWon ?? 0) + (t?.totalGamesWon ?? 0);
+        const items = (s?.totalItemsFound ?? 0) + (t?.totalItemsFound ?? 0);
+        const pulls = Object.entries(RARITY).map(([key, r]) => [key, (s?.rarities?.[r.field] ?? 0) + (t?.rarities?.[r.field] ?? 0)]);
+        const fav = favourites(s, t);
+        const wall = [...new Set([...fav.map((x) => x.item), ...(album?.most ?? []).map(itemKey), ...(album?.latest ?? []).map((i) => itemKey(i.itemName))])];
+        const myMoments = (overview?.moments ?? []).filter((m) => [m.player, ...(m.members ?? [])].some((p) => idUuid(p) === uuid));
+        const partners = (payload.partners ?? [])
+          .map((p) => ({ ...p, other: idUuid(p.player1) === uuid ? p.player2 : p.player1 }))
+          .sort((a, b) => b.gamesPlayed - a.gamesPlayed);
+        const { earned, chase } = splitAchievements(achievementGroups(catalogue, unlocked, {
+          career: lifetimeStats(s, t), streaks: streaks ?? null, collection,
+        }));
+        const achievements = [...earned, ...chase];
+        const solo = s?.gamesPlayed > 0 ? s : null;
+        const duo = t?.totalGamesPlayed > 0 ? t : null;
+        const record = [
+          ['Rounds', show(s?.gamesPlayed ?? 0), show(t?.totalGamesPlayed ?? 0)],
+          ['Wins', show(solo?.gamesWon), show(duo?.totalGamesWon)],
+          ['Win rate', rate(solo?.gamesWon, solo?.gamesPlayed), rate(duo?.totalGamesWon, duo?.totalGamesPlayed)],
+          ['Items found', show(solo?.totalItemsFound), show(duo?.totalItemsFound)],
+          ['Best score', show(solo?.highestScore), show(duo?.highestTeamScore)],
+          ['Item streak', show(solo?.longestItemStreak), show(duo?.longestTeamItemStreak)],
+          ['Back to back streak', show(solo?.highestB2BStreak), show(duo?.highestB2BStreak)],
+          ['Time per item', perItem(solo), perItem(duo)],
+          ['Blocks travelled', show(solo?.blocksTravelled), show(duo?.blocksTravelled)],
+          ['Deaths', show(solo?.deaths), show(duo?.deaths)],
+        ];
 
-          <dl className="fib-signature-grid">
-            <div>
-              <dt className="fib-figure-label">Global rank</dt>
-              <dd>{rank?.rank != null
-                  ? <Figure size="md" value={rank.rank} tone="gold" count={false} format={(n) => `#${n}`} />
-                  : <span className="fib-meta">Unranked</span>}</dd>
-            </div>
-            <div>
-              <dt className="fib-figure-label">Signature item</dt>
-              <dd style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                {stats.topThreeItems?.[0] ? (
-                    <>
-                      <Sprite name={stats.topThreeItems[0].itemName} size={32} pad={8} />
-                      <span>{f.itemLabel(stats.topThreeItems[0].itemName)}</span>
-                    </>
-                ) : <span className="fib-meta">none yet</span>}
-              </dd>
-            </div>
-            <div>
-              <dt className="fib-figure-label">Time spent on items</dt>
-              <dd><Figure size="md" value={stats.totalTimeSpentOnItems} format={f.hours} count={false} /></dd>
-            </div>
-            {best ? (
-                <div>
-                  <dt className="fib-figure-label">Strongest duo</dt>
-                  <dd style={{ marginTop: 4 }}>
-                    {/* `name` is the partner identity's real name, resolved in
-                        the model above — without it PlayerLink falls back to the
-                        short uuid, which read as a bug whenever a name exists. */}
-                    <PlayerLink uuid={best.uuid} name={best.name} onOpen={onOpenPlayer} size={28} />
-                    <span className="fib-meta">
-                  {f.pct(f.winRate(best.team.gamesWon, best.team.gamesPlayed))} across{' '}
-                      {best.team.gamesPlayed} matches
-                </span>
-                  </dd>
+        return (
+          <>
+            <section className="banner">
+              {wall.length > 0 && (
+                <div className="wall" aria-hidden="true">
+                  {Array.from({ length: 70 }, (_, i) => <Sprite key={i} name={wall[i % wall.length]} size={42} />)}
                 </div>
-            ) : null}
-          </dl>
-        </div>
-      </Section>
+              )}
+              <div>
+                <span className="skin"><Skin uuid={uuid} scale={6} /></span>
+                <div>
+                  <h1>{name}</h1>
+                  <p>{times(played, 'round', 'rounds')}, {f.full(won)} won, {times(items, 'item', 'items')} found. {streakLine(streaks)}</p>
+                  <span className="rank">
+                    <i className={rank?.rank === 1 ? 'g1' : rank?.rank === 3 ? 'g3' : rank?.rank ? '' : 'g0'}>{rank?.rank ?? '-'}</i>
+                    {rank?.rank != null ? `Number ${rank.rank} of ${rank.totalRanked} by solo wins` : 'Not ranked in solo yet'}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <div className="cols">
+              <div>
+                {fav.length > 0 && (
+                  <section className="sec">
+                    <div className="sh"><h2>Favourite finds</h2><span className="r">The items they find most</span></div>
+                    <div className="shelf">
+                      {fav.map((x) => <div key={x.item}><Item name={x.item} size="t84" /><b>{itemLabel(x.item)}</b><small>found {x.n === 1 ? 'once' : `${f.full(x.n)} times`}</small></div>)}
+                    </div>
+                  </section>
+                )}
+
+                <section className="sec">
+                  <div className="sh"><h2>Back to backs</h2><span className="r">{f.full(pulls.reduce((n, [, c]) => n + c, 0))} in {f.full(items)} finds</span></div>
+                  <p className="tline">{pulls.map(([key, count]) => <span key={key} className={count ? '' : 'quiet'}><b>{f.full(count)}</b><Tier tier={key} /></span>)}</p>
+                  {myMoments.length > 0 && (
+                    <>
+                      <p className="label">Their latest Legendary or better</p>
+                      <div className="row">
+                        {myMoments.map((m) => (
+                          <button key={`${m.matchId}${m.itemName}`} type="button" onClick={() => onOpenMatch(m.matchId)}>
+                            <Item name={m.itemName} tier={m.b2bRarity} title={`${itemLabel(m.itemName)}, ${RARITY[m.b2bRarity]?.label}, ${f.date(m.collectedAt)}`} />
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </section>
+
+                {collection && album && (
+                  <section className="sec">
+                    <div className="sh">
+                      <h2>Collection</h2>
+                      <span className="r"><a href={`?view=collection&uuid=${uuid}`} onClick={(e) => { e.preventDefault(); onOpenCollection(uuid); }}>Open the whole album</a></span>
+                    </div>
+                    <p><span className="big">{f.full(collection.distinctItems)}</span> <span className="muted">of {f.full(collection.totalItems)} items found at least once</span></p>
+                    <div className="meter" style={{ '--w': (collection.distinctItems / Math.max(1, collection.totalItems)) * 100 }}><i /></div>
+                    {album.unique.length > 0 && (
+                      <>
+                        <p className="label">Only {name} has {album.unique.length === 1 ? 'this' : `these ${album.unique.length}`}</p>
+                        <div className="row">{album.unique.slice(0, SHOWN_ROW).map((k) => <Item key={k} name={k} />)}</div>
+                      </>
+                    )}
+                    <p className="label">Latest firsts</p>
+                    <div className="row">{album.latest.map((i) => <Item key={i.itemName} name={i.itemName} title={`${itemLabel(i.itemName)}, first found ${f.date(i.firstCollected)}`} />)}</div>
+                    {album.missing.length > 0 && (
+                      <>
+                        <p className="label">{f.full(album.missing.length)} still to find</p>
+                        <div className="row">{album.missing.slice(0, SHOWN_ROW).map((k) => <Item key={k} name={k} gone title={`${itemLabel(k)}, not found yet`} />)}</div>
+                      </>
+                    )}
+                  </section>
+                )}
+
+                {achievements.length > 0 && (
+                  <section className="sec">
+                    <div className="sh"><h2>Achievements</h2><span className="r">{earned.length} of {achievements.length}</span></div>
+                    <ul className="ach">
+                      {(allAchievements ? achievements : achievements.slice(0, SHOWN_ACHIEVEMENTS)).map((a) => (
+                        <li key={a.id} className={a.unlocked ? 'got' : ''}>
+                          <b>{a.plainTitle}</b>
+                          <span>{a.plainDescription}</span>
+                          <small>
+                            {a.unlocked ? f.date(a.earnedAt) : a.progress ? `${f.full(a.progress.current)} of ${f.full(a.progress.target)}` : 'Locked'}
+                          </small>
+                        </li>
+                      ))}
+                    </ul>
+                    {achievements.length > SHOWN_ACHIEVEMENTS && (
+                      <button type="button" className="btn" onClick={() => setAllAchievements((v) => !v)}>
+                        {allAchievements ? 'Show fewer' : `Show all ${achievements.length}`}
+                      </button>
+                    )}
+                  </section>
+                )}
+
+                {rounds.length > 0 && (
+                  <section className="sec">
+                    <div className="sh"><h2>{rounds.length === 1 ? 'Their round' : 'Recent rounds'}</h2></div>
+                    <div className="tbl">
+                      <table>
+                        <tbody>
+                          {rounds.slice(0, SHOWN_ROUNDS).map(({ m, mine, others, best }) => {
+                            const mates = mine.members.filter((p) => idUuid(p) !== uuid);
+                            return (
+                              <tr
+                                key={m.matchId}
+                                className="go"
+                                tabIndex={0}
+                                onClick={() => onOpenMatch(m.matchId)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') onOpenMatch(m.matchId); }}
+                              >
+                                <td className="quiet">{f.date(m.startedAt)}</td>
+                                <td className={mine.won ? 'win' : 'quiet'}><b>{mine.won ? 'Win' : 'Loss'}</b></td>
+                                <td className="sc"><span className="fig">{mine.score}</span><i>:</i><span className="lose">{best}</span></td>
+                                <td>{mates.length ? mates.map((p) => <Who key={idUuid(p)} player={p} onOpen={onOpenPlayer} size={22} />) : <span className="quiet">Solo</span>}</td>
+                                <td className="lo muted">
+                                  {others.length > 2 ? `${others.length} others` : `against ${others.flatMap((r) => r.members.map(idLabel)).join(' and ')}`}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
+              </div>
+
+              <aside>
+                <section className="sec">
+                  <div className="sh"><h2>Record</h2></div>
+                  <table>
+                    <thead><tr><th /><th className="rt">Solo</th><th className="rt">Duos</th></tr></thead>
+                    <tbody>
+                      {record.map(([label, a, b]) => (
+                        <tr key={label}><td className="muted">{label}</td><td className="rt">{a}</td><td className="rt">{b}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+
+                {partners.length > 0 && (
+                  <section className="sec">
+                    <div className="sh"><h2>Partners</h2></div>
+                    <ul className="mates">
+                      {partners.slice(0, 6).map((p) => (
+                        <li key={idUuid(p.other)}>
+                          <Face uuid={idUuid(p.other)} size={32} />
+                          <span>
+                            <button type="button" className="nm" onClick={() => onOpenPlayer(idUuid(p.other))}>{idLabel(p.other)}</button>
+                            <small>{p.gamesWon} won of {p.gamesPlayed}, best score {p.highestScore}</small>
+                          </span>
+                          <span className="v">{f.pct(f.winRate(p.gamesWon, p.gamesPlayed))}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {rivals.length > 0 && (
+                  <section className="sec">
+                    <div className="sh"><h2>Head to head</h2><span className="r">{rounds.length === 1 ? 'their only round' : `last ${rounds.length} rounds`}</span></div>
+                    <ul className="mates">
+                      {rivals.map((r) => (
+                        <li key={idUuid(r.player)}>
+                          <Face uuid={idUuid(r.player)} size={32} />
+                          <button type="button" className="nm" onClick={() => onOpenPlayer(idUuid(r.player))}>{idLabel(r.player)}</button>
+                          <span className="v sc"><span className={r.w > r.l ? 'win' : ''}>{r.w}</span><i>:</i><span className="lose">{r.l}</span></span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </aside>
+            </div>
+          </>
+        );
+      }}
+    </Async>
   );
 }

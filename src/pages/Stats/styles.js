@@ -1,36 +1,7 @@
-/**
- * FIB Stats — stylesheet ("The Artifact Record")
- *
- * Injected once, imperatively, because this module drops into an app with no
- * CSS pipeline of its own (no CSS modules, no Tailwind — the wiki pages use
- * inline styles). Everything is namespaced under `.fib` so it cannot leak into
- * pages that render in the same document.
- *
- * Structure, top to bottom:
- *   1. reset, scoped
- *   2. shell (atmosphere, rail, main, page)
- *   3. type + section furniture
- *   4. objects (well, sprite, avatar, medal)
- *   5. figures — the mono numerals that carry the hierarchy
- *   6. controls
- *   7. tables + rows
- *   8. charts
- *   9. achievements + rarity + the trophy case
- *  10. states (skeleton, empty)
- *  11. motion + reduced motion
- *  12. views (overview, profile, ledger, match detail)
- *  13. match inventory
- *  14. responsive
- */
 
 import { cssVariables, tokens } from './tokens.js';
 
-/**
- * Fonts load as <link> rather than @import so they resolve in parallel with
- * the stylesheet instead of after it. `display=swap` means text paints in the
- * fallback immediately — a stats page that shows nothing until a webfont lands
- * is a stats page nobody reads.
- */
+/* Fonts load as <link> rather than @import so they resolve in parallel with the stylesheet instead of after it. */
 const FONT_HREF =
   'https://fonts.googleapis.com/css2' +
   '?family=Inter:wght@400;500;600;700' +
@@ -48,7 +19,6 @@ ${cssVariables()}
 .fib, .fib *, .fib *::before, .fib *::after { box-sizing: border-box; }
 
 .fib {
-  --rail: 232px;
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--fib-void);
@@ -61,15 +31,7 @@ ${cssVariables()}
   font-synthesis-weight: none;
 }
 
-/*
- * The reset is wrapped in :where() so it contributes ZERO specificity.
- *
- * Written plainly, ".fib a { color: inherit }" scores (0,1,1) and quietly beats
- * every single-class component rule like ".fib-skip-link" (0,1,0). That is not
- * hypothetical: it made the skip link render white-on-white — invisible to the
- * exact keyboard user it exists for — and put ink-coloured text on the diamond
- * primary button. A reset must never outrank the components it resets.
- */
+/* The reset is wrapped in :where() so it contributes ZERO specificity: a reset must never outrank the components it resets. */
 :where(.fib) :where(h1, h2, h3, h4, p, figure, ul, ol) { margin: 0; padding: 0; }
 :where(.fib) :where(ul, ol) { list-style: none; }
 :where(.fib) :where(button) { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
@@ -105,12 +67,6 @@ ${cssVariables()}
 
 .fib-shell { display: flex; min-height: 100vh; min-height: 100dvh; position: relative; }
 
-/*
- * The room light. A single faint spotlight falling from the top of the page —
- * the same "lit from above" language as the wells, extended from the objects
- * to the room they sit in. Fixed, so it reads as the room rather than the
- * content; faint enough that it never competes with a lit rim.
- */
 .fib-atmosphere {
   position: fixed; inset: 0 0 auto 0; height: 480px;
   z-index: var(--fib-z-base);
@@ -118,124 +74,21 @@ ${cssVariables()}
   background: radial-gradient(58% 100% at 50% 0%, oklch(1 0 0 / 0.045), transparent 72%);
 }
 
-.fib-main { flex: 1 1 auto; min-width: 0; position: relative; z-index: 1; }
+.fib-main { flex: 1 1 auto; min-width: 0; position: relative; z-index: 1; padding-bottom: 104px; }
+.fib-shell[data-view="overview"] .fib-main { padding-bottom: 0; }
 
-.fib-rail {
-  position: sticky; top: 0; align-self: flex-start;
-  z-index: var(--fib-z-rail);
-  width: var(--rail); flex: 0 0 var(--rail);
-  height: 100vh; height: 100dvh;
-  display: flex; flex-direction: column;
-  padding: var(--fib-space-5) var(--fib-space-4);
-  background: var(--fib-void);
-  border-right: 1px solid var(--fib-line-soft);
-}
-
-/*
- * The wordmark. It used to be "Statistics" in 14px Inter Bold beside a mono
- * "Beta" - a label, not a mark, and the only place on the page that could have
- * said whose statistics these were. Now it is the game's own initials in the
- * jersey, with the section name set a step down on the same baseline.
- */
-.fib-rail-brand {
-  display: flex; align-items: baseline; gap: 7px;
-  padding: 0 var(--fib-space-3) var(--fib-space-6);
-  font-family: var(--fib-font-display); font-weight: 400;
-  line-height: 0.8;
-}
-.fib-rail-brand b { font-size: var(--fib-display-mark); font-weight: 400; color: var(--fib-ink); }
-.fib-rail-brand span { font-size: var(--fib-display-sm); color: var(--fib-ink-3); }
-.fib-rail-brand em {
-  align-self: flex-start;
-  font-style: normal; font-family: var(--fib-font-mono);
-  font-size: var(--fib-text-2xs); color: var(--fib-netherite);
-  letter-spacing: 0.04em; line-height: 1;
-}
-
-.fib-rail-nav { display: flex; flex-direction: column; gap: 2px; }
-
-.fib-nav-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 9px var(--fib-space-3);
-  border-radius: var(--fib-radius-md);
-  font-size: var(--fib-text-md); font-weight: 500;
-  color: var(--fib-ink-2);
-  transition: background var(--fib-motion-fast) var(--fib-ease),
-              color var(--fib-motion-fast) var(--fib-ease);
-}
-.fib-nav-item:hover { background: var(--fib-plinth); color: var(--fib-ink); }
-/* Active item wears the interactive accent: a blue-tinted pill, blue label and
-   icon, and a top gloss so it reads as the lit, current destination. */
-.fib-nav-item[aria-current="page"] {
-  background: var(--fib-blue-tint); color: var(--fib-blue-ink); font-weight: 600;
-  box-shadow: inset 0 1px 0 0 var(--fib-gloss-top);
-}
-/* The destination's item. Softened at rest - part-desaturated, slightly dim -
-   not greyed out: fully grey, 16px sprites stopped reading as items at all.
-   Softened so a column of
-   five full-colour sprites does not outshout the labels; full colour on hover
-   and on the current page, where it is the "you are here" cue beside the blue. */
-.fib-nav-item .fib-nav-sprite {
-  flex: none; width: 16px; height: 16px;
-  image-rendering: pixelated;
-  filter: saturate(0.55); opacity: 0.8;
-  transition: filter var(--fib-motion-fast) var(--fib-ease), opacity var(--fib-motion-fast) var(--fib-ease),
-              transform var(--fib-motion-base) var(--fib-ease);
-}
-.fib-nav-item:hover .fib-nav-sprite,
-.fib-nav-item[aria-current="page"] .fib-nav-sprite {
-  filter: drop-shadow(0 1px 1px var(--fib-shadow-deep)); opacity: 1;
-}
-.fib-nav-item:hover .fib-nav-sprite { transform: translateY(-1px); }
-
-.fib-rail-foot { margin-top: auto; padding-top: var(--fib-space-5); }
-
-.fib-exit {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px var(--fib-space-3); border-radius: var(--fib-radius-md);
-  font-size: var(--fib-text-sm); color: var(--fib-netherite);
-  transition: color var(--fib-motion-fast) var(--fib-ease);
-}
-.fib-exit:hover { color: var(--fib-ink-2); }
-
-/*
- * Named container. The rail is 232px on desktop and gone below 900px, so the
- * width a strip or a table actually gets is not a function of the viewport —
- * two viewports 100px apart can hand the same section wildly different room.
- * Anything inside that needs to reflow measures THIS, not the window.
- */
 .fib-page {
   max-width: var(--fib-measure, 1180px); margin: 0 auto;
   padding: var(--fib-space-7) var(--fib-space-6) var(--fib-space-8);
   container: fib-page / inline-size;
 }
 
-/*
- * The wide measure, for the three views that are a GRID or a TABLE rather than a
- * document: items, matches, ranking, players.
- *
- * 1180px is the right measure for a page you read — the profile, a match report,
- * anything with prose and a chart. It is the wrong measure for a marketplace
- * grid. At 1920 the rail took 232px and the grid took 1180, which left 259px of
- * dead space to the right of the content and the rail pinned to the left edge:
- * visibly off-centre, and four columns where there was room for six.
- *
- * That gap is the single biggest reason a dense listing read as documentation
- * rather than as an index. Prose does not get wider with it — every lede and
- * paragraph is capped at its own ch measure independently — so the extra width
- * goes only to the things that can use it.
- */
+/* The wide measure, for the three views that are a GRID or a TABLE rather than a document. */
 .fib-page--wide { --fib-measure: 1560px; }
 
 /* ── 3. Type + section furniture ──────────────────────────────────────── */
 
-/*
- * Headings are set in the jersey (see tokens.js, rule 2). One weight, no
- * tracking: the face is drawn on a pixel grid, and both synthetic bold and
- * negative letter-spacing push its pixels off that grid. Leading is tight
- * because the face's ascenders are short - at 1.15 a two-line heading reads
- * as two separate lines.
- */
+/* Headings are set in the jersey (see tokens.js, rule 2). */
 .fib-h1 {
   font-family: var(--fib-font-display);
   font-size: var(--fib-display-md); font-weight: 400;
@@ -267,18 +120,9 @@ ${cssVariables()}
   color: var(--fib-ink-3); letter-spacing: 0.01em;
 }
 
-/*
- * Sections are separated by a rule and space, not by being boxed. Boxing every
- * section is what turns a record into a dashboard.
- */
+/* Sections are separated by a rule and space, not by being boxed. */
 .fib-section { padding-top: var(--fib-space-8); }
 
-/*
- * Scoped to the page's own first section. Written as a bare
- * ".fib-section:first-child" it also matched the first section inside any
- * nested layout — which is how the Overview's two side-by-side lists ended up
- * 72px out of alignment with each other.
- */
 .fib-page > .fib-section:first-child { padding-top: 0; }
 
 .fib-section-head {
@@ -311,19 +155,6 @@ ${cssVariables()}
 }
 .fib-panel--flush { padding: 0; overflow: hidden; }
 
-/*
- * ── Product card (the CSFloat shape) ──────────────────────────────────────
- *
- * The marketplace grammar, adopted deliberately for LISTING views (players,
- * items, matches): a uniform, data-rich card as the atomic unit. This is the
- * "identical card grid" the museum system warned against — legitimate here
- * because each card carries genuinely different, scannable data (a rank, a win
- * rate, a score, a meter), not a decorative icon+heading+text repeat. Featured
- * rows only; the long tail stays a table, so the grid never runs on forever.
- *
- * A tone top-LINE (never a side stripe) marks rank/rarity; the card lifts and
- * lights on hover, CSFloat's headline behaviour, made a reusable shell here.
- */
 .fib-pcard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(216px, 1fr));
@@ -354,13 +185,6 @@ ${cssVariables()}
   box-shadow: inset 0 1px 0 0 var(--fib-gloss-top),
               0 20px 52px -18px var(--pcard-glow, var(--fib-blue));
 }
-/*
- * The media band: object on a lit field, CSFloat's image area — the object sits
- * over a colour that BLEEDS up from the bottom in the card's own tone (the
- * marketplace's rarity bleed), a top catch of light, and a bright tone line
- * closing it off from the data below. This is what turns an empty square into a
- * lit display.
- */
 .fib-pcard-media {
   position: relative;
   display: grid; place-items: center;
@@ -371,26 +195,13 @@ ${cssVariables()}
     radial-gradient(92% 120% at 50% 0, var(--fib-gloss-top), transparent 70%);
   border-bottom: 1px solid color-mix(in oklch, var(--pcard-tone, var(--fib-line-soft)) 45%, var(--fib-line-soft));
 }
-/*
- * Item-index variant. The top of an item card carries no phase bar: the phase
- * is spoken once, where it matters — as the line dividing the texture from the
- * item name. So the top tone line is dropped, and the media/body seam is
- * promoted from a near-invisible tinted hairline to a 2px band in the card's
- * own phase tone (green EARLY, yellow MID, red LATE, netherite for the
- * unpooled). One phase mark per card, seated at the divide it explains.
- */
 .fib-items-cards .fib-pcard::before { display: none; }
 .fib-items-cards .fib-pcard-media {
   border-bottom: 2px solid var(--pcard-tone, var(--fib-line-soft));
 }
 /* The object gets its own seat of shadow so it lifts off the lit field. */
 .fib-pcard-media > .fib-avatar { box-shadow: 0 6px 18px -6px var(--fib-shadow-deep); }
-/*
- * The item texture sits DIRECTLY on the lit field — no inner well. The media
- * band is already the lit display (tone bleed, top catch, closing line), so a
- * box inside a box was one surface too many. Bigger, and it scales down rather
- * than overflowing the narrowest card. A pixel-art drop shadow seats it.
- */
+/* The item texture sits DIRECTLY on the lit field — no inner well. */
 .fib-pcard-media .fib-pcard-sprite {
   width: 128px; max-width: 100%; height: auto;
   /* A gentle seat — enough to lift the texture off the field — plus the tight
@@ -405,18 +216,13 @@ ${cssVariables()}
   padding: var(--fib-space-4) var(--fib-space-4) var(--fib-space-4);
   flex: 1 1 auto; min-width: 0;
 }
-/* An item's name is a name, so it takes the jersey like a player's does. Long
-   ones ("Waxed Oxidized Cut Copper Stairs") wrap to two lines rather than
-   shrinking; balance keeps the break even. */
+/* An item's name is a name, so it takes the jersey like a player's does. */
 .fib-pcard-title {
   font-family: var(--fib-font-display); font-weight: 400;
   font-size: var(--fib-display-sm); letter-spacing: 0; line-height: 0.95;
   overflow-wrap: anywhere; text-wrap: balance;
 }
 .fib-pcard-sub { margin-top: 2px; }
-/* The item card's phase tag: a short uppercase word in the phase colour. Colour
-   is set inline per phase (LATE takes the lighter text-safe red); the shape is
-   here so every card's tag is sized and tracked identically. */
 .fib-pcard-phase { font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 /* A labelled meter inside a card: the track spans the card and its value sits
    to the right, the CSFloat price+bar rhythm. Reuses .fib-ramp-track. */
@@ -441,12 +247,6 @@ ${cssVariables()}
 }
 .fib-phase-legend i { width: 9px; height: 9px; border-radius: var(--fib-radius-sm); flex: none; }
 
-/*
- * The item index's records. Three objects, not three cards of the grid below:
- * the sprite at 128px on a floor lit in its match phase (the same
- * green/yellow/red the grid's cards carry), the name in the jersey, the
- * record in mono. The pressed one is the grid's current sort, rimmed blue.
- */
 .fib-item-records {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--fib-space-4);
@@ -498,13 +298,6 @@ ${cssVariables()}
   .fib-item-record-media img { width: 64px; height: 64px; }
 }
 
-/* ── The player directory ─────────────────────────────────────────────────
- *
- * One card per player, grouped by whether they have played lately. See
- * PlayerCard in Players.jsx. Not a leaderboard: nothing is ordered by a
- * placing, and no card is gilded for being better than another.
- */
-
 .fib-dir-group + .fib-dir-group { margin-top: var(--fib-space-7); }
 .fib-dir-head {
   display: flex; align-items: baseline; gap: var(--fib-space-3); flex-wrap: wrap;
@@ -519,11 +312,6 @@ ${cssVariables()}
   gap: var(--fib-space-4);
 }
 
-/*
- * The card. A plinth-lit panel that lifts and rims blue on hover, because it
- * is a link. The head stands on its block in a column of its own, so every
- * card's name starts on the same x whatever the head render's width.
- */
 .fib-player-card {
   display: grid; grid-template-columns: 84px minmax(0, 1fr);
   align-items: center; gap: var(--fib-space-4);
@@ -606,28 +394,10 @@ ${cssVariables()}
 
 /* ── 4. Objects: wells, sprites, avatars, medals ──────────────────────── */
 
-/*
- * The well is the module's signature: a recess cut into the surface, lit from
- * above, so a 16x16 sprite reads as an object on a shelf rather than an icon
- * floating in a void. Inset shadow, not a drop shadow — the object is IN the
- * surface.
- */
 .fib-well {
   position: relative;
   display: grid; place-items: center;
-  /*
-   * Lit from above and a step LIGHTER than the field it sits on.
-   *
-   * This was flat sunk — darker than the page — which turned every sprite
-   * surface into a black square and left dark items (blackstone, basalt,
-   * crimson hyphae) with nothing to read against. A Minecraft slot is lighter
-   * than its panel for exactly this reason, so the authentic reference and the
-   * legibility fix point the same way.
-   *
-   * The vitrine metaphor survives: the object is still lit from above and
-   * seated by the shadow along its bottom edge. It sits ON a plinth rather
-   * than IN a pit.
-   */
+  /* Lit from above and a step LIGHTER than the field it sits on. */
   background: linear-gradient(var(--fib-plinth-2), var(--fib-plinth));
   border-radius: var(--fib-radius-md);
   box-shadow: inset 0 1px 0 0 var(--fib-edge-strong),
@@ -636,11 +406,6 @@ ${cssVariables()}
               background var(--fib-motion-base) var(--fib-ease);
 }
 
-/*
- * Match-phase bleed. A soft wash of the item's phase colour rising from the
- * floor of the well — the same green/yellow/red the item index uses, sitting on
- * a different axis from the rarity rim so a scarce EARLY item can show both.
- */
 .fib-well[data-phase]::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
   pointer-events: none; z-index: 0;
@@ -648,22 +413,12 @@ ${cssVariables()}
 }
 .fib-well[data-phase] > .fib-sprite { position: relative; z-index: 1; }
 
-/*
- * Rarity on the rim of a well. Shared by inventory slots and any other sprite
- * that knows its tier, so the five-tier ramp reads the same everywhere instead
- * of living only in an 11px badge off to one side.
- */
 .fib-well[data-tier] {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--tier) 60%, transparent),
               inset 0 1px 0 0 var(--fib-edge-strong),
               inset 0 -1px 0 0 var(--fib-shadow-soft);
 }
 
-/*
- * The Earned Glow Rule allows exactly this: the top two tiers are the moments
- * the game itself treats as a reward, so they get an outer bloom. Nothing
- * below RNGesus does.
- */
 .fib-well[data-tier="RNGESUS"],
 .fib-well[data-tier="EXTRAORDINARY"] {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--tier) 80%, transparent),
@@ -673,48 +428,23 @@ ${cssVariables()}
 
 .fib-sprite {
   image-rendering: pixelated;
-  /*
-   * Two shadows, pulling in opposite directions, because the sprite set spans
-   * both ends of the luminance range and the well is dark.
-   *
-   * The dark drop-shadow seats light items (clay, end stone) on the surface.
-   * The tight light halo is what rescues the dark ones: blackstone_wall renders
-   * at a mean luminance of 21 against a slot interior of 29-39 — measured, not
-   * guessed — which is roughly 1.2:1 and simply invisible. A 1px rim of light
-   * separates it without touching the item's own colours, and reads as the
-   * same "lit from above" language as the wells themselves.
-   */
+  /* Two shadows, pulling in opposite directions, because the sprite set spans both ends of the luminance range and the well is dark. */
   filter: drop-shadow(0 1px 2px var(--fib-shadow-deep))
           drop-shadow(0 0 1px oklch(1 0 0 / 0.55));
   transition: transform var(--fib-motion-base) var(--fib-ease);
 }
 
-/*
- * The background is a head waiting to arrive. Heads come from a third-party
- * renderer (mineatar, mc-heads before it) that routinely takes a second or two, and until then every avatar was a
- * flat grey square - five of nine on the player directory at first paint, which
- * read as missing players rather than slow ones. Two dark pixels on the 8x8 grid
- * where a face's eyes sit make the placeholder say "a head goes here"; the real
- * render is opaque and covers it the moment it lands.
- */
 .fib-avatar {
   image-rendering: pixelated;
   border-radius: var(--fib-radius-sm);
   background:
-    /* Two pixels wide, one tall, at columns 1-2 and 5-6 of row 4 - the 8x8
-       face grid. Percent positions resolve against (box - tile), hence the
-       odd-looking numbers. */
+    /* Two pixels wide, one tall, at columns 1-2 and 5-6 of row 4 - the 8x8 face grid. */
     linear-gradient(var(--fib-plinth), var(--fib-plinth)) 16.7% 57.1% / 25% 12.5% no-repeat,
     linear-gradient(var(--fib-plinth), var(--fib-plinth)) 83.3% 57.1% / 25% 12.5% no-repeat,
     var(--fib-line);
   flex: none;
 }
 
-/*
- * Rank medals: the only place gold, silver and bronze appear, and the only
- * coloured glow in the module. A podium position is the one thing here that is
- * supposed to feel like a reward.
- */
 .fib-medal {
   display: inline-grid; place-items: center;
   width: 26px; height: 26px; flex: none;
@@ -742,9 +472,7 @@ ${cssVariables()}
   font-weight: 500; line-height: 1; letter-spacing: -0.03em;
   color: var(--fib-ink);
   display: flex; align-items: baseline; gap: 0.18em;
-  /* A duration like "33m 8s" carries an internal space; without this it breaks
-     across two lines on a narrow card. The number is one token — keep it whole
-     and let the container query shrink the type instead. */
+  /* A duration like "33m 8s" carries an internal space; without this it breaks across two lines on a narrow card. */
   white-space: nowrap;
 }
 .fib-figure-unit {
@@ -752,9 +480,7 @@ ${cssVariables()}
   color: var(--fib-ink-3);
   white-space: normal;
 }
-/* 0.42em of an 18px figure is 7.5px, which is not a size type can be read at.
-   Small figures carry their unit proportionally larger so it lands on the
-   module's 11px floor instead. */
+/* 0.42em of an 18px figure is 7.5px, which is not a size type can be read at. */
 .fib-figure[data-size="sm"] .fib-figure-unit { font-size: 0.62em; }
 .fib-figure-label {
   font-size: var(--fib-text-xs); font-weight: 500;
@@ -772,21 +498,7 @@ ${cssVariables()}
 .fib-figure[data-size="md"]   .fib-figure-value { font-size: var(--fib-text-2xl); }
 .fib-figure[data-size="sm"]   .fib-figure-value { font-size: var(--fib-text-lg); }
 
-/*
- * A figure's size is a function of the box it is in, not of the viewport.
- *
- * The strips below ("fib-pulse", "fib-stat-strip") are flex rows: their items
- * narrow continuously between the point the rail collapses and the point the
- * strip wraps, and the viewport width says nothing useful about how much room
- * any one figure actually got. Seven digits of tabular mono measure ~4em
- * (0.6em advance less the -0.03em tracking), so a 36px numeral needs 144px of
- * content box. "842,190" in a 123px box is what shipped: the digits crossed
- * the divider into the next figure.
- *
- * Each figure is therefore its own container and steps down its own numeral.
- * The thresholds ARE the arithmetic above — 144px for 3xl, 112px for 2xl —
- * not round numbers picked to look tidy.
- */
+/* A figure's size is a function of the box it is in, not of the viewport. */
 @container fib-figure (max-width: 191px) {
   .fib-figure[data-size="xl"] .fib-figure-value { font-size: var(--fib-text-3xl); }
 }
@@ -806,21 +518,13 @@ ${cssVariables()}
 .fib-figure[data-tone="diamond"] .fib-figure-value { color: var(--fib-diamond); }
 .fib-figure[data-tone="emerald"] .fib-figure-value { color: var(--fib-emerald); }
 
-/*
- * Comparison gauge. Supporting figures carry one, because a number with no
- * field to sit in doesn't answer "how good is this".
- */
 .fib-gauge {
   position: relative; height: 4px; margin-top: 8px;
   background: var(--fib-plinth-2); border-radius: var(--fib-radius-pill);
   box-shadow: inset 0 1px 1px 0 var(--fib-shadow-soft);
   overflow: hidden;
 }
-/*
- * The fill carries a top-edge gloss over its colour — the CSFloat meter look.
- * Share-of-best is not good/bad, so the gloss is a lightness highlight within
- * the fill's OWN hue, never a green→red judgment the data doesn't make.
- */
+/* The fill carries a top-edge gloss over its colour — the CSFloat meter look. */
 .fib-gauge i {
   position: absolute; inset: 0 auto 0 0;
   display: block; width: 100%; border-radius: inherit;
@@ -871,14 +575,7 @@ ${cssVariables()}
 .fib-btn--quiet { background: none; color: var(--fib-ink-2); box-shadow: none; }
 .fib-btn--quiet:hover { background: var(--fib-plinth); color: var(--fib-ink); }
 
-/*
- * Segmented control for scope (solo / duos / combined) — the most-used control
- * in the module, so it is a real segmented control with a sliding indicator
- * rather than three buttons that happen to sit together.
- */
-/* Wraps, because the thumb measures both axes (see Segmented in Primitives) —
-   so one control covers three options and eight, and there is no second
-   "pick one of N" vocabulary for the wide cases. */
+/* Wraps, because the thumb measures both axes (see Segmented in Primitives). */
 .fib-seg {
   position: relative; display: inline-flex; flex-wrap: wrap; gap: 2px;
   max-width: 100%;
@@ -906,9 +603,7 @@ ${cssVariables()}
 .fib-seg button:hover { color: var(--fib-ink-2); }
 .fib-seg button[aria-checked="true"] { color: var(--fib-ink); font-weight: 600; }
 
-/* .fib-chip is gone with the Chip component — every one of its five call sites
-   was a "pick one of N" that Segmented already owned. See the note where Chip
-   used to be defined in Primitives.jsx. */
+/* .fib-chip is gone with the Chip component — every one of its five call sites was a "pick one of N" that Segmented already owned. */
 
 .fib-search {
   display: flex; align-items: center; gap: 9px;
@@ -919,9 +614,7 @@ ${cssVariables()}
   transition: box-shadow var(--fib-motion-fast) var(--fib-ease);
 }
 .fib-search:focus-within { box-shadow: inset 0 0 0 1px var(--fib-blue); }
-/* The label's :focus-within border above IS the focus indicator; suppress the
-   input's own global :focus-visible outline so it doesn't draw a second ring
-   that overflows the box top and bottom. */
+/* The label's :focus-within border is the focus indicator; suppress the input's own ring. */
 .fib-search input:focus-visible { outline: none; }
 .fib-search svg { flex: none; color: var(--fib-netherite); }
 .fib-search input {
@@ -933,9 +626,6 @@ ${cssVariables()}
    clear 4.5:1 like any other text. */
 .fib-search input::placeholder { color: var(--fib-ink-3); opacity: 1; }
 
-/* The / accelerator, printed in the field. A shortcut nobody can see is a
-   shortcut nobody uses, which is why the marketplace this module takes its cues
-   from prints it too. */
 .fib-search-key {
   flex: none;
   font-family: var(--fib-font-mono); font-size: var(--fib-text-2xs);
@@ -948,16 +638,6 @@ ${cssVariables()}
 /* Once you are typing, the hint has done its job and the field needs the room. */
 .fib-search:focus-within .fib-search-key { display: none; }
 
-/* ── Facets ───────────────────────────────────────────────────────────────
- *
- * The filter rail. Two columns on desktop: the rail, then the content. The rail
- * is the affordance the module was missing — 616 items sortable three ways and
- * searchable by name, with no way to ask the index a question.
- *
- * It is a <details> at every size, not only on mobile, so the same element is
- * doing the same job in both layouts. On desktop the marker is hidden and it sits
- * open; below the shell's breakpoint the summary becomes a real disclosure button.
- */
 .fib-faceted {
   display: grid;
   grid-template-columns: var(--facet-rail, 236px) minmax(0, 1fr);
@@ -1015,10 +695,6 @@ ${cssVariables()}
   font-size: var(--fib-text-sm); color: var(--fib-ink-2);
   cursor: pointer; padding: 2px 0;
 }
-/* The native box, tinted rather than replaced: a filter is the last control to
-   reinvent, because the reader has to trust that what they ticked is what they
-   got. accent-color recolours it without giving up the platform's own focus
-   ring, keyboard behaviour or indeterminate state. */
 .fib-check input {
   flex: none; width: 14px; height: 14px; margin: 0;
   accent-color: var(--fib-blue);
@@ -1108,9 +784,6 @@ ${cssVariables()}
   gap: var(--fib-space-3); min-width: 0;
 }
 
-/* A whole row that opens something. The chevron is the real control, but the
-   row takes the click too, and a clickable row that keeps the text cursor never
-   tells anyone that. */
 .fib-row-toggle { cursor: pointer; }
 
 /* Rows that are themselves links into a deeper view. */
@@ -1124,18 +797,7 @@ ${cssVariables()}
 .fib-row-link:hover { background: var(--fib-blue-tint); }
 .fib-row-link:last-child { border-bottom: none; }
 
-/*
- * A value's share of the leader's, as a column of its own.
- *
- * This used to be a 60×3px stub tucked under the numeral, which is precisely
- * the gauge the career ledger exists to replace — at a real board (leader 49,
- * fourth place 11) every bar below the podium was a 13px mark that answered
- * nothing. It is now the same object the ledger uses, at the ledger's weight,
- * given a full column: the field's shape — runaway leader or pack finish —
- * reads down the table before a single number is parsed. It also absorbs the
- * slack the Player column used to hoard, so a name and its bar sit close
- * enough to be read as one fact.
- */
+/* A value's share of the leader's, as a column of its own. */
 .fib-share-col { width: 34%; min-width: 96px; }
 .fib-share-track { height: 6px; color: var(--fib-ink-3); }
 
@@ -1190,12 +852,6 @@ ${cssVariables()}
 }
 .fib-lane-faces .fib-avatar:first-child { margin-left: 0; }
 
-/*
- * The match page's legend is a lane panel: each competitor's swatch, heads and
- * name, then what they are doing at the cursor - the item they are hunting and
- * for how long, or their last find at rest - and their score at that moment.
- * One card per lane, so the panel reads as a scoreboard beside the race.
- */
 .fib-chart-legend.fib-lanes {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--fib-space-3);
@@ -1262,9 +918,7 @@ ${cssVariables()}
 }
 .fib-ramp-track i {
   display: block; height: 100%; width: 100%; border-radius: inherit;
-  /* A top-edge gloss over the fill's own colour — the CSFloat meter sheen. The
-     colour is currentColor (set by the caller); the gloss is a lightness
-     highlight, never a hue shift. */
+  /* A top-edge gloss over the fill's own colour — the CSFloat meter sheen. */
   background: linear-gradient(var(--fib-gloss-top), transparent 55%), currentColor;
   transform-origin: left center; transform: scaleX(var(--fill, 0));
   transition: transform var(--fib-motion-slow) var(--fib-ease);
@@ -1277,32 +931,6 @@ ${cssVariables()}
 
 .fib-trophy figcaption { gap: 5px; }
 
-/*
- * ── The case and the chase ──────────────────────────────────────────────
- *
- * What a player holds and what they are chasing are different questions, so
- * they get different furniture rather than one list with a "Locked" word on
- * half the rows.
- *
- * THE CASE is a shelf of objects. Each tile is a glyph in a lit well, rimmed in
- * emerald.
- *
- * Emerald and not gold, though a trophy case argues for gold: gold means a rank
- * or a win in this module and an achievement is neither, and the old row list
- * already spent emerald on exactly this meaning (its unlocked tick was
- * --fib-emerald). Widening gold to cover "earned" would cost the podium its
- * only colour; reusing emerald costs nothing and keeps the vocabulary the module
- * already had.
- *
- * There is no per-achievement artwork in the plugin's payload, so the glyph names
- * the KIND of achievement and nothing more; a made-up sprite per row would be
- * decoration pretending to be data.
- *
- * THE CHASE is a progress list, closest first, and every row carries its own
- * numerator. It is one of the few places in the module where the number is
- * *not* the display element — here the bar is the point, because "how close"
- * is the question and a bar answers it faster than a fraction does.
- */
 .fib-case {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
@@ -1387,12 +1015,6 @@ ${cssVariables()}
 
 /* ── 11. Motion ───────────────────────────────────────────────────────── */
 
-/*
- * Reveals ENHANCE an already-visible default. Content renders at full opacity;
- * only once JS has confirmed an element is below the fold does it get
- * data-reveal="pending". A headless renderer, a background tab, or a JS
- * failure therefore ships the page populated rather than blank.
- */
 .fib-reveal {
   opacity: 1; transform: none;
   transition: opacity var(--fib-motion-slow) var(--fib-ease),
@@ -1400,20 +1022,7 @@ ${cssVariables()}
 }
 .fib-reveal[data-reveal="pending"] { opacity: 0; transform: translateY(10px); }
 
-/*
- * The podium ceremony. Medals land bronze, silver, gold — the order a podium
- * is actually announced in, not DOM order — so the stagger carries the ranking
- * rather than just spacing three identical entrances out.
- *
- * They arrive with their glow already on them. This is the module's one
- * sanctioned coloured shadow and the moment the Earned Glow rule reserves it
- * for; nothing else on the overview gets to bloom.
- *
- * A transition FROM a pending state, never a keyframe gated ON it: the flag is
- * removed to START the motion, so an element that never receives the flag —
- * reduced motion, hidden tab, no observer, above the fold — is simply correct
- * and visible from the first paint.
- */
+/* Transition FROM a pending state, never a keyframe gated ON it, so an element that never gets the flag is visible from first paint. */
 .fib-podium .fib-medal {
   transition: transform 420ms var(--fib-ease), opacity 300ms var(--fib-ease);
   transition-delay: calc(var(--ceremony, 0) * 140ms);
@@ -1422,14 +1031,6 @@ ${cssVariables()}
   opacity: 0; transform: scale(0.55); transition: none;
 }
 
-/*
- * The featured race draws itself: one clip rect scaled from its left edge, so
- * the reveal is linear in TIME rather than in path length. See RaceMini for
- * why that distinction is the difference between a race and a lie.
- *
- * 900ms matches the trace draw on the profile's score chart — the module has
- * one speed at which a chart draws itself.
- */
 .fib-wipe-rect {
   transform-box: fill-box;
   transform-origin: left center;
@@ -1448,15 +1049,6 @@ ${cssVariables()}
               0 14px 28px -14px var(--fib-shadow-deep);
 }
 
-/*
- * Collection scarcity. A measured-scarce holding — held by few of the ranked
- * players — earns diamond, the module's one "rarity / exceptional" colour, and
- * a diamond rim on its well. This is NOT the five-tier back-to-back ramp: that
- * measures how a pull landed, this measures how few others own the item. Two
- * different axes, so they are kept visually distinct — a rim, never a bloom
- * (the Earned Glow Rule reserves the outer glow for podium medals and the top
- * two pull tiers), and the rim persists on hover so a scarce object stays lit.
- */
 .fib-well--scarce {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--fib-diamond) 55%, transparent),
               inset 0 1px 0 0 var(--fib-edge-strong),
@@ -1482,14 +1074,7 @@ ${cssVariables()}
    only lifts to diamond when the holding is scarce. */
 .fib-table td[data-num][data-scarce] { color: var(--fib-diamond); }
 
-/*
- * The trophy — the scarcest holding, on its own plinth between the hero and
- * the case. It was a bare inline strip and read as a caption that had
- * wandered off; a feature this singular earns furniture. Diamond is spent
- * three ways on one fact (the well's rim, the hairline top edge, the holder
- * figure) — allowed, because all three mark the same thing: the module's one
- * rarity colour on the page's one rarity feature.
- */
+/* The trophy — the scarcest holding, on its own plinth between the hero and the case. */
 .fib-trophy {
   display: flex; align-items: center; gap: var(--fib-space-5);
   flex-wrap: wrap;
@@ -1512,19 +1097,7 @@ ${cssVariables()}
 /* The holder figure docks right, rhyming with the hero figure above it. */
 .fib-trophy .fib-figure { flex: none; align-items: flex-end; text-align: right; }
 
-/*
- * The collection book — a vitrine, not a spreadsheet.
- *
- * A bare shelf of wells sitting on the page void read as exactly that: placed.
- * So the holdings are set INTO a case — a panel-grade surface with its own
- * light. The case light is the vitrine metaphor at block scale: a soft fall
- * from the top edge (light falls downward, per the tokens), strongest where
- * the case opens and gone by mid-depth, so the block reads as a lit recess
- * rather than a rectangle of squares. It shows only in the tray around the
- * wells; the wells themselves keep their own lighting.
- *
- * Inside: a head strip (the label and the census), then the shelf of cards.
- */
+/* The collection book — a vitrine, not a spreadsheet. */
 .fib-book-case {
   position: relative;
   background: linear-gradient(var(--fib-plinth), var(--fib-void));
@@ -1553,10 +1126,7 @@ ${cssVariables()}
   margin-bottom: var(--fib-space-4);
   border-bottom: 1px solid var(--fib-line-soft);
 }
-/* The completion gauge is the first gauge to live inside the right-aligned hero
-   figure column, whose align-items:flex-end collapses the zero-content-width bar
-   to nothing. Stretch just the gauge back to the figure's width so the
-   completion bar actually reads. */
+/* align-items:flex-end collapses a zero-content-width bar to nothing. */
 .fib-hero-figures .fib-gauge { align-self: stretch; min-width: 168px; }
 
 /* FLIP transforms are written by useFlip; the row must not transition while
@@ -1574,10 +1144,7 @@ ${cssVariables()}
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
-  /* Every entrance's resting state IS the visible state, so killing the
-     transition lands on "shown" rather than stranding content hidden. The
-     hooks already refuse to set these flags under reduced motion; this is the
-     second lock on the same door. */
+  /* Every entrance's resting state IS the visible state, so killing the transition lands on "shown" rather than stranding content hidden. */
   .fib-reveal[data-reveal="pending"] { opacity: 1; transform: none; }
   .fib-podium[data-ceremony="pending"] .fib-medal { opacity: 1; transform: none; }
   .fib-chart[data-wipe="pending"] .fib-wipe-rect { transform: none; }
@@ -1605,9 +1172,6 @@ ${cssVariables()}
 .fib-hero-avatar { width: 128px; height: 128px; padding: 0; }
 .fib-hero-avatar img { width: 128px; height: 128px; }
 
-/* The profile's head on its block. The podium's measured fractions at hero
-   scale: the head's lowest vertex rests 22% down the block, less the render's
-   own 7% padding - hence -29% of the block. */
 .fib-hero-stand {
   --block: 128px;
   position: relative; flex: none;
@@ -1647,17 +1211,6 @@ ${cssVariables()}
   flex-wrap: wrap; padding-top: var(--fib-space-5);
 }
 
-/*
- * The sticky identity bar. Whose record this is must survive the scroll — a
- * profile is long, and "which player am I looking at" should never be a
- * question you have to scroll back up to answer.
- *
- * It occupies NO space while the hero is on screen (height 0, not
- * display:none, so position:sticky keeps working), then docks itself to the
- * top of the viewport once the hero leaves. It duplicates what the hero says
- * and nothing more, so it is hidden from assistive tech — the hero remains
- * the accessible identity.
- */
 .fib-playerbar {
   position: sticky; top: 0; z-index: var(--fib-z-sticky);
   display: flex; align-items: center; gap: var(--fib-space-3);
@@ -1694,40 +1247,14 @@ ${cssVariables()}
 }
 .fib-stat-strip > *:first-child { border-left: none; padding-left: 0; }
 
-/*
- * The record — the whole career under the profile hero, in two tiers.
- *
- * Six headline figures at 48px in a 3x2 grid, then the remaining seven at 18px
- * beneath them. Three across rather than six: a third of the page per figure is
- * the room 48px needs, and the second row costs nothing a page this long
- * notices. The 2.7:1 step between the tiers is what makes them read as headline
- * and supporting rather than as thirteen equal claims.
- *
- * Grids rather than flex-wrap, for the reason the server totals are: with a
- * wrapping row "starts a row" is not addressable in CSS, and the first figure
- * of the second row kept a divider it had not earned. A fixed column count
- * makes it addressable (nth-child), and the count steps on the PAGE width, not
- * the viewport, because the rail is 232px on desktop and gone below 900px.
- *
- * The figures step their own numerals down inside these columns via the
- * container query in section 5, so a narrow column never clips a number; the
- * column count only decides how many share a row.
- */
+/* The record — the whole career under the profile hero, in two tiers. */
 .fib-record-block {
-  /* The hero already contributes its own padding-bottom; adding a margin on
-     top of it pushed the record clear of the name it belongs to, which read as
-     a separate page rather than the same record. */
+  /* The hero already carries padding-bottom; a margin on top pushes the record away from the name. */
   border-top: 1px solid var(--fib-line-soft);
   padding-top: var(--fib-space-5);
 }
 
-/*
- * The record as three stories (Winning, Hunting, Luck) and a footnote (Out in
- * the world). Each story: an item emblem and a jersey title, one headline
- * figure, then its supporting numbers as a quiet definition list - label left,
- * figure and standing right - so the headline is the only large number in the
- * column. Columns are divided by a rule, never boxed.
- */
+/* The record as three stories (Winning, Hunting, Luck) and a footnote (Out in the world). */
 .fib-stories {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1791,11 +1318,7 @@ ${cssVariables()}
   container: fib-figure / inline-size;
 }
 .fib-record > *:nth-child(3n + 1) { border-left: none; padding-left: 0; }
-/* Rows after the first get a rule rather than a bare gap, so 3x2 reads as one
-   matrix. Two rows separated by space alone read as two unrelated strips.
-   "After the first row" is a function of the column count, so this selector is
-   re-stated in each container query below — at two columns, nth-child(n + 4)
-   would start the rule halfway along row two. */
+/* Rows after the first get a rule rather than a bare gap, so 3x2 reads as one matrix. */
 .fib-record > *:nth-child(n + 4) {
   margin-top: var(--fib-space-5);
   padding-top: var(--fib-space-5);
@@ -1864,12 +1387,6 @@ ${cssVariables()}
   align-items: start;
 }
 
-/*
- * The shelf. Artifacts sit in a row of wells, captioned beneath like museum
- * labels — the item is the object, the text is the placard. A grid, not
- * wrapping flex: uniform columns keep the shelf reading as a shelf at every
- * width.
- */
 .fib-shelf {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
@@ -1906,9 +1423,7 @@ ${cssVariables()}
 .fib-signature-line b {
   font-family: var(--fib-font-mono); font-weight: 500;
   font-variant-numeric: tabular-nums; color: var(--fib-ink);
-  /* inline-block so the min-width each figure reserves (see Signature) actually
-     holds the box; left-aligned so the growing count-up fills it from the start
-     rather than drifting in from the right. */
+  /* inline-block so the reserved min-width holds; left-aligned so the count-up grows from the start. */
   display: inline-block; text-align: left;
 }
 .fib-signature-line em { color: var(--fib-gold); font-style: normal; }
@@ -1919,23 +1434,6 @@ ${cssVariables()}
 }
 .fib-signature-grid dd { margin: 0; }
 
-/*
- * Podium - built out of the game. See Podium in Primitives.jsx for the why.
- *
- * No cards. Each place is one tower per entrant - a stack of block sprites
- * with a head on top - the towers stand on one floor, and the names sit in a
- * row under that floor. The rows are a subgrid, so a name that wraps in one
- * column does not push the floor out of line in the others.
- *
- * "--block" is the block's rendered size. The stacking fractions come from
- * measuring the 128px sprite: its top face runs from y 1 to y 57 at the centre
- * column and its vertical edge from 57 to 126, so a block stacked on another
- * sits 54% of a block higher (overlap: 46%), and the centre of the top face -
- * where a head's lowest point should rest - is 22% down from the block's top.
- * The head render (128x136) carries ~7% transparent padding under its lowest
- * vertex, and is drawn at 60px against a 64px block so it sits inside the
- * top face rather than overhanging it.
- */
 .fib-podium {
   --block: 64px;
   --head: 60px;
@@ -2046,26 +1544,15 @@ ${cssVariables()}
 .fib-match-winner { display: flex; align-items: center; gap: var(--fib-space-3); min-width: 0; }
 .fib-match-names { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .fib-match-margin { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-/* Shared with the overview's "Latest wins" feed, which prints the same figure
-   for the same reason. "flex: none" is for that use — inside the match feed's
-   grid it is inert; inside a ".fib-row-link" it stops the score cell shrinking
-   under a long pair of names. */
+/* Shared with the overview's "Latest wins" feed, which prints the same figure for the same reason. */
 .fib-match-score { text-align: right; flex: none; }
 .fib-match-score b {
   display: block; font-family: var(--fib-font-mono); font-variant-numeric: tabular-nums;
   font-size: var(--fib-text-xl); font-weight: 600; color: var(--fib-gold); letter-spacing: -0.02em;
-  /* The module's numeral leading (".fib-podium-value", ".fib-figure-value"), which
-     this cell was inheriting body line-height instead of. At 22px that is 34px of
-     line box for a 22px digit, and it made the score the tallest thing in the row:
-     every row in the overview's win feed was 17px taller than its content, and the
-     score sat visibly off the baseline of the name beside it. */
+  /* The module's numeral leading (".fib-podium-value", ".fib-figure-value"), which this cell was inheriting body line-height instead of. */
   line-height: 1.1;
 }
 
-/*
- * Day groups. A long feed of identical rows needs chronology landmarks —
- * "the match last Tuesday" is how people actually look for a game.
- */
 .fib-day { margin-top: var(--fib-space-5); }
 .fib-day:first-child { margin-top: 0; }
 /* The day is a heading the reader scans for ("the one on Tuesday"), so it is
@@ -2079,21 +1566,12 @@ ${cssVariables()}
 }
 .fib-day > h3::after { content: ''; flex: 1; height: 1px; background: var(--fib-line-soft); }
 
-/* The feed's footer: the next page, and how much of the history is on screen.
-   Centred and given real space above the fold's end, because its job is to be
-   found by someone who has just scrolled to the bottom looking for more. */
 .fib-more {
   display: flex; flex-direction: column; align-items: center;
   gap: var(--fib-space-2);
   padding: var(--fib-space-6) 0 var(--fib-space-2);
 }
 
-/*
- * Scrubber + replay. A native range input, themed with accent-color only —
- * building a custom slider would cost drag, keyboard stepping and
- * screen-reader support to gain nothing. The replay button beside it makes
- * the scrubber's best trick discoverable: the match can be WATCHED.
- */
 .fib-scrub { margin-top: var(--fib-space-5); }
 .fib-scrub-row { display: flex; align-items: center; gap: var(--fib-space-3); }
 .fib-scrub input[type="range"] {
@@ -2115,14 +1593,7 @@ ${cssVariables()}
 }
 
 /* Match settings — a definition list, densely set. */
-/*
- * Settings now read as phrases ("Items kept on death"), not as raw enum values
- * ("true"), so the column has to hold a clause rather than a token — hence the
- * wider minimum. "text-transform" is gone: the labels are authored in
- * "MatchDetail.jsx" and "capitalize" would have retitled them ("Random events"
- * → "Random Events"). The value drops out of the mono face for the same reason
- * the module keeps digits in it — mono is for numbers, and these are sentences.
- */
+/* Settings read as phrases, so the column holds a clause rather than a token. */
 .fib-settings {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--fib-space-3) var(--fib-space-6);
@@ -2138,32 +1609,14 @@ ${cssVariables()}
   text-align: right; text-wrap: pretty;
 }
 
-/*
- * Twenty-four rules in one undifferentiated grid is a list you search rather
- * than read, and the two that decide what the match even was — the format and
- * the item pool — sat wherever the server happened to send them. The groups are
- * the wiki's own categories, separated by a label and space, never boxed.
- */
+/* Group the rules: the format and item pool decide what the match was. */
 .fib-settings-group + .fib-settings-group { margin-top: var(--fib-space-6); }
 .fib-settings-head {
-  /* More air above the heading than below it: the label belongs to the rows
-     under it, not to the group it just left. Colour is ".fib-label"'s own
-     ink-3 — the module's proven label step — not a dimmer one; a heading that
-     has to be hunted for is not doing the job the grouping exists to do. */
   margin: 0 0 var(--fib-space-3);
   text-transform: uppercase; letter-spacing: 0.06em;
 }
 .fib-match-id { margin-top: var(--fib-space-6); }
 
-/*
- * The versus row (MatchVersus). Two sides facing each other across the score:
- * the winners' names run INTO the centre (right-aligned, heads last), the
- * beaten side runs OUT of it (heads first), so both sets of heads sit against
- * the score and the eye reads "these beat those" in one sweep.
- *
- * The score column is a fixed width so every row's score sits on one vertical
- * line down the feed - the way a results table is scanned.
- */
 .fib-vs {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr) 128px minmax(0, 1fr) 150px;
@@ -2216,10 +1669,6 @@ ${cssVariables()}
    for the exceptional, and the reason to open this row over its neighbours. */
 .fib-vs-meta [data-hot] { color: var(--fib-diamond); }
 
-/*
- * Narrow: the scoreboard keeps its shape - winners, score, beaten on one line -
- * and the time moves above it. What goes is the names' room, never the score.
- */
 @container fib-page (max-width: 760px) {
   .fib-vs, .fib-vs[data-compact], .fib-vs[data-ranked] {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -2227,9 +1676,7 @@ ${cssVariables()}
   }
   .fib-vs-when { grid-column: 1 / -1; flex-direction: row; gap: var(--fib-space-3); align-items: baseline; }
   .fib-vs-meta { display: none; }
-  /* Each side stacks its heads over its names, so a name gets the side's whole
-     width instead of what is left beside the heads - on a phone that was about
-     fifty pixels, and every name truncated to "elto…". */
+  /* Heads stack over names so a name gets the side's whole width and does not truncate on a phone. */
   .fib-vs-side { flex-direction: column; align-items: flex-start; gap: 4px; }
   .fib-vs-side[data-side="win"] { flex-direction: column-reverse; align-items: flex-end; }
   .fib-vs-names { white-space: normal; overflow-wrap: anywhere; font-size: var(--fib-text-sm); line-height: 1.25; }
@@ -2245,13 +1692,6 @@ ${cssVariables()}
   .fib-vs[data-compact] .fib-vs-side[data-side="win"] { flex-direction: column-reverse; align-items: flex-end; }
   .fib-vs[data-compact] .fib-vs-names { white-space: normal; overflow-wrap: anywhere; font-size: var(--fib-text-sm); line-height: 1.25; }
 }
-
-/* ── The match page ──────────────────────────────────────────────────────
- *
- * Headline and scoreboard, the round as a ledger line, the race over its pool
- * phases, the live board under it, the round's records, then every team's
- * round in full. See MatchReport.jsx.
- */
 
 .fib-match-head { padding-bottom: var(--fib-space-6); }
 .fib-match-head-grid {
@@ -2272,11 +1712,6 @@ ${cssVariables()}
   letter-spacing: 0.02em;
 }
 
-/*
- * The live board. One column of rows, because the FLIP re-rank measures
- * vertical position: a row that travels past another is the overtake. The
- * leader's row carries a faint gold floor - a place, which is what gold means.
- */
 .fib-board-title {
   display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px;
   margin: var(--fib-space-6) 0 var(--fib-space-3);
@@ -2342,11 +1777,6 @@ ${cssVariables()}
   font-size: var(--fib-text-lg); font-weight: 600;
 }
 
-/*
- * A team's report. Header (place, heads, names, score), then facts beside the
- * back-to-backs and the phase split, then the run: every item as a slot. The
- * winner's report carries the gold floor the board's leader does.
- */
 .fib-reports { display: flex; flex-direction: column; gap: var(--fib-space-5); }
 .fib-report {
   padding: var(--fib-space-5);
@@ -2475,15 +1905,6 @@ ${cssVariables()}
 
 /* Overview. */
 
-/*
- * The lead: the week's match as a headline, not a card.
- *
- * It sat in a boxed panel titled "Match of the week" below the totals, which
- * made the one story on the page the fourth thing in it and dressed it the way
- * every other panel was dressed. Now the headline is the page's h1, set in the
- * jersey on the open field, and the only framed thing is the race - the part
- * you click.
- */
 .fib-lead { padding-bottom: var(--fib-space-7); }
 .fib-lead-top {
   display: flex; justify-content: space-between; align-items: flex-end;
@@ -2516,11 +1937,6 @@ ${cssVariables()}
 .fib-lead-board-score b[data-side="win"] { color: var(--fib-gold); }
 .fib-lead-board-score i { font-style: normal; font-size: var(--fib-text-2xl); color: var(--fib-netherite); }
 
-/*
- * The server record as a line. Numbers in mono at reading weight, words in the
- * grotesk, separated by space rather than dividers - it is a sentence, not a
- * row of cells.
- */
 .fib-ledger {
   display: flex; flex-wrap: wrap; align-items: baseline;
   gap: var(--fib-space-2) var(--fib-space-5);
@@ -2539,12 +1955,6 @@ ${cssVariables()}
    the column it got rather than on the window. */
 .fib-split > .fib-section { container: fib-split / inline-size; }
 
-/*
- * The race and the haul are one control: the match opens from anywhere on
- * it. The band sits in a recess a step darker than the field so the lanes and
- * the sprites have a floor, and the whole thing lifts on hover the way the
- * featured card used to - it is still the page's headline object.
- */
 .fib-lead-race {
   display: flex; flex-direction: column; gap: var(--fib-space-4);
   width: 100%; text-align: left; cursor: pointer;
@@ -2564,12 +1974,6 @@ ${cssVariables()}
 }
 .fib-race-finish { image-rendering: pixelated; }
 
-/*
- * The haul. Right-aligned so the newest find sits under the finish line, and
- * masked on the left so the older finds trail off rather than stop at an edge
- * - a hard edge would read as "that is all of them". Never wraps: it is one
- * line of the race, not a grid of its own.
- */
 .fib-haul {
   display: flex; justify-content: flex-end; gap: 4px;
   overflow: hidden;
@@ -2596,15 +2000,6 @@ ${cssVariables()}
 
 .fib-podium-scope { margin-bottom: var(--fib-space-6); }
 
-/*
- * The form guide. A grid of matches (columns) by players (rows), so a column
- * is one match and a row is one run. Squares, not dots: the page's objects are
- * pixel art, and a round pip is the one shape Minecraft never draws.
- *
- * Gold is a win - the meaning the module already spends gold on. A loss is a
- * filled step of the surface ladder, and a match the player sat out is an
- * outline, so "lost" and "wasn't there" never look alike.
- */
 .fib-form { display: flex; flex-direction: column; }
 .fib-form > li + li { border-top: 1px solid var(--fib-line-soft); }
 .fib-form-row {
@@ -2661,11 +2056,6 @@ ${cssVariables()}
 .fib-moment-caption .fib-meta { overflow-wrap: anywhere; }
 .fib-moment:hover b { color: var(--fib-blue-ink); }
 
-/*
- * Two lists side by side. The pair takes the section spacing once, as a
- * block, and the sections inside it take none — otherwise the columns each
- * apply their own top spacing and stop sharing a baseline.
- */
 .fib-split {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: var(--fib-space-6) var(--fib-space-7);
@@ -2674,45 +2064,14 @@ ${cssVariables()}
 }
 .fib-split > .fib-section { padding-top: 0; }
 
-/*
- * The paired overview feeds. Both rows are the same three parts — an object, a
- * line of text, a figure on the right — because the columns sit side by side
- * and a row shape that only half-works in one of them is visible in the other.
- */
 
 /* The object slot: the winner's head(s) for a win, the item's sprite for a
    pull. Fixed width so the text in both feeds starts on the same x. */
 .fib-stream-icon { flex: none; width: 34px; display: grid; place-items: center; }
 .fib-stream-body { flex: 1 1 auto; min-width: 0; }
 .fib-stream-title { font-weight: 500; }
-/*
- * The second line truncates rather than wraps. It is the row's supporting
- * clause ("4d ago · over eltobito & apppaa"), and at a phone's column width it
- * takes two lines on most rows — 17px per row of a feed whose whole value is
- * that it scans in one pass, spent on a fragment reading as a detached line.
- * The relative time is written first precisely so the ellipsis never eats it,
- * and the match is one tap away with the full story in it.
- */
 .fib-stream-body .fib-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/*
- * The winners' heads, stacked.
- *
- * This slot used to hold a gold "1" medal on every row. The medal was a
- * constant — the section is titled "Latest wins", so first place is the one
- * thing every row shares — which turned the column into a stack of identical
- * gold pills that outshouted the real sprites in the feed beside it, and spent
- * the module's rank colour on the only part of the row that could not vary. A
- * head answers "who", which does, and two heads say "team" without a word.
- *
- * The overlap is ".fib-lane-faces"' idiom at row scale: the ring is the panel
- * behind the row, so a duo reads as two objects rather than one wide sprite.
- *
- * The slot is widened to hold a pair and the heads are packed to its left edge
- * rather than centred in it — a solo win is one head in a 50px box, and
- * centring it would start that row's name 10px right of every duo's. The empty
- * tail after a lone head is invisible; a ragged text edge is not.
- */
 .fib-win-faces {
   display: flex; align-items: center; justify-content: flex-start;
   width: 50px;
@@ -2720,23 +2079,7 @@ ${cssVariables()}
 .fib-win-faces .fib-avatar { margin-left: -10px; box-shadow: 0 0 0 2px var(--fib-plinth); }
 .fib-win-faces .fib-avatar:first-child { margin-left: 0; }
 
-/*
- * The server record, at the head of the overview. These totals are the
- * yardstick every number further down is read against — see "Scale Sets the
- * Scale" in DESIGN.md, which this stylesheet used to contradict.
- */
-/*
- * Grid, not flex-wrap, for one reason: the dividers.
- *
- * With "flex-wrap" the column count is unknowable in CSS, so ":first-child" is
- * the only handle on "starts a row" — and the moment the strip wrapped, the
- * first figure of the second row kept a left divider it had not earned. A
- * fixed column count makes row-leading items addressable (":nth-child(4n+1)"),
- * and the count switches on the PAGE's width rather than the viewport's,
- * because the rail is 232px wide on desktop and absent below 900px.
- *
- * Four across needs 4 × (144px numeral + 32px padding) = 704px of page.
- */
+/* The server record, at the head of the overview. */
 .fib-pulse {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2761,10 +2104,6 @@ ${cssVariables()}
 
 /* ── 13. Match inventory ──────────────────────────────────────────────── */
 
-/*
- * The expand control in the standings row. Rotates to point at the drawer it
- * opened, which is the only state it needs.
- */
 .fib-inv-toggle {
   display: inline-grid; place-items: center;
   width: 28px; height: 28px; border-radius: var(--fib-radius-md);
@@ -2786,12 +2125,7 @@ ${cssVariables()}
   background: var(--fib-plinth);
 }
 
-/*
- * The tile grid takes the room on the left, the run's numbers ride a capped
- * column on the right. The grid fills its column — labelled tiles WANT the
- * width the bare-slot grid refused, so a wider drawer means more tiles per row
- * rather than more empty space around a sprite.
- */
+/* The tile grid takes the room on the left, the run's numbers ride a capped column on the right. */
 .fib-inv {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
@@ -2821,11 +2155,6 @@ ${cssVariables()}
   gap: var(--fib-space-3);
 }
 
-/*
- * One item: the sprite well on the left, its name and meta on the right. The
- * tile is its own recessed plinth so the row reads as a shelf of labelled
- * objects, and it lifts on hover to say "this is the one you're pointing at".
- */
 .fib-inv-tile {
   position: relative;
   display: grid;
@@ -2846,10 +2175,6 @@ ${cssVariables()}
   transform: translateY(-1px);
 }
 
-/*
- * The sprite's seat. Composes the shared well — surface, lighting, phase bleed
- * and rarity rim all come from there — and only fixes the square geometry.
- */
 .fib-inv-cell {
   position: relative;
   width: 52px; height: 52px;
@@ -2857,19 +2182,7 @@ ${cssVariables()}
   flex: none;
 }
 
-/*
- * Collection order, where Minecraft puts stack size.
- *
- * The position is the authentic reference and stays. What did not work was the
- * treatment: ink-3 over a text-shadow, sitting directly on the sprite, which on
- * a light item (bone meal, quartz, a torch's flame) had nothing to read against
- * and dissolved into the texture. A stack count in the game is legible over
- * every block in it, and this is the same job.
- *
- * A small plate rather than a heavier shadow — the numeral gets its own dark
- * ground, so it clears the sprite whatever the sprite is, and the ink can stay
- * quiet instead of being pushed to white to survive.
- */
+/* Collection order, where Minecraft puts stack size. */
 .fib-inv-order {
   position: absolute; right: 1px; bottom: 1px;
   min-width: 14px; padding: 0 3px;
@@ -2888,20 +2201,6 @@ ${cssVariables()}
   display: flex; flex-direction: column; gap: 3px;
   min-width: 0;
 }
-/*
- * Two lines, not one line with an ellipsis.
- *
- * The tile's whole argument is that the name is always on, so the run reads as
- * a list of things collected rather than a grid to hover through — and a third
- * of Minecraft's names do not fit one 130px line. "Waxed Weathered Copper Door"
- * arrived as "Waxed Weathered Coppe…", which is the hover puzzle back again on
- * exactly the items whose names carry the most information.
- *
- * It costs no height. The 52px well sets the tile's floor and a second line of
- * name plus the meta row still measures under it, so the grid's rhythm is
- * unchanged and only the truncation is gone. Past two lines the clamp holds —
- * nothing in the pool needs a third.
- */
 .fib-inv-name {
   font-size: var(--fib-text-sm); font-weight: 600;
   line-height: 1.2; color: var(--fib-ink);
@@ -2919,10 +2218,6 @@ ${cssVariables()}
   color: var(--fib-ink-3);
 }
 
-/* Desaturate and LIGHTEN, never darken. Crushing brightness on sprites that
-   are already dark (blackstone, basalt, cobblestone) turned the slot into an
-   empty square — a skipped item still has to be identifiable. The whole tile
-   dims a touch so the run's skips recede without disappearing. */
 .fib-inv-tile[data-skipped] { opacity: 0.66; }
 .fib-inv-tile[data-skipped] .fib-sprite {
   /* Keeps both shadows: without the halo the desaturated dark items vanish. */
@@ -2947,31 +2242,14 @@ ${cssVariables()}
 }
 .fib-inv-figures { display: flex; gap: var(--fib-space-5); flex-wrap: wrap; }
 
-/* The full margin, not just the top. "h5" is absent from the reset's heading
-   list, so it kept the UA's ~1.67em margin-block-end and pushed the ramp a good
-   20px clear of the heading that names it. */
 .fib-inv-subhead { margin: var(--fib-space-2) 0 0; }
 
-/* The stall's SUBJECT, not a measurement. The figure note is mono and tabular
-   because it usually carries a standing ("2nd of 8"); an item name set in
-   JetBrains Mono is monospace worn as a costume for "technical". */
 .fib-inv-figures .fib-figure-note {
   font-family: var(--fib-font-sans);
   font-variant-numeric: normal;
   color: var(--fib-ink-3);
 }
 
-/* ── The pool-phase split ──────────────────────────────────────────────
- *
- * A stacked bar, not a fourth ramp: the three phases partition the run, so the
- * shape has to sum to the whole. Segments flex-grow by their count and butt
- * together inside a clipped pill, and the key beneath carries the counts as
- * text — the bar answers "how was this run made up", the key answers "how many".
- *
- * Named "phase-split" and not "split": ".fib-split" is already the overview's
- * two-column pair, and inheriting its "align-items: start" collapsed this bar to
- * 13px of its 260px column.
- */
 .fib-phase-split { display: flex; flex-direction: column; gap: var(--fib-space-3); }
 
 .fib-phase-split-bar {
@@ -2982,9 +2260,7 @@ ${cssVariables()}
   overflow: hidden;
 }
 .fib-phase-split-bar i {
-  /* The same top-edge gloss the ramp fills carry, so both meters in this rail
-     are lit from the same place. The colour is set inline per segment, which is
-     why this is background-IMAGE — the shorthand would wipe it. */
+  /* The same top-edge gloss the ramp fills carry, so both meters in this rail are lit from the same place. */
   background-image: linear-gradient(var(--fib-gloss-top), transparent 55%);
   /* One item out of sixty is still an item. Without a floor its segment rounds
      to a sub-pixel and the phase reads as absent rather than rare. */
@@ -2996,9 +2272,6 @@ ${cssVariables()}
   display: grid; grid-template-columns: 9px minmax(0, 1fr) auto;
   align-items: center; gap: var(--fib-space-3);
 }
-/* Swatch only: the label stays in ink. Three coloured words above five more in
-   the rarity ramp would spend the rail's whole colour budget on legends, and
-   phase-late is the fill red that doesn't clear 4.5:1 as small text anyway. */
 .fib-phase-split-key i { width: 9px; height: 9px; border-radius: var(--fib-radius-sm); }
 .fib-phase-split-key span { font-size: var(--fib-text-xs); color: var(--fib-ink-2); }
 .fib-phase-split-key em {
@@ -3012,17 +2285,6 @@ ${cssVariables()}
 .fib-phase-split-key li[data-empty] em { color: inherit; }
 .fib-phase-split-key li[data-empty] i { opacity: 0.4; }
 
-/* ── The fill ──────────────────────────────────────────────────────────
- *
- * Every slot's delay is its REAL collection time scaled onto the playback
- * window, so the gaps survive: fast items snap in, a ninety-second item
- * visibly stalls. Pure CSS — the container flips one attribute and the browser
- * schedules the rest.
- *
- * idle (no attribute) is the resting, fully-visible state and also the
- * default render. Reduced motion, a hidden tab and the skip control all land
- * there, so the grid is never left half-filled.
- */
 .fib-inv-grid[data-play="pending"] .fib-inv-tile {
   opacity: 0; transform: translateY(7px) scale(0.96);
 }
@@ -3069,55 +2331,16 @@ ${cssVariables()}
 
 /* ── 14. Responsive ───────────────────────────────────────────────────── */
 
-/*
- * Structural, not fluid. Below 900px the rail becomes a bottom bar: this is a
- * second-screen and phone surface first, and a bottom bar is thumb-reachable
- * where a top bar is not.
- */
 @media (max-width: 900px) {
   .fib-shell { display: block; }
   .fib-atmosphere { height: 260px; }
 
-  .fib-rail {
-    position: fixed; inset: auto 0 0 0;
-    width: auto; flex: none; height: auto;
-    flex-direction: row; align-items: center; gap: 2px;
-    padding: 6px max(6px, env(safe-area-inset-left))
-             max(6px, env(safe-area-inset-bottom))
-             max(6px, env(safe-area-inset-right));
-    background: var(--fib-plinth);
-    border-right: none;
-    border-top: 1px solid var(--fib-line-soft);
-  }
-  .fib-rail-brand, .fib-rail-foot { display: none; }
-  .fib-rail-nav { flex-direction: row; flex: 1; justify-content: space-around; gap: 2px; }
-  .fib-nav-item {
-    flex-direction: column; gap: 3px; padding: 6px 4px;
-    font-size: var(--fib-text-2xs); font-weight: 500;
-  }
-  /* Blue, not diamond. The pill is dropped here because a bottom bar has no room
-     for one, but the COLOUR has to stay blue: blue is the module's one
-     interactive accent and diamond means rarity and nothing else. Switching hue
-     at a breakpoint made the active-nav signal mean two different things
-     depending on the width of the window. */
-  .fib-nav-item[aria-current="page"] { background: none; color: var(--fib-blue-ink); }
-
-  .fib-main { padding-bottom: 76px; }
   .fib-page { padding: var(--fib-space-6) var(--fib-space-4) var(--fib-space-7); }
   .fib-section { padding-top: var(--fib-space-7); }
 
   .fib-table th, .fib-table td { padding-left: var(--fib-space-3); padding-right: var(--fib-space-3); }
 
-  /*
-   * The facet rail stacks above the grid and collapses. It is the same
-   * <details> as on desktop, so there is no second component to keep in sync —
-   * only the marker comes back and the default open state goes away.
-   *
-   * Closed by default here because a phone's first job is to show the list: a
-   * rail that ate the first screenful would be a filter panel the reader has to
-   * scroll past every visit. The summary carries the active-filter count, so a
-   * closed rail that IS filtering still says so.
-   */
+  /* The facet rail stacks above the grid and collapses. */
   .fib-faceted { grid-template-columns: minmax(0, 1fr); gap: var(--fib-space-5); }
   .fib-facet-rail { position: static; }
   .fib-facet-rail > summary { list-style: revert; }
@@ -3180,20 +2403,10 @@ ${cssVariables()}
      fib-page"; only the flex strip needs a basis here. */
   .fib-stat-strip > * { flex-basis: 45%; border-left: none; padding-left: 0; }
 
-  /*
-   * The podium stays three across. It used to stack into rows here, because
-   * three filled cards at 360px gave each name 100px of card. The block stacks
-   * are 44px wide at this size (see the fib-page container query beside the
-   * podium rules), so each place keeps its column and the heights still read as
-   * the ranking - which a stacked list could only say with medals.
-   */
   .fib-lead-board-score b { font-size: var(--fib-text-3xl); }
 }
 
-/*
- * The headline steps down with the page, not the window: the rail takes 232px
- * on desktop, so the room a 72px jersey line actually gets is the page's.
- */
+/* The headline steps down with the page, not the window. */
 @container fib-page (max-width: 820px) {
   .fib-display { font-size: var(--fib-display-lg); }
 }
@@ -3205,11 +2418,7 @@ ${cssVariables()}
 
 let injected = false;
 
-/**
- * Idempotent: the shell calls this on mount, and mounting twice (StrictMode
- * does exactly that in development) must not append a second copy of a
- * 700-line stylesheet.
- */
+// Idempotent: StrictMode mounts twice in development and must not append a second stylesheet.
 export function injectStyles() {
   if (injected || typeof document === 'undefined') return;
   injected = true;

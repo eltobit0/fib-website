@@ -1,58 +1,8 @@
 import { KotwSpinControl } from './spin/KotwSpinControl.jsx';
 import { ForgeSpinControl } from './effects/CommunityForge.jsx';
 import { ARENA } from './config/arenaTheme.js';
-/* THE NOCTURNE — direction contract (impeccable seed 34ecef14,
-   challenger light-shadow-caustics-rain-night-cityscape; chosen by
-   owner 2026-08-18).
-
-   THESIS: the spin surface is one blue-hour city; the reel is the
-   main transit line arriving at its stop. It refuses the panel —
-   the whole page is a single nocturne mass, no boxes, no frames.
-
-   OWN-WORLD: cobalt blue-hour sky over black tower silhouette; the
-   only lit things are the transit vein (the reel), amber station
-   light (the gold accent), and event signal states. Tier colours
-   are the train's own light; rarity hues never change.
-
-   STORY: a player on a second screen watches the city at night;
-   items move past like lit cars; a landing is a train arriving —
-   the result is the arrival at the platform.
-
-   FIRST VIEWPORT: the viaduct band carries the moving strip between
-   rail and street glow, the stage is the platform with the result as
-   the arrival. The topbar keeps its soft rule: the skyline crown was
-   tried as the new topbar end and the owner's review reverted it
-   (2026-08-18) — the Nocturne's borderless world starts below the
-   topbar.
-
-   FORM: rain-night cityscape challenger, seed key 34ecef14.
-
-   FINISH: unreviewed and undocumented is unfinished; this build
-   ends with the finish review, the verdict, and DESIGN.md.
-
-   TAKEOVERS (2026-08-19, owner-chosen): the bonus selection, the lucky
-   spin and the 3x/5x grids are no longer cards. Every mode is a theme
-   of the same three rows the normal spin uses — the band wears the
-   mode's accent and swaps its content, the stage answers in the same
-   register. The bonus announcement is a console flash over the landed
-   reel; the bonus board replaces the reel in the band; the lucky spin
-   is the band under the green lamp; the 3x/5x spins cut the band into
-   parallel tracks, each a horizontal line on desktop and a vertical
-   lane on mobile, landing at its own centre line. The tracks divide the
-   band's full width between them and run the reel's own pitch — they
-   are the band cut up, not several small bands parked in the middle of
-   it, which is what the first version built. The stage answers on the
-   same grid, one column under each track. One identity per
-   mode: bonus orange, lucky green, 5x gold, triple-lucky gold-on-green.
-   Recursion took its own pass on 2026-08-20 and joined them, so there
-   are no cards on this surface at all now: the band wears recursion's
-   ground and green lamp, the console flashes RECURSION!, the reel keeps
-   the pull that triggered it, and BonusEventPlaque answers on the stage.
-   Its card had been rendering *instead of* the band and the status row,
-   which hid the winning pull, collapsed a row the No-Collapse Rule says
-   must hold, and — because the Try Again button lives in that row and
-   was itself gated on `state === 'recursion'` — left the player with no
-   way out but the spacebar. */
+// THE NOCTURNE (DESIGN.md): the spin surface is one borderless blue-hour city; every mode themes the same three rows (band, stage, status).
+// No card may replace the band or status row: the Try Again button lives in that row, so hiding it strands the player.
 import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
 import { serverNow } from '../../utils/serverClock.js';
 import { OddsInfoModal } from './modals/OddsInfoModal.jsx';
@@ -80,9 +30,6 @@ import {
     TEAM_MEMBERS, EXOTIC_ITEMS, RELIC_ITEMS, RARE_MEMBERS, MYTHIC_ITEMS, MYTHIC_ITEM, EVENT_ITEM, BONUS_EVENTS, INSANE_ITEMS, RECURSION_ITEM
 } from '../../config/constants.js';
 import { COLORS, SPACE, Z, SURFACE_NOISE } from './config/constants';
-// getMinecraftHeadUrl, isEventItem and isRecursionItem left with the local
-// getItemImageUrl copy above — they were its inputs and nothing else here read
-// them.
 import { RARITY } from '../../utils/rarityHelpers.jsx';
 import { useWheelConfig } from '../../hooks/useWheelConfig';
 import { useActivity } from '../../context/ActivityContext.jsx';
@@ -97,76 +44,15 @@ import { useSound } from '../../context/SoundContext.jsx';
 import { useCalm } from '../../config/power.js';
 
 
-/**
- * What the stage says when a pull triggers recursion.
- *
- * Shaped like a bonus event because it is answered by the same signboard, and
- * its colours come from `BONUS_IDENTITY.recursion` for the reason that table
- * exists at all: the board, the plaque and the lamp a mode runs under are three
- * views of one identity, and they had three private colour tables between them
- * once already.
- *
- * The copy is the old card's, tightened. "You hit the wheel in the wheel!" and
- * "Global lucky spin event triggered for ALL users!" were two exclamations
- * saying one thing in a register nothing else on this surface uses.
- */
+// Stage copy for a recursion trigger, coloured from BONUS_IDENTITY.recursion so board, plaque and lamp share one identity.
 const RECURSION_ANNOUNCEMENT = {
     id: 'recursion',
     name: 'Recursion',
     description: 'You hit the wheel inside the wheel. A lucky spin is now running server-wide, for everyone.',
 };
 
-/**
- * How far off the slot's centre a spin comes to rest, in pixels.
- *
- * The reel lands on the winning slot, never between two — the server decided the
- * result and the strip is built around it — but *where inside that slot* is the
- * only randomness the player can actually see, and it is what makes one spin feel
- * different from the last. Landing dead centre every time reads as a slideshow
- * advancing rather than a wheel coming to rest.
- *
- * This used to be a fixed pixel spread: ±25–37px. Two problems with that. It was
- * written against the 120px desktop pitch and applied unchanged to the 70px
- * mobile and 90px triple reels, where the same numbers mean something completely
- * different. And even at its widest it left ~23px of slot beyond the indicator,
- * so the winner never came near its own edge and every landing looked centred.
- * It is a fraction of the pitch now, and it goes much closer to the edge.
- *
- * **The distribution is flat across the whole range.** It began as two hardcoded
- * branches — a third of spins in a 0.30–0.41 "near miss" band and the rest inside
- * 0.22 — which had two problems. Offsets between 0.22 and 0.30 of a pitch could
- * never occur at all, a dead band nobody would consciously spot but which is an
- * artifact of the branches rather than a decision. And a spin drawn from one of
- * two clusters is only ever one of two kinds of spin. Uniform, every landing is
- * its own, and near misses arrive because the reel genuinely stopped there rather
- * than because a coin came up saying to stage one.
- *
- * **The ceiling is a clearance in pixels, not a fraction of the pitch**, because
- * what limits it is the width of the line the slot is coming to rest against and
- * not the size of the slot. The line is 1px with a ~4px bleed either side, so
- * `LINE_CLEARANCE` is what keeps the seam a distinct thing from the indicator
- * rather than something the indicator is sitting on. A fraction alone was wrong
- * here: 0.41 left 12px on the 120px desktop pitch but only 6px on the 58px 5x
- * mobile reel, so the same number meant "close" on one reel and "touching" on
- * another. The fraction survives only as a backstop for a pitch large enough that
- * a fixed clearance would stop being the binding limit.
- *
- * **4px is the floor, established by looking rather than by arithmetic.** Forcing
- * every spin to the extreme and screenshotting it: at 3px the line, the winning
- * column's rim and the seam merge into a single band and the reel stops looking
- * like it is pointing at anything. 4px holds — but only because the winning slot
- * now keeps a base bar with defined ends whatever its tier (see `drawItem`). The
- * hard case is a *common* winner, which is ~90% of results: two dim grey columns
- * either side of a line sitting on their shared seam, with no tier colour to say
- * which one won. The bar's end against the line is what answers that, and without
- * it the honest floor was 7px.
- *
- * The limit being backed away from is half a pitch. There the line sits exactly
- * on the seam and the item under it is genuinely ambiguous — not a near miss, a
- * bug that looks like one. It matters more here than on a slot machine because
- * the result panel underneath *names* the winner, so an ambiguous reel reads as
- * the reel contradicting the result.
- */
+// Resting offset from the slot centre, uniform across the range and scaled by the reel's pitch.
+// The ceiling is a pixel clearance (LINE_CLEARANCE, 4px floor), not a fraction: below it the line, rim and seam merge. Half a pitch is ambiguous.
 const LINE_CLEARANCE = 4;
 
 function landingVariance(itemWidth) {
@@ -188,22 +74,9 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     const mysteryBoxesRef = useRef(mysteryBoxes);
     mysteryBoxesRef.current = mysteryBoxes;
 
-    /*
-     * Today's bounties still open, as the strip needs them: the pool's own entry
-     * for each item, so a teased tile is the same object any other common would
-     * be. Several can be open at once - five open a day and each lasts until it
-     * is claimed or the day ends. Held in a ref too, because buildStrip is
-     * called from the spin's async path and has to see them as they are now,
-     * not as they were when that closure was made.
-     *
-     * "Open" is this client's view, which the claim's celebration deliberately
-     * lags (ActivityContext holds it until the winning reel lands) - so the
-     * winner's own landing tile still wears the mark, which is the point.
-     */
-    // Every collectible special, shaped the way buildStrip shapes each tier's tiles
-    // (flags, and the member tiers' textures built from their usernames). The
-    // mystery box's reel is made of these, and a special bounty is looked up here,
-    // so both draw a special exactly as the ordinary strip would.
+    // Open daily bounties, held in a ref as well: buildStrip runs from the spin's async path and must see current state.
+    // "Open" lags the claim celebration (ActivityContext), so the winner's landing tile still wears the mark.
+    // Every collectible special, shaped as buildStrip shapes it; the mystery box reel and special bounties draw from here.
     const specialContents = useMemo(() => [
         ...INSANE_ITEMS.map(i => ({ ...i, isInsane: true })),
         ...MYTHIC_ITEMS.map(i => ({ ...i, isMythic: true })),
@@ -226,9 +99,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     const openBounties = useMemo(() => {
         // Expired ones too: a bounty closes when the next opens (services/dailyBounty.js).
         const open = (bountyBoard?.bounties || []).filter(b => !b.winner && !b.expired);
-        // A bounty can be any item (wheel-backend services/dailyBounty.js), so it is
-        // looked for among the commons and the specials both. The fallback is built
-        // from the bounty's own fields, which carry its tier and artwork.
+        // A bounty can be any item (wheel-backend services/dailyBounty.js), so look in commons and specials; the fallback is built from its own fields.
         return open.map(b => allItems.find(i => i.texture === b.texture)
             || specialContents.find(i => i.texture === b.texture)
             || {
@@ -242,74 +113,23 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     const openBountiesRef = useRef(openBounties);
     openBountiesRef.current = openBounties;
 
-    /*
-     * THE ARRIVAL TAKES THE REEL.
-     *
-     * Every other global event runs *alongside* the wheel — Gold Rush used to change
-     * the odds of a spin you were still taking, KOTW scored the spins you took,
-     * the Community Goal counted them. The arrival is the one event that is not
-     * about spinning at all, and it is the only one that owns the track the reel
-     * runs on. Sharing the screen would have the platform lit for a train while
-     * items keep flying past it, which is two things using one piece of scenery
-     * to mean different things at the same time.
-     *
-     * So the reel shuts down: the shafts close, the band goes dark, and only
-     * then does the train come in. Spinning is refused for the duration —
-     * ActivityContext already holds the arrival back until any spin in flight
-     * has LANDED, so this never interrupts a player mid-result; it only declines
-     * the next one.
-     */
+    // The arrival owns the reel: shafts close and spinning is refused. ActivityContext holds it until any in-flight spin has landed.
     const arrivalOwnsReel = Boolean(arrival);
 
-    /*
-     * AND SO DOES THE PARLOUR — but it does not close the reel, it BECOMES it.
-     *
-     * The arrival shutters the band and plays somewhere else, because a train is
-     * somewhere else. This event is the reel with different slots in it: the
-     * pockets turn over in place, they travel on the reel's own pitch, and the
-     * winning one comes to rest under the reel's own detent. Nothing about the
-     * band's geometry changes, which is the whole reason this is the right
-     * object — the landing reads in the language every other spin on this
-     * surface already speaks. See CanvasRouletteStrip.
-     *
-     * Spinning is still refused for the duration, for the arrival's reason: the
-     * band is showing something else. The difference is what refusing costs.
-     * ActivityContext holds an arrival back until any spin in flight has LANDED,
-     * so nobody is interrupted; the table is NOT held back, because it opens a
-     * window the player has to act inside and spending four of its thirty
-     * seconds protecting one client's reel would be protecting the wrong thing.
-     * A spin already in flight when the table opens finishes underneath the
-     * pockets — bounded and deliberate, since `markSpinLanded` still fires and
-     * nothing waiting on it is stranded.
-     */
+    // The Parlour becomes the reel (CanvasRouletteStrip) on the same pitch and detent. Spinning is refused, but the table is not held for an in-flight spin; markSpinLanded still fires.
     const parlourOwnsReel = Boolean(roulette);
 
-    /*
-     * AND HIGH ROLLER, the second table. It takes the band for the dealer's hand
-     * and the apron for the player's, and refuses spins for the Parlour's
-     * reasons, including not waiting on a spin in flight - it opens a window to
-     * act in. Its layout is a placeholder until the visual design lands; see
-     * HighRollerTable.jsx.
-     */
+    // High Roller takes the band for the dealer and the apron for the player, and refuses spins like the Parlour (see HighRollerTable.jsx).
     const highRollerOwnsReel = Boolean(highRoller);
     const [highRollerIntent, setHighRollerIntent] = useState(null);
 
-    /**
-     * Either table owns the reel. Everything that hides the idle controls or the
-     * last pull while the Parlour is up hides them for High Roller too.
-     */
+    // Either table owns the reel.
     const tableOwnsReel = parlourOwnsReel || highRollerOwnsReel;
 
     /** Any takeover means the band is not the reel's for the moment. */
     const bandIsTaken = arrivalOwnsReel || tableOwnsReel;
 
-    /*
-     * The event's clock, the server's, as a stable function.
-     *
-     * Handed to the ring rather than a number, so the canvas can read it on its
-     * own frame without this component re-rendering sixty times a second — the
-     * table underneath only changes a handful of times in the whole event.
-     */
+    // Passed as a function so the canvas reads it per frame without re-rendering this component.
     const parlourOpenedAt = roulette?.openedAt ?? null;
     const parlourOpenedAtRef = useRef(parlourOpenedAt);
     useEffect(() => { parlourOpenedAtRef.current = parlourOpenedAt; });
@@ -321,14 +141,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     // the ref, which keeps a ref read out of the render body.
     const parlourT = parlourOpenedAt ? Math.max(0, (serverNow() - parlourOpenedAt) / 1000) : 0;
 
-    /*
-     * The apron's beats are coarse — the call, the reveal, each seat resolving —
-     * so it re-renders on a 250ms tick rather than every frame. Four times a
-     * second the countdown never visibly stutters and the seat cascade lands
-     * within an eighth of a second of the timeline, which is well inside the
-     * 260ms each row fades in over. The ring in the band has its own rAF loop
-     * and is not driven by this.
-     */
+    // 250ms tick: the apron's beats are coarse; the ring has its own rAF loop.
     const [, setParlourTick] = useState(0);
     useEffect(() => {
         if (!parlourOpenedAt) return undefined;
@@ -337,33 +150,11 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     }, [parlourOpenedAt]);
 
 
-    // Get sound functions
-    // `stopSoundtrack` is deliberately not pulled out of here: the soundtrack is
-    // stopped by the settings modal and by SoundContext's own teardown, never by
-    // the spinner, and destructuring it left an unused handle that read as though
-    // this component owned the stopping too.
+    // `stopSoundtrack` is deliberately not pulled out: the settings modal and SoundContext own stopping it.
     const { startSoundtrack, playRaritySound, playRecursionSound, playSfx, isPlaying: isMusicPlaying } = useSound();
 
-    /*
-     * The parlour's fret tick. Handed to the ring rather than driven from here,
-     * because the crossing it fires on is a fact the canvas has each frame and
-     * this component would have to recompute — and recomputing it is exactly
-     * how the two halves would come to disagree about which pocket is under the
-     * pin, which this feature has already paid for once.
-     *
-     * Stable identity so the canvas's props ref never carries a stale closure,
-     * and `playSfx` is read through a ref for the same reason: the sound
-     * context's callback changes whenever the volume settings do, while the
-     * ring mounts once for the whole event.
-     *
-     * It lives HERE, below `useSound`, and not up with the rest of the parlour
-     * state — which is where it was, referencing `playSfx` seventeen lines
-     * before the `const` that declares it. That is a temporal dead zone, and it
-     * is not a warning: `useRef(playSfx)` runs on the first render and throws
-     * "can't access lexical declaration 'playSfx' before initialization",
-     * taking the whole wheel down with it. Hooks read like they are unordered
-     * and this one is not.
-     */
+    // Parlour fret tick, handed to the ring so the pin crossing is computed once, by the canvas. Declared below useSound on purpose: useRef(playSfx) above its const throws (TDZ).
+    // Stable identity; playSfx goes through a ref because its callback changes with volume while the ring mounts once.
     const playSfxRef = useRef(playSfx);
     useEffect(() => { playSfxRef.current = playSfx; });
     const playParlourTick = useCallback((speed) => {
@@ -377,22 +168,10 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     const [strip, setStrip] = useState([]);
     const [result, setResult] = useState(null);
     const [isNewItem, setIsNewItem] = useState(false);
-    /*
-     * The prestige side of the same question.
-     *
-     * `{ level, levelKey, isNew, count }` on a spin taken during a run, and null
-     * for everyone else. It travels beside `isNewItem` rather than inside it
-     * because they are genuinely two different facts: an item can be a duplicate
-     * of a collection you finished months ago and the first of its kind in the
-     * run you started yesterday, and that is the common case once prestige is
-     * running — every pull is a main-collection duplicate by definition.
-     */
+    // Prestige counterpart of isNewItem: { level, levelKey, isNew, count } during a run, else null. A separate fact: under prestige every pull is a main-collection duplicate.
     const [prestigePull, setPrestigePull] = useState(null);
     const [showOddsInfo, setShowOddsInfo] = useState(false);
     const [spinProgress, setSpinProgress] = useState(0); // 0-1 for Phase 2 effects
-    // One flag instead of the old imagesPreloaded/preloadProgress pair: the wheel
-    // waits on a single atlas request now, so there is no meaningful percentage to
-    // report — it is one file, and it is either here or it is not.
     const [atlasReady, setAtlasReady] = useState(false);
     // Use ref for canvas offset to avoid re-renders during animation
     const canvasOffsetRef = useRef(0);
@@ -400,36 +179,9 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     // Track last spin progress to avoid redundant setState calls
     const lastSpinProgressRef = useRef(-1);
 
-    // ── The shaft's dimensions (phone) ───────────────────────────────────────
-    //
-    // The reel used to be a 140×260 box with a 70px pitch parked in the middle of
-    // the screen: a column of square tiles floating in black, a 49px sprite on the
-    // one screen where recognition is hardest, and a hundred-odd pixels of dead
-    // page either side of it.
-    //
-    // It is a shaft now — the full width of the viewport, running the height the
-    // stage can spare — so a row IS the screen and the sprite is sized off the
-    // *pitch* rather than the width. `MOBILE_ROW_PITCH` is therefore a height, and
-    // it is the only number deciding how big an item looks on a phone.
-    //
-    // 128 rather than 70: it puts the sprite at ~90px, close to the desktop reel's
-    // 84, and still shows five rows in a 620px shaft — enough runway either side of
-    // the detent for a near miss to read. Fixed rather than derived from the
-    // viewport, because the *item* should not change size between a 360px phone and
-    // a 430px one; what changes is how much shaft there is around it.
-    //
-    // Imported, not restated. This is the pitch the canvas draws at, and the two
-    // had already drifted apart once inside this pass — the animation landing on
-    // 128 while the shaft still drew at 70. Same class of bug as the bonus board's
-    // shadowed `ITEM_WIDTH`, caught the same way: the winner stopped somewhere
-    // other than the line.
+    // Phone shaft row pitch (a height): the only number deciding item size on a phone.
+    // Imported from canvas/CanvasSpinningStrip.jsx, the single definition; restating it drifts the landing maths from the draw.
 
-    // Use refs for animation offsets to avoid re-renders during animation.
-    // `stripRef` and `tripleStripRefs` used to sit alongside these: DOM handles
-    // from the pre-canvas strip, which was a row of absolutely-positioned divs
-    // this component translated by hand. The canvas renderer owns its own element
-    // and takes its offset through `canvasOffsetRef`, so both have been holding
-    // null since that swap.
     const offsetRef = useRef(0);
 
     // Triple spin state
@@ -454,17 +206,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     const recursionActive = recursionStatus?.active || false;
     const recursionSpinsRemaining = recursionStatus?.userSpinsRemaining ?? 0;
 
-    /*
-     * THE MYSTERY BOX - the daily bounty's prize (wheel-backend
-     * services/dailyBounty.js). While a player holds one, the wheel is gilded and
-     * their next spin opens it on a reel of nothing but specials.
-     *
-     * Held back, not spent, while anything else owns the moment: a global event
-     * (a box pull scores for none of them, so opening one mid-KOTW would silently
-     * cost the player a scoring spin) or a recursion window (whose sixty seconds a
-     * box would eat). The box waits; it does not expire. `boxReadyRef` is what
-     * performSpin reads, so a click decides against the state it was made in.
-     */
+    // Mystery box (wheel-backend services/dailyBounty.js): held back, not spent, during a global event or recursion window; boxReadyRef is what performSpin reads.
     const boxReady = !!user && mysteryBoxes > 0
         && !globalEventStatus?.active && !globalEventStatus?.pending
         && !(recursionActive && recursionSpinsRemaining > 0);
@@ -474,31 +216,8 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     const [currentSpinIsMystery, setCurrentSpinIsMystery] = useState(false);
     const pendingMysteryBoxesRef = useRef(null);
 
-    /*
-     * The box as an object on the screen (effects/MysteryBoxOpening.jsx): shown
-     * on the player's own claim, and again whenever they take one down from the
-     * shelf.
-     *
-     * A held box does NOT gild the reel by itself any more. Boxes wait on the
-     * shelf (MysteryBoxShelf, in the reel header) until the player opens one,
-     * and opening does not spin - it unwraps: the box bursts and pours itself
-     * into the reel band, and the reel becomes the box's reel (`boxArmed`). The
-     * reel is the opening, and the next spin is what opens it.
-     *
-     * Three decisions the owner made, in the order they were made:
-     *   - A version that ran the spin inside the scene, the item rising out of
-     *     the box over the turning reel, was built and turned down: nothing may
-     *     sit over the reel while it is the event.
-     *   - The gilding waits for the tap, or there is nothing for the box to
-     *     turn into.
-     *   - "Later" puts the box somewhere it can be taken back from, instead of
-     *     gilding the reel anyway - and that is the same place a box claimed
-     *     during an event waits, because a box must not open inside one.
-     *
-     * Which is why `boxReady` alone no longer decides a spin: a box on the shelf
-     * is held, but a spin must not spend it. performSpin opens a box only when
-     * it is armed AND ready; ready is still the event/recursion rule it was.
-     */
+    // Boxes wait on the shelf until opened; opening arms the reel (`boxArmed`) and the next spin spends it. performSpin opens a box only when armed AND ready.
+    // Nothing may sit over the reel while it is the event; a box claimed during an event waits on the shelf.
     const [boxSceneOpen, setBoxSceneOpen] = useState(false);
     const [boxUnwrapping, setBoxUnwrapping] = useState(false);
     const [boxClaimName, setBoxClaimName] = useState(null);
@@ -514,9 +233,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     const reelBandRef = useRef(null);
     const boxShelfRef = useRef(null);
     const boxGilded = boxReady && boxArmed;
-    // What waits on the shelf: every box held, less the one on the reel.
-    // Only a box the reel is actually wearing leaves the shelf: an armed box an
-    // event has made unready is not on the reel, so it stays on the shelf.
+    // Only a box the reel is wearing leaves the shelf.
     const shelvedBoxes = Math.max(0, mysteryBoxes - (boxGilded ? 1 : 0));
 
     // Nothing to arm without a box.
@@ -557,20 +274,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     // Track if current spin is using KOTW lucky (set at spin start, cleared at idle)
     const [currentSpinIsKotwLucky, setCurrentSpinIsKotwLucky] = useState(false);
 
-    // `resultInk` used to be derived here: the winning item's tier colour as
-    // text, replacing an eight-times-repeated inline ternary chain
-    // (`isInsaneItem(result) ? COLORS.insane : isMythicItem(result) ? ...`), one
-    // per style property on the result screen. Every copy had to be edited in
-    // lockstep, and when the ladder was rebuilt they were missed, leaving
-    // legendary rendering in purple — exotic's colour — on the one screen a
-    // player actually reads after a spin.
-    //
-    // It is gone from here because the screen it fed is gone from here: the
-    // result panel is SpinResult.jsx now, and it derives the tier from the shared
-    // ladder itself. The fix outlived the code it fixed, which is the usual way a
-    // deduplicated value turns back into dead weight — recorded rather than
-    // silently deleted, because the eight-copy version is what someone would
-    // rebuild without this note.
+    // Tier colour comes from the shared ladder (utils/rarityHelpers); do not rebuild inline ternary chains.
 
     // Track if the CURRENT spin animation is a recursion lucky spin
     // This prevents visual effects from changing mid-animation when spinsRemaining updates
@@ -620,16 +324,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         lastSpinTimeRef.current = Date.now();
     }
 
-    // ── The shaft's own height, for the in-place result ──────────────────────
-    //
-    // The phone's payoff is drawn over the row the spin landed on (ShaftResult),
-    // and to pin it there we need the two numbers the canvas drew with: the
-    // mount's height and the final offset. The offset is already a ref; this
-    // measures the height.
-    //
-    // A ResizeObserver rather than a read during render, because the mount is
-    // `flex: 1` inside a column whose siblings settle after first paint — reading
-    // it in the same tick would pin the overlay against a stale height.
+    // ResizeObserver, not a render-time read: the mount is flex:1 and its siblings settle after first paint, so ShaftResult would pin to a stale height.
     const reelMountRef = useRef(null);
     const [shaftHeight, setShaftHeight] = useState(0);
     useEffect(() => {
@@ -643,33 +338,9 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         return () => ro.disconnect();
     }, [isMobile, state]);
 
-    // The resize listener that used to live here is gone with the state it fed.
-    // It watched `innerWidth < 600` while WheelPage watched 1400 and passed its
-    // answer down as a prop this component never destructured — so the page and
-    // the reel inside it disagreed about the breakpoint by 800px, and everything
-    // from 600 to 1399 got desktop geometry in a shell with no room for it. The
-    // viewport is one question with one answer now; see config/breakpoints.js.
+    // Viewport breakpoints come from config/breakpoints.js; do not add a local resize listener (it once disagreed with WheelPage by 800px).
 
-    /**
-     * Gate the spin button on the sprite atlas — one request for the whole pool.
-     *
-     * The history here is worth keeping, because the obvious version of this is
-     * the one we started with and it was the slowest thing about the page. It
-     * used to await every sprite in the pool individually, ~1,500 files, so that
-     * a strip could never draw a missing texture. That cost 9.4s cold from our
-     * own origin and 2.2s from GitHub, and moving the files between hosts only
-     * changed who absorbed it.
-     *
-     * Removing the gate outright fixed the wait and reintroduced the flashes it
-     * had been paying for. The atlas is what makes both work at once: one image
-     * means every pool sprite becomes available at the same instant, so there is
-     * no half-loaded state to render and no per-item race to lose. Gating on a
-     * single request is cheap enough to be honest about.
-     *
-     * The heads and custom art the atlas does not pack are warmed alongside it
-     * but not waited for — there are a few dozen, they are third-party, and the
-     * strip already tolerates them arriving late.
-     */
+    // Gate the spin button on the single atlas request; awaiting ~1,500 sprites cost 9s cold. Heads and custom art are warmed but not waited for.
     useEffect(() => {
         if (allItems.length === 0) return;
 
@@ -678,9 +349,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
 
         loadAtlas().then((ok) => {
             if (!isMounted) return;
-            // Opens the gate either way. A failed atlas is a slower wheel, not a
-            // broken one: every renderer falls back to per-item images, which is
-            // exactly the path the non-pool sprites already take.
+            // Opens the gate either way: a failed atlas falls back to per-item images.
             setAtlasReady(true);
             if (!ok) warmImageCache(allItems);
         });
@@ -694,44 +363,17 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         };
     }, [allItems]);
 
-    /**
-     * Load the strip the moment one exists — the exact 80 items about to be
-     * drawn, winner first.
-     *
-     * This is where the startup cost went. Instead of paying for ~1,500 sprites
-     * up front to show 80, we pay for the 80 as they become known, under the
-     * cover of the spin animation. The winner is ordered first because it is the
-     * one image that cannot be late: it sits centred and static under a rarity
-     * glow for as long as the result is on screen, where a barrier reads as a
-     * bug rather than as loading. The other 79 fly past at speed, and by the
-     * time the strip decelerates the background sweep has usually got them
-     * anyway.
-     *
-     * Keyed on the strip rather than wired into each of the four call sites that
-     * build one (normal, lucky, multi-spin, placeholder), so no future path can
-     * forget it.
-     */
+    // Load the strip's 80 items as soon as one exists, winner first: it sits static under a glow, so it cannot be late. Keyed on the strip so no spin path can forget it.
     useEffect(() => {
         if (strip.length === 0) return;
         const winner = strip[FINAL_INDEX];
         preloadItemImages(winner ? [winner, ...strip] : strip);
     }, [strip]);
 
-    /*
-     * The phone's tap, in the same shape as the spacebar below it — one list of
-     * states, read by both, because they are one decision. A payoff restarts
-     * the reel, idle starts it, and every other state is the machine mid-move.
-     *
-     * `tripleResult` and `tripleLuckyResult` are in the list and always were;
-     * what they never had was an element to tap, because the handler sat on the
-     * reel mount and the lanes replace the mount. It lives on the band now —
-     * see the wrapper down in the render.
-     */
+    // One state list for the phone's tap and the spacebar: a payoff restarts, idle starts, anything else is mid-move. The handler is on the band wrapper so the lanes and bonus board have a tap target.
     const bandTapRestarts = state === 'result' || state === 'recursion' || state === 'luckyResult'
         || state === 'tripleResult' || state === 'tripleLuckyResult';
-    // `!bandIsTaken` is the cursor's share of the refusal `spin` and `respin`
-    // already make: while the train or the table has the band, a pointer over
-    // it is offering something that returns early.
+    // `!bandIsTaken` is the cursor's share of the refusal spin and respin already make.
     const bandTappable = Boolean(user) && allItems.length > 0 && !bandIsTaken
         && (bandTapRestarts || state === 'idle');
     const handleBandTap = () => {
@@ -743,10 +385,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         }
     };
 
-    // ── The box scene ────────────────────────────────────────────────────────
-    // Shown while the box is: only while there is a box to show. A scene opened
-    // by a claim is also allowed a moment empty (see the note below) so a
-    // payout landing just after the claim still finds it waiting.
+    // Shown only while there is a box; a claim-opened scene may be briefly empty so a payout landing just after still finds it.
     const boxShown = boxSceneOpen && (mysteryBoxes > 0 || boxUnwrapping);
     const boxSceneOpenRef = useRef(false);
     boxSceneOpenRef.current = boxShown;
@@ -763,13 +402,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         setBoxShelved(n => n + 1);
     }
 
-    // Nothing left to show - the box went elsewhere (another tab opened it) -
-    // so the scene closes rather than sitting empty.
-    //
-    // Only once it HAS shown something. The claim and the box count are two
-    // broadcasts (`daily_bounty_claimed`, `daily_bounty_payout`) and the count
-    // can land a beat after the claim; closing on that first empty render
-    // swallowed the scene before the box it was opened for arrived.
+    // Close once empty, but only after it HAS shown something: the claim and the box count are two broadcasts and the count can land a beat late.
     const boxShownWasRef = useRef(false);
     useEffect(() => {
         if (boxSceneOpen && !boxShown && boxShownWasRef.current) closeBoxScene();
@@ -787,13 +420,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
 
     useEffect(() => () => clearTimeout(boxCoatTimerRef.current), []);
 
-    /*
-     * The gilt reaches the reel. The reel goes back to rest - it is still
-     * showing the winning pull, which the player has had the whole claim
-     * celebration to look at - and at rest, armed, it is the box's reel:
-     * gilded deck, a strip of nothing but specials. The coat is the moment of
-     * that change, drawn over the band until the sheen has run out.
-     */
+    // The gilt reaches the reel: at rest and armed it is the box's reel; the coat covers the change until the sheen runs out.
     function gildReelFromBox() {
         setBoxUnwrapping(true);
         if (state === 'result') {
@@ -819,10 +446,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                 // Check if we can spin
                 if (!user || allItems.length === 0) return;
 
-                // The box scene owns the keyboard while it is up: its focused
-                // button takes Space, and a spin fired underneath it would
-                // either open the box behind the player's back or start a
-                // second spin over the reveal.
+                // The box scene owns the keyboard while up: a spin would open the box unseen or overlap the reveal.
                 if (boxSceneOpenRef.current) return;
 
                 e.preventDefault();
@@ -850,9 +474,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         };
     }, []);
 
-    // Handle pending spin after state becomes idle
-    // Note: spin is intentionally omitted from deps as it's not memoized
-    // and the ref-based pendingSpinRef pattern handles stale closure issues
+    // spin is omitted from deps on purpose: it is not memoized and pendingSpinRef handles stale closures.
     useEffect(() => {
         if (state === 'idle' && pendingSpinRef.current) {
             pendingSpinRef.current = false;
@@ -860,16 +482,6 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state]);
-
-    // A local `getItemImageUrl` used to sit here, a full second copy of the
-    // resolver in utils/helpers.js — same fallback order, same special cases,
-    // maintained separately, and called from nowhere. It was the more dangerous
-    // kind of dead code than an unused constant: a function declaration inside
-    // the component shadows the module import for the whole component body, so
-    // the day anyone added a call in here it would silently have picked up this
-    // copy instead of the shared one. Deleted rather than wired up — the item
-    // pool, the canvas renderers and this component all have to agree on where a
-    // sprite lives, and one resolver is how that stays true.
 
     // Fisher-Yates shuffle helper
     function shuffleArray(array) {
@@ -881,18 +493,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         return shuffled;
     }
 
-    // ── Dormant reel ─────────────────────────────────────────────────────────
-    //
-    // While idle the reel still has to show something, or the band is an empty
-    // 170px stripe across the page that reads as a loading state. It shows a
-    // sample of the real pool, drifting slowly, so the surface looks alive and
-    // advertises what is in it.
-    //
-    // Built once per pool rather than per render: `buildStrip` shuffles, so
-    // rebuilding it on every render would make the dormant reel flicker between
-    // different items every frame.
-    // A player holding a mystery box sees the box's own reel at rest: the gilded
-    // band full of specials is the invitation, before a word of copy says so.
+    // Dormant reel: a sample of the pool, built once per pool because buildStrip shuffles and a per-render build would flicker. A held mystery box shows its own reel at rest.
     const dormantStrip = useMemo(
         () => (allItems.length
             ? (boxGilded ? buildMysteryStrip(null) : buildStrip(allItems[0]))
@@ -901,37 +502,13 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         [allItems.length, openBounties, boxGilded],
     );
 
-    // The drift itself. Writes the same ref the spin animation writes, so the two
-    // never fight: starting a spin cancels this loop and takes the offset over
-    // from wherever the drift left it, which is why the reel appears to accelerate
-    // out of its idle state rather than snapping back to zero first.
-    //
-    // `prefers-reduced-motion` stops the drift entirely. A still reel is fine — it
-    // keeps its identity, it is just parked. Permanent unrequested motion on an
-    // otherwise static page is not.
-    //
-    // Saver mode stops it by the same door (`prefersCalm`), and `calm` is in the
-    // dependency list so toggling the setting starts and stops the drift live
-    // rather than at the next state change — which, on an idle reel, is never.
+    // The drift writes the ref the spin animation writes, so a spin takes over from wherever it left off. Stopped by prefers-reduced-motion and saver mode (`prefersCalm`, in deps so toggling is live).
     useEffect(() => {
         if (state !== 'idle' || dormantStrip.length === 0) return;
         if (typeof window === 'undefined') return;
         if (calm) return;
 
-        // Starting mid-strip used to be necessary and is not any more. The canvas
-        // drew tile `idx` at `centre + idx * ITEM_WIDTH - offset` against the array's
-        // literal indices, so at offset 0 the left half of the band had no tiles to
-        // draw; half a strip in, both edges were covered. That was a workaround for
-        // a finite strip, and it only ever bought about four minutes — past roughly
-        // 8,340px the *right* edge ran out instead, and at one full strip the offset
-        // wrapped back to an empty left edge. That is the reset you can see if you
-        // leave the page open.
-        //
-        // The canvas draws the dormant strip as a cylinder now (`loop`), so every
-        // slot always has an index and any offset is as good as any other. The wrap
-        // below is what makes it endless rather than what breaks it: one whole strip
-        // maps each slot onto an identical index, so the modulo is invisible and the
-        // offset can never grow without bound.
+        // The canvas draws the dormant strip as a cylinder (`loop`), so any offset is valid; the modulo by one whole strip keeps the offset bounded.
         let raf = null;
         let last = null;
         const PX_PER_SECOND = 14;   // slow enough to read, fast enough to notice
@@ -948,15 +525,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         return () => { if (raf) cancelAnimationFrame(raf); };
     }, [state, dormantStrip.length, calm]);
 
-    /*
-     * Flag a tile as one of today's open bounties, for the canvas's reticle. By
-     * texture alone: a bounty can be any item, and textures are unique across the
-     * tiers (the specials' carry their tier as a prefix), so a match is the item
-     * itself.
-     *
-     * This used to also require `type === 'regular'`, from when the bounty could
-     * only be a common. A special bounty would have gone past unmarked.
-     */
+    // Flags a tile as one of today's open bounties by texture alone: a bounty can be any item and textures are unique across tiers.
     function markBounty(item) {
         const open = openBountiesRef.current;
         if (!open.length || !item || item.isBounty) return item;
@@ -964,17 +533,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         return { ...item, isBounty: true };
     }
 
-    /*
-     * The mystery box's reel: every tile a special, drawn at EQUAL odds per item,
-     * because that is exactly what the box is - the server rolls one special
-     * uniformly (services/dailyBounty.js openBox). The ordinary strip's bands
-     * would be a lie here; this one is an honest picture of the box's contents,
-     * so an insane goes past about as often as it can come out: one tile in 37.
-     *
-     * Same item shapes and flags buildStrip gives each tier, so the canvas draws
-     * every tile in its own tier colour on the gilded band. Decoration, like the
-     * other strip: the winner at FINAL_INDEX is the server's.
-     */
+    // The mystery box's reel: every tile a special at equal odds per item, because the server rolls one special uniformly (services/dailyBounty.js openBox). Decoration; the winner at FINAL_INDEX is the server's.
     function buildMysteryStrip(finalItem, length = STRIP_LENGTH) {
         const contents = specialContents;
         if (contents.length === 0) return buildStrip(finalItem || allItems[0], length);
@@ -991,10 +550,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
 
     function buildStrip(finalItem, length = STRIP_LENGTH) {
         const newStrip = [];
-        // The pinned constant, not `length - 8`. The winner's slot is fixed and
-        // the strip's length is derived from it (see config/constants.js); with
-        // the old arithmetic, lengthening the strip to fill a wide viewport just
-        // moved the winner along with it and left the same gap behind.
+        // The pinned winner index, not `length - 8`: the strip length derives from it (config/constants.js).
         const finalIndex = FINAL_INDEX;
 
         // Shuffle all item pools for better visual randomness
@@ -1041,39 +597,13 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                     rareIndex++;
                     newItem = { ...rare, isRare: true, texture: `rare_${rare.username}` };
                 } else if (roll < 0.040 && shuffledExotic.length > 0) {
-                    // 0.7% chance for exotic. These bands are decoration only — they
-                    // decide what flashes past during the spin, not what is won,
-                    // which the server already decided. Exotic took its share out of
-                    // the band that used to be legendary's rather than lengthening
-                    // the run of specials, so the strip's overall density of
-                    // non-common tiles is unchanged.
-                    // Exotic items carry their own whole texture, unlike the member
-                    // tiers whose texture is built from a username.
+                    // Roll bands are decoration only, mirroring the server's authoritative strip (wheel-backend services/spin.js); keep the two in step.
+                    // Exotic carries its own whole texture, unlike member tiers built from a username.
                     const exotic = shuffledExotic[exoticIndex % shuffledExotic.length];
                     exoticIndex++;
                     newItem = { ...exotic, isExotic: true };
                 } else if (roll < 0.046 && shuffledRelic.length > 0) {
-                    /*
-                     * 0.6% chance for relic.
-                     *
-                     * Relic shipped without a band here at all, which meant the tier
-                     * could not appear on the reel as decoration — the only way to
-                     * see one go past was to win one, and the tier is 1 in 500. So
-                     * the newest rarity was also the only invisible one, and it read
-                     * as "relic is broken" rather than "relic is rare".
-                     *
-                     * Its share comes out of the 2% exotic and legendary were
-                     * splitting, on the same rule the exotic note above records: the
-                     * run of specials keeps its 5.3% and the tiers inside it divide
-                     * that, so adding a rarity never makes the strip busier. The
-                     * three-way split is 0.7 / 0.6 / 0.7 rather than exact thirds
-                     * because round bands are readable and the difference is 0.09 of
-                     * a tile across an 89-tile strip — invisible in the only place it
-                     * could show up.
-                     *
-                     * Relic items carry their own whole texture (`relic_*`), like
-                     * exotic and unlike the member tiers.
-                     */
+                    // Relic: 0.6% band, own whole texture (`relic_*`). Specials keep their 5.3% total and the tiers divide it, so a new rarity never makes the strip busier.
                     const relic = shuffledRelic[relicIndex % shuffledRelic.length];
                     relicIndex++;
                     newItem = { ...relic, isRelic: true };
@@ -1087,16 +617,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                         texture: member.username ? `special_${member.username}` : member.name.toLowerCase().replace(/\s+/g, '_')
                     };
                 } else if (roll < 0.058 && bounties.length > 0) {
-                    // 0.5% chance for today's open bounty, band for band with the
-                    // server's buildStrip in wheel-backend services/spin.js, and
-                    // carved out of the commons for the reason given there. Usually
-                    // the bounty is a common and this only changes which common goes
-                    // past; on a special day (about one in 45) it is that special,
-                    // wearing its own tier colour. Without it the one thing the room
-                    // is chasing would be the one thing the reel never shows.
-                    //
-                    // With several open, each teased tile is one of them at random,
-                    // as the server's strip does, so a spin advertises them all.
+                    // 0.5% for today's open bounty, band for band with the server's buildStrip (wheel-backend services/spin.js); with several open, each tile is one at random.
                     newItem = { ...bounties[Math.floor(Math.random() * bounties.length)], isBounty: true };
                 } else if (shuffledItems.length > 0) {
                     // Regular items - iterate through shuffled pool for maximum variety
@@ -1124,14 +645,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
 
     // Instant respin - no delays
     function respin() {
-        // The same refusal `spin()` makes, and it has to be made here too.
-        // This function deliberately bypasses the idle check to turn a result
-        // straight back into a spin, and that bypass took the arrival guard
-        // with it: Try Again on desktop, a tap on the reel on mobile and the
-        // Space key all land here rather than in `spin()`, so an arrival could
-        // be spun straight through from any of the three while the shutters
-        // were down. Clearing the result before the check would strand the
-        // reel empty behind the train, so this returns first.
+        // Same arrival refusal as spin(): Try Again, a reel tap and Space all bypass spin() and land here.
         if (bandIsTaken) return;
 
         if (animationRef.current) cancelAnimationFrame(animationRef.current);
@@ -1174,22 +688,10 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         // This ensures visual effects stay consistent during the animation
         currentSpinIsRecursionRef.current = recursionActive && recursionSpinsRemaining > 0;
 
-        // Track if this spin will use a KOTW lucky spin (if not already using recursion)
-        // Use ref to get latest value (props can be stale due to React batching)
-        // The condition mirrors the server's exactly: holding a balance is enough, the
-        // event does NOT have to be running. It can't be - the reward is only handed out
-        // when the event ends, so every lucky spin is spent afterwards. This used to also
-        // require an active event and only looked right because the client never learned
-        // that events had ended, leaving `active` stuck at true.
-        // An ARMED mystery box takes this spin ahead of everything else it could
-        // be - one the player has taken off the shelf and poured into the reel.
-        // A box merely held stays on the shelf and this is an ordinary spin.
-        // Decided once, here, against the state the click was made in; the reel,
-        // the endpoint and the theme all read this one answer for the whole spin.
+        // Mirrors the server: holding a lucky-spin balance is enough, the event need not be running. Read via ref (props go stale under batching).
+        // An ARMED mystery box takes this spin ahead of everything; decided once against the state of the click, and the reel, endpoint and theme all read it.
         const opensBox = boxReadyRef.current && boxArmedRef.current;
-        // Spent by this spin, so disarmed now: the spin's own theme runs off
-        // currentSpinIsMystery, and any further box waits on the shelf for its
-        // own unwrapping rather than gilding the next reel unasked.
+        // Spent by this spin, so disarmed now; the spin's theme runs off currentSpinIsMystery.
         if (opensBox) setBoxArmed(false);
         currentSpinIsMysteryRef.current = opensBox;
         setCurrentSpinIsMystery(opensBox);
@@ -1205,14 +707,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         setCurrentSpinIsKotwLucky(willUseKotwLucky);
         setLandedKotwPoints(null);
 
-        // Apply the lucky spin balance the server reported for this spin.
-        // Held back until the wheel lands because the reward can be granted by the very
-        // request that is driving this animation: First Blood is claimed inside the
-        // winning spin, so the response already carries the post-award balance, and
-        // KOTW does the same whenever its end timer fires while a spin is in flight.
-        // Applying it on response popped the badge up - "13 Lucky Spins" - over a strip
-        // that was still spinning, telling the player they had won before the wheel
-        // could say so.
+        // Applied on landing, not on response: the response can already carry a post-award balance (First Blood, KOTW) and would announce a win over a spinning strip.
         const applyPendingKotwLuckySpins = () => {
             if (pendingKotwLuckySpinsRef.current !== null && onKotwLuckySpinsUpdate) {
                 onKotwLuckySpinsUpdate(pendingKotwLuckySpinsRef.current);
@@ -1240,12 +735,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
             markSpinLanded();
         };
 
-        // Settle the KOTW spin once the animation is done. Applying the pending result
-        // is only half of it: the server omits kotwResult when the event expired while
-        // the request was in flight, and markKotwSpinStart() has already flagged this
-        // spin as pending. Without the else branch that flag never clears, and the
-        // leaderboard sidebar keeps rendering the user's own row from the frozen
-        // kotwUserStats for the rest of the session.
+        // Settle on landing: the server omits kotwResult when the event expired mid-request, and without the else branch the pending flag never clears and the leaderboard row freezes.
         const settleKotwSpin = () => {
             if (pendingKotwResultRef.current) {
                 setLandedKotwPoints({
@@ -1272,9 +762,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                 markKotwSpinStart();
             }
 
-            // Flag this client's wheel as in flight: event results that arrive
-            // mid-spin (Community Goal ending, First Blood winner) are held back
-            // and drained when the wheel lands via markSpinLanded().
+            // Marks the wheel in flight: event results arriving mid-spin are held and drained by markSpinLanded().
             markSpinInFlight();
 
             // Start soundtrack when spinning begins
@@ -1322,18 +810,10 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
 
                     spinResult = await res.json();
 
-                    // Every spin response carries the server's view of the global event.
-                    // Normally that is redundant, because the stream has already said so -
-                    // but it is the only route back for a client whose stream died without
-                    // saying it had. Without this you can spin through a whole King of the
-                    // Wheel, scoring on the server's leaderboard the entire time, and never
-                    // see the event. Recovery only; see recoverGlobalEventStatus.
-                    // (A box opening carries none, and this tolerates that.)
+                    // Recovery only: the spin response carries the server's event state for a client whose stream died (see recoverGlobalEventStatus). A box opening carries none.
                     recoverGlobalEventStatus(spinResult.globalEventStatus);
 
-                    // The box count the server reports after this open, held for the
-                    // landing like the lucky-spin balance. A 403 means the box was
-                    // already gone - another tab opened it - so the count is 0.
+                    // Box count held for the landing like the lucky-spin balance; a 403 means another tab opened it, so 0.
                     if (opensBox) {
                         pendingMysteryBoxesRef.current = res.status === 403 ? 0 : (spinResult.mysteryBoxes ?? null);
                     }
@@ -1406,9 +886,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                         const newStrip = [...prevStrip];
                         // Use constant FINAL_INDEX to ensure consistency with animation target
                         if (FINAL_INDEX >= 0 && FINAL_INDEX < newStrip.length) {
-                            // A box pull never claims the bounty (the server skips it),
-                            // so a box that produces today's bounty special must not
-                            // wear the sight as if it had.
+                            // A box pull never claims the bounty (the server skips it), so it must not wear the bounty mark.
                             newStrip[FINAL_INDEX] = opensBox ? finalItem : markBounty(finalItem);
                         }
                         return newStrip;
@@ -1527,9 +1005,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
 
     async function spin() {
         if (state !== 'idle' || !user) return;
-        // The platform belongs to the train. Refused rather than queued: an
-        // arrival lasts fifteen seconds and a spin that fires by itself after
-        // the event is a spin the player did not ask for at that moment.
+        // The platform belongs to the train: refused, not queued, so no spin fires unasked after the event.
         if (bandIsTaken) return;
         if (allItems.length === 0) return;
         setError(null); // Clear any previous error
@@ -1551,34 +1027,15 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         return BONUS_EVENTS[0]; // Fallback
     }
 
-    // Spin the bonus wheel onto the event the server already rolled - using horizontal strip.
-    // The wheel is presentation: /api/spin decided the outcome the moment the BONUS EVENT
-    // item came up, and the reward is gated on that roll, so picking a different one here
-    // would just animate a lie and then be refused. selectWeightedEvent() survives for the
-    // filler slots, which are decoration and have no bearing on the payout.
+    // The wheel is presentation: /api/spin already decided the event, and picking another would be refused. selectWeightedEvent() serves filler slots only.
     function spinBonusWheel(rolledEvent) {
         setState('bonusWheel');
 
-        // Match the server's roll to the local entry so the strip has colour/description.
-        // Falling back to a local roll keeps an older backend (one that doesn't send
-        // bonusEvent yet) playable rather than wedging the wheel on a null.
+        // Match the server's roll; a local roll keeps an older backend (no bonusEvent) playable.
         const event = (rolledEvent && BONUS_EVENTS.find(e => e.id === rolledEvent.id)) || selectWeightedEvent();
         setSelectedEvent(event);
 
-        // Build a strip of events (repeat them to fill the strip).
-        //
-        // The board replaced the card and now spans the full band, so the strip
-        // has to cover half a screen past the landing: 80 tiles, landing at 64,
-        // leaves 15 tiles of runway either side of the stop.
-        //
-        // The pitch is NOT restated here any more. A previous pass diagnosed
-        // exactly this mismatch — the animation running one width against a
-        // canvas drawing another — and then fixed the wrong side of it, moving
-        // the animation to 120 while CanvasBonusStrip kept a local 160. The
-        // board came to rest showing tile 48 (7680 / 160) instead of tile 64,
-        // and tile 48 is a filler with its own random roll, so the announced
-        // event and the executed event agreed only by coincidence. The geometry
-        // is owned by the component that draws it, the way LANE_PITCH is.
+        // 80 tiles landing at 64. The pitch is owned by CanvasBonusStrip, not restated here: a mismatch lands on the wrong tile.
         const newStrip = [];
         for (let i = 0; i < BONUS_STRIP_LENGTH; i++) {
             if (i === BONUS_FINAL_INDEX) {
@@ -1591,10 +1048,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         setBonusStrip(newStrip);
         bonusOffsetRef.current = 0;
 
-        // Animate the strip
-        // The board travels down on a phone and across on the band, so it lands on
-        // whichever pitch it is drawing at. Same contract as the reel's
-        // MOBILE_ROW_PITCH: the geometry is owned by the component that draws it.
+        // Lands on the pitch the board draws at (phone vs band), owned by the drawing component like MOBILE_ROW_PITCH.
         const targetOffset = BONUS_FINAL_INDEX * (isMobile ? BONUS_PITCH_MOBILE : BONUS_PITCH);
         const finalOffset = targetOffset + (Math.random() - 0.5) * 20;
         let startTime = null;
@@ -1644,9 +1098,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
             });
             const spinResult = await res.json();
 
-            // Same recovery as the ordinary spin. It matters more here, if anything: a
-            // player spending lucky spins won from an earlier event is exactly the person
-            // likely to be mid-event now.
+            // Same recovery as the ordinary spin.
             recoverGlobalEventStatus(spinResult.globalEventStatus);
 
             // Check for errors (no cooldown check - this is a bonus reward)
@@ -1713,10 +1165,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         setState('tripleSpinning');
 
         try {
-            // Helper to get a valid (non-event) spin result.
-            // `bonus` is the only field the server reads - it spends a bonus credit
-            // instead of the cooldown. Which event granted those credits is the
-            // server's own record, so the client no longer declares it.
+            // `bonus` is the only field the server reads: it spends a bonus credit instead of the cooldown.
             async function getValidSpin() {
                 let attempts = 0;
                 while (attempts < 5) {
@@ -1783,9 +1232,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
             // Staggered animation start
             const delays = [0, 200, 400, 600, 800];
             const completedCount = { current: 0 };
-            // The animation must stop on the same pitch the lanes draw at;
-            // LANE_PITCH is owned by SpinLanes so the two cannot drift (they
-            // did: the old card widths left the winner off the platform line).
+            // Must stop on the pitch the lanes draw at; LANE_PITCH is owned by SpinLanes.
             const tripleItemWidth = LANE_PITCH(isMobile, false);
 
             delays.forEach((delay, rowIndex) => {
@@ -1821,13 +1268,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     return best;
                                 }, null);
                                 if (bestRarity) playRaritySound(bestRarity);
-                                // Bonus spins still spend KOTW lucky spins server-side, so
-                                // the badge has to be reconciled here - otherwise it keeps
-                                // showing the pre-sequence count until the next ordinary
-                                // spin corrects it. The five requests run concurrently and
-                                // Promise.all preserves argument order, not completion
-                                // order, so the lowest balance reported is the reliable
-                                // one: it only ever counts down across a sequence.
+                                // Bonus spins spend KOTW lucky spins server-side, so reconcile the badge. The five requests run concurrently and Promise.all keeps argument order, not completion order, so the lowest balance reported is the reliable one.
                                 const reportedBalances = results
                                     .map(r => r?.kotwLuckySpinsRemaining)
                                     .filter(v => typeof v === 'number');
@@ -1956,18 +1397,6 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         }
     }
 
-    // A `reset()` used to sit here — sixteen setters returning the whole surface
-    // to idle — and nothing called it. Every path that clears a spin goes through
-    // `respin()` above, which clears the same state and immediately spins again,
-    // so the "back to idle with nothing showing" state this restored is one the
-    // surface never actually enters. Left in place it was a second definition of
-    // what "clean" means, drifting out of step with `respin` every time a new
-    // piece of spin state was added — and three already had been.
-    //
-    // `isDisabled` went with it: also declared here, also read nowhere. The idle
-    // block derives its own disabled state from `user` and `allItems`, which is
-    // where the button that needs it actually lives.
-
     // totalItemCount includes both regular items and dynamic items (team members, special items)
     const totalItemCount = allItems.length + (dynamicItems?.length || 0);
 
@@ -1984,10 +1413,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         ? currentSpinIsKotwLucky
         : (!showSpinRecursionEffects && !boxGilded && kotwLuckySpins > 0);
 
-    // The gilded reel: while a box waits at rest, and through the spin that opens
-    // it and its result. Outranks the lucky themes because the box is what the
-    // next spin will actually be; yields only to an event's own takeover, which
-    // boxReady already refuses to open over.
+    // The gilded reel outranks the lucky themes; it yields only to an event's own takeover.
     const showMysteryEffects = (state === 'spinning' || state === 'result')
         ? currentSpinIsMystery
         : (state === 'idle' && boxGilded);
@@ -1995,49 +1421,18 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     // Combined flag for any lucky spin effects (for shared logic like equal odds)
     const showAnySpinLuckyEffects = showSpinRecursionEffects || showSpinKotwLuckyEffects;
 
-    // KOTW Lucky uses crimson/gold theme (distinct from Recursion's matrix green)
-    // Recursion: Matrix green (#00ff00) - tech/digital aesthetic
-    // KOTW Lucky: Crimson (#F43F5E) + Gold (#F59E0B) + Slate (#1E293B) - royal aesthetic
+    // KOTW Lucky is crimson/gold, distinct from Recursion's matrix green.
     const KOTW_CRIMSON = arenaVisible ? ARENA.gold : '#F43F5E';
     const KOTW_GOLD = arenaVisible ? ARENA.gold : '#F59E0B';
 
-    // ── Event mode ───────────────────────────────────────────────────────────
-    //
-    // While an event runs the reel takes its colour: the rules above and below the
-    // band, the centre indicator, the pointers and the band's own glow all shift
-    // to the event's hue. The banner sits flush on top of the band, so without
-    // this the two read as unrelated — a coloured announcement pasted above a
-    // surface that carries on as though nothing is happening.
-    //
-    // This is presentation only - the accent does not change any tile's rarity.
-    // It used to be worth saying that explicitly because Gold Rush DID reach into
-    // the reel, boosting one tier's weights and lighting its columns through a
-    // separate `goldRushBoostedRarity` prop. That event and that prop are gone, and
-    // no event modifies the reel's contents any more; they only colour it.
-    //
-    // A lucky spin outranks it. Recursion and KOTW lucky spins are things happening
-    // to *you*, and for those four seconds they own the band — an ambient event
-    // tint underneath would just muddy the colour that is telling you something.
-    //
-    // Declared here, below KOTW_CRIMSON and the lucky-spin flags, because it reads
-    // all three. It was first written up near the top of the component, which put
-    // every one of those references in the temporal dead zone — the build was clean
-    // and the page rendered blank.
+    // Event mode tints the reel to the event's hue (presentation only); lucky spins outrank it.
+    // Declared below KOTW_CRIMSON and the lucky flags it reads: any earlier is a TDZ and renders blank with a clean build.
     const EVENT_ACCENT = {
         king_of_wheel: arenaVisible ? ARENA.gold : KOTW_CRIMSON,
         first_blood: COLORS.red,
         community_goal: COLORS.aqua,
     };
-    // An event's colour must outlive its clock. `global_event_end` clears
-    // `globalEventStatus.type` (and `active`) the moment the event is over, but
-    // the result banner keeps this slot for its display period and First Blood's
-    // winner card is literally the unboxing of the special item. Dropping the
-    // accent at 0:00 left the band back on the default gradient while that card
-    // was still open - the wheel said "event over" under a banner that was still
-    // announcing the prize. The aftermath flags below are the same signals the
-    // banners live and die by (their display windows live in the ActivityContext
-    // result handlers: 8s First Blood, 12s Community Goal, 30s KOTW), so the
-    // accent now survives exactly as long as the surface it belongs to.
+    // The accent must outlive the event clock: global_event_end clears the status while result banners are still up (8s First Blood, 12s Community Goal, 30s KOTW; see ActivityContext).
     const aftermathEventType = firstBloodResultPending || firstBloodWinner
         ? 'first_blood'
         : communityGoalResultPending || communityGoalResult
@@ -2049,14 +1444,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
         ? EVENT_ACCENT[aftermathEventType || globalEventStatus?.type] || null
         : null;
 
-    // The takeover modes. The bonus board, the lucky spin and the 3x/5x lanes
-    // are not separate trees any more — they are themes of the same band and
-    // stage the normal spin uses, so the band's content and every accent must
-    // know which mode is playing. Each mode owns one accent, and the lamp, the
-    // line, the band's tint and the result all draw from that one decision:
-    // the bonus family runs orange, the lucky family green, the 5x gold.
-    // Declared above the accents because the band's rules and the console's
-    // lamp read `modeAccent` first.
+    // Takeover modes theme the same band and stage; each owns one accent (bonus orange, lucky green, 5x gold). Declared above the accents that read `modeAccent`.
     const isBonusMode = state === 'bonusWheel' || state === 'bonusResult';
     const isLuckyMode = state === 'luckySpinning' || state === 'luckyResult';
     const isTripleMode = state === 'tripleSpinning' || state === 'tripleResult' || state === 'tripleLuckySpinning' || state === 'tripleLuckyResult';
@@ -2084,26 +1472,9 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     const KOTW_SLATE = '#1E293B';
     const KOTW_SLATE_DARK = '#0F172A';
 
-    // `spinLuckyColor` and `spinLuckyAccent` were declared here and read nowhere.
-    // Every lucky-spin surface below picks its own colour inline from
-    // `showSpinRecursionEffects`, which is the same decision these two made — a
-    // second source for one answer, which is how the two ended up able to
-    // disagree without anything failing.
 
+    // Idle renders the same rows as every state: a fixed-height grid row cannot appear and disappear, so the reel is dormant, not absent.
 
-    // Idle state - show clickable wheel with enhanced cosmic visuals
-    // Idle used to return here, rendering a completely different tree: no reel, no
-    // status line, just the tarot card. That made the reel appear and disappear
-    // between states, which a fixed-height grid row cannot do — the row would
-    // collapse and every other row would jump.
-    //
-    // So idle now renders the same two rows as every other state. The reel is
-    // simply dormant: dimmed and drifting rather than absent. Spinning does not
-    // rebuild the layout, it wakes the reel up, and nothing on the page moves.
-
-    // The band's two rules, tinted per state. The old borderBlock computed the
-    // same ternary inline; it is hoisted because the rules are now overlays
-    // painted in two places instead of one border property.
     const ruleColor = arenaVisible ? `${ARENA.gold}99` : showMysteryEffects ? `${COLORS.mystery}88` : showSpinRecursionEffects
         ? `${COLORS.recursion}40`
         : showSpinKotwLuckyEffects
@@ -2114,38 +1485,11 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                     ? `${eventAccent}55`
                     : `${COLORS.gold}28`;
 
-    // The console's readouts — the same state language as the label beside
-    // them, so the machine's lamps and the words always agree. `consoleColor`
-    // mirrors the label's own ternary (recursion green, event orange, lucky
-    // green, KOTW gold) rather than second-guessing it; the two are one
-    // decision and were written together.
+    // `consoleColor` mirrors the label's ternary; the two are one decision.
     const spinningState = state === 'spinning' || state === 'tripleSpinning' || state === 'tripleLuckySpinning' || state === 'luckySpinning' || state === 'bonusWheel';
     const resultState = state === 'result' || state === 'tripleResult' || state === 'luckyResult' || state === 'tripleLuckyResult' || state === 'recursion' || state === 'bonusResult';
-    /*
-     * THE PARLOUR ARRIVES OVER A RESULT.
-     *
-     * The arrival is held back until any spin in flight has landed, and it
-     * shutters the band, so it can never open on top of a payoff. The table is
-     * neither: it is not held back — it opens a window the player has to act
-     * inside — and it draws *over* a reel that keeps rendering underneath. So
-     * it lands on players who are still looking at their last pull, and the
-     * pull stayed on screen: SpinResult stacked under the table in the apron on
-     * desktop, and on a phone ShaftResult drew the previous item straight over
-     * the pockets.
-     *
-     * The reel is put away instead, and `state` goes back to idle rather than
-     * the panels merely being hidden — a result hidden for the event and then
-     * restored when it closes is the same stale pull arriving a second time, a
-     * minute late. Keyed on the state as well as the takeover so the spin that
-     * was in flight when the table opened is put away when it lands, not only
-     * if it had already landed. Nothing is lost by it: the pull is recorded
-     * server-side before the animation ends and is in the history panel.
-     *
-     * Only the two states that draw a payoff over an otherwise idle band. The
-     * bonus board and the 3x/5x lanes replace the band's content outright, so
-     * there is nothing of the parlour underneath them to protect, and cutting
-     * them short would strand a multi-spin flow mid-way.
-     */
+    // The table draws over a reel that keeps rendering and is not held for a landing, so put away the last pull (state back to idle, not merely hidden) or a stale pull returns later.
+    // Only the states drawing a payoff over an idle band: the bonus board and 3x/5x lanes replace the band, and cutting them would strand a multi-spin flow.
     useEffect(() => {
         if (!tableOwnsReel) return;
         if (state !== 'result' && state !== 'luckyResult') return;
@@ -2163,30 +1507,8 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                         : firstBloodVisible ? '#E7BA8D' : COLORS.gold;
 
     return (
-        // `display: contents` dissolves this wrapper so its children become direct
-        // children of WheelPage's grid, which is what lets the reel occupy a
-        // full-width row while the result sits between the sidebars — without
-        // lifting any spin state out of this component.
-        //
-        // The cost is that this element no longer generates a box: its padding,
-        // `position: relative` and `minHeight` stop applying, so every child must
-        // place itself explicitly (`gridRow` / `gridColumn`) rather than relying on
-        // flow. Anything added here needs its own placement or it will be
-        // auto-placed into whatever grid cell happens to be free.
-        //
-        // The phone keeps the flex column: it is a single column, the reel runs
-        // vertically as a shaft, and there is no multi-row grid to participate in.
-        //
-        // It does NOT scroll any more, and that is the layout's whole shape. It was
-        // `overflowY: auto` with a fixed 260px reel, so a phone got a short reel
-        // above the fold and everything else pushed below it — on the one surface
-        // whose entire job happens in a single view. The column is now exactly the
-        // viewport, the shaft takes every pixel the other rows do not claim, and
-        // nothing is ever off screen.
-        //
-        // Horizontal padding is gone with it. The shaft is full-bleed, the same
-        // decision the desktop band made for the same reason: a band that stops
-        // short of the screen edge is a box in the middle of the page.
+        // `display: contents`: children are direct children of WheelPage's grid, so each must place itself (gridRow/gridColumn) or it is auto-placed.
+        // The phone keeps a flex column exactly the viewport tall with no scroll; the shaft takes what the other rows leave.
         <div className={forgeVisible ? 'cg-forge-machine-theme' : firstBloodVisible ? 'fb-machine' : arenaVisible ? "kotw-machine" : undefined} style={isMobile ? {
             width: '100%',
             height: '100%',
@@ -2196,9 +1518,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
             alignItems: 'stretch',
             padding: 0,
             position: 'relative',
-            // Row 4 of the phone template, under the topbar, the ticker and the
-            // banner/meter slot — not the `2 / 6` span it used to take, which
-            // started in the ticker's own row.
+            // Row 4 of the phone template, under the topbar, ticker and banner/meter slot.
             gridRow: 4,
             gridColumn: 1,
             minHeight: 0,
@@ -2214,73 +1534,30 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                 />
             )}
 
-            {/* The main spin surface, split across two grid rows.
-
-                This used to be one "unified card": a bordered box holding the
-                status header, the reel and the result stacked vertically, sitting
-                in the middle of a centred column. The card was what capped the
-                reel — the reel could never be wider than the box it was inside,
-                and the box could never be wider than the column, and the column
-                could never be wider than what the sidebars left it.
-
-                So the box is gone. The status line and the reel are a full-width
-                band across the page; the result drops into the stage below,
-                between the sidebars. Nothing is nested inside anything that
-                constrains it, which is why the reel can simply be as wide as the
-                screen without a single layout trick.
-
-                Deleted with the card: its four corner accents, its top edge
-                highlight and its outer glow ring. Those framed a box that no
-                longer exists — the reel is now a band between two rules, and a
-                band does not have corners. The three full-surface washes that
-                were also anchored to the card (recursion scanlines, KOTW shimmer,
-                the data stream) move up to the shell, which is closer to their
-                intent anyway: a recursion spin should tint the whole surface, not
-                a rectangle in the middle of it. */}
+            {/* Main spin surface across two grid rows: a full-width band (status + reel) with the result in the stage below. No card, so nothing caps the reel's width. */}
                     {/* ── Row 2: the reel band ─────────────────────────────── */}
                     <div ref={reelBandRef} className={highRollerOwnsReel ? "kotw-reel-band hr-active-band" : "kotw-reel-band"} style={{
                         gridRow: 4,
                         gridColumn: '1 / -1',
                         position: 'relative',
                         zIndex: Z.reel,
-                        // On a phone this row is the shaft and it takes everything
-                        // the rows around it do not claim. `minHeight: 0` because a
-                        // flex child defaults to `min-height: auto` and would
-                        // otherwise refuse to shrink below its content.
+                        // `minHeight: 0`: a flex child would otherwise refuse to shrink below its content.
                         ...(isMobile ? { flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' } : null),
-                        // The band is still "between two rules" — but the rules
-                        // are overlays below, not borders. A constant full-width
-                        // line is a rectangle's edge; these fade to nothing at
-                        // the sides, like the canvas's own machined edges.
+                        // The band's rules are fading overlays, not borders.
                         background: highRollerOwnsReel ? 'transparent' : parlourOwnsReel
                             ? 'linear-gradient(180deg, #350a13 0%, #26060e 44%, #180409 100%)'
                             : showMysteryEffects
-                            // The box's gilded deck, the canvas's GILT_DEEP ramp
-                            // carried out to the band's DOM ground so the two
-                            // never show a seam between them.
+                            // The canvas's GILT_DEEP ramp carried to the DOM ground so no seam shows.
                             ? 'linear-gradient(180deg, #2a1c05 0%, #3a2708 46%, #150e03 100%)'
                             : showSpinRecursionEffects
                             ? 'linear-gradient(180deg, #0a150a 0%, #12240e 46%, #0a150a 100%)'
                             : showSpinKotwLuckyEffects
                                 ? `linear-gradient(180deg, ${KOTW_SLATE_DARK} 0%, ${KOTW_SLATE} 46%, ${KOTW_SLATE_DARK} 100%)`
                                 : modeAccent
-                                    // The takeover modes tint the same deck the
-                                    // normal spin stands on — the accent's light
-                                    // falling from the rail, the street dark
-                                    // below. The old takeover cards repainted
-                                    // the band in warm browns and fought the
-                                    // world; a wash lets the mode read without
-                                    // leaving THE NOCTURNE.
+                                    // Takeover modes tint the deck with a wash, not a repaint.
                                     ? `linear-gradient(180deg, ${modeAccent}12 0%, ${modeAccent}06 45%, #05060a 100%)`
                                     : eventAccent
-                                        // A wash, not a fill. The tiles are the thing
-                                        // being read; the event tints the room they are
-                                        // in rather than repainting them.
                                         ? `linear-gradient(180deg, ${eventAccent}14 0%, ${eventAccent}08 55%, #14141a 100%)`
-                                        // Blue hour, sinking to the street: cobalt at
-                                        // the skyline's base, black at the curb. The
-                                        // city's ground, not a panel's fill — the band
-                                        // is where the viaduct deck sits. THE NOCTURNE.
                                         : 'linear-gradient(180deg, var(--wheel-panel-top, #0d1322) 0%, var(--wheel-panel-bottom, #0a0d18) 44%, #05060a 100%)',
                         // During an event the band glows even at rest, so the
                         // surface looks live rather than only reacting on a spin.
@@ -2291,84 +1568,29 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                 : 'none',
                         transition: 'box-shadow 0.3s ease-out, background 0.4s ease-out',
                     }}>
-                        {/* The band's two rules, as fading hairlines. The old
-                            borderBlock was the blockiest line on the surface:
-                            full width, constant strength, dead straight from one
-                            viewport edge to the other. These are strongest
-                            mid-screen and gone toward the sides — and in THE
-                            NOCTURNE they are the city's own lines, not a frame's:
-                            the top one is the viaduct rail, the bottom the street
-                            glow under the deck.
-                            */}
+                        {/* The band's two rules as fading hairlines: viaduct rail above, street glow below. */}
                         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${ruleColor} 14%, ${ruleColor} 86%, transparent)` }} />
                         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${ruleColor} 14%, ${ruleColor} 86%, transparent)` }} />
 
                         {/* The box's coat going on - see gildReelFromBox. */}
                         {boxCoating > 0 && <MysteryCoat key={boxCoating} />}
 
-                        {/* Header.
-                            No divider under it: the seam between the header and
-                            the reel is now the band's own top hairline, drawn by
-                            the canvas. The old 1px rule was a card's edge; a mount
-                            has none — see the strip container below. */}
+                        {/* No divider under the header: the seam is the band's top hairline, drawn by the canvas. */}
                         <div className="kotw-reel-console" style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             padding: '16px 20px',
                             gap: isMobile ? 12 : 0,
-                            // The header reserves its tallest variant so the band
-                            // can never change height: the `?` button is 28px and
-                            // "Try Again" ~32px, so the row grew ~4px the moment a
-                            // result landed and shrank again on respin — pushing
-                            // the whole stage (and the flanks centred in it) up
-                            // and down at the one moment the surface should hold
-                            // still. 64 = 32px of tallest control + 16px padding
-                            // twice; a few px of spare air at idle is invisible,
-                            // a moving stage is not.
+                            // Reserves the tallest variant (64 = 32px control + 16px padding twice) so the band never changes height when a result lands.
                             minHeight: '64px',
                             boxSizing: 'border-box',
-                            // The deck's top face — the coping the console sits on.
-                            // Same grain as every plinth (SURFACE_NOISE), with the
-                            // blue hour's sky light falling on it from the rail and
-                            // dying before the recess. The canvas's own hairline
-                            // below this row is what separates the coping from the
-                            // reel, so the world holds without a single border —
-                            // this is the deck's material, not a strip wrapped
-                            // around content. (Owner: the row itself felt
-                            // untouched; added 2026-08-19.)
+                            // The deck's top face: SURFACE_NOISE grain with sky light from the rail; the canvas hairline below separates it from the reel.
                             backgroundImage: `${SURFACE_NOISE}, linear-gradient(180deg, rgba(var(--wheel-surface-light, 148,168,212),0.06) 0%, rgba(var(--wheel-surface-light, 148,168,212),0) 42%), linear-gradient(180deg, var(--wheel-panel-top, #0d1322) 0%, var(--wheel-panel-bottom, #0a0d18) 100%)`,
                         }}>
-                            {/* Left and right groups each take an equal share of
-                                the slack (`flex: 1 1 0`), which is what keeps the
-                                KOTW board centred on the BAR rather than on
-                                whatever space happens to be left over.
-                                
-                                Centred in the leftover, the board slid ~92px every
-                                time this row's contents changed width — the label
-                                going "Ready to spin" -> "Spinning..." -> "Gamba!",
-                                and above all the "Try Again" button appearing on
-                                the right. Measured: all five chips moving together
-                                by 92px, with zero change in their own widths. */}
+                            {/* Left and right groups take equal slack (`flex: 1 1 0`) so the KOTW board stays centred on the bar when the row's contents change width. */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 0', minWidth: 0 }}>
-                                {/* The console — the band's header is a machine
-                                    face now, and the wheel mark that used to spin
-                                    here is gone (the owner asked for machinery and
-                                    found the mark goofy in this row; it still leads
-                                    the topbar and the spin control).
-
-                                    THE NOCTURNE, machined: a square plate of the
-                                    band's own plinth material — no border, no
-                                    radius, the lit rail along its top edge instead
-                                    of an outline — carrying the machine's lamps.
-                                    The LEDs are lights, not chrome: the ready lamp
-                                    holds amber, the run lamp blinks while a spin is
-                                    in flight, and the stripe chases its state
-                                    colour along the row while spinning, sits dim
-                                    at idle and burns steady at the result. The
-                                    words beside them carry the reason — the
-                                    caption rule from the spin control, verbatim —
-                                    so the lamps only ever agree with the label. */}
+                                {/* The console: a plinth plate of status LEDs and the state label; the lamps only ever agree with the label (caption rule from the spin control). */}
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -2376,15 +1598,10 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     padding: isMobile ? '4px 8px' : '5px 10px',
                                     ...(isMobile ? { display: 'none' } : {}),
                                     borderRadius: 0,
-                                    // The plinth's ground plus SURFACE_NOISE, the
-                                    // milled plate's grain — same material as the
-                                    // stage flanks and the milestone meter.
                                     backgroundImage: `${SURFACE_NOISE}, linear-gradient(180deg, var(--wheel-control-top, #1b1b28) 0%, var(--wheel-control-bottom, #12121c) 100%)`,
                                     boxShadow: 'inset 0 1px 0 rgba(var(--wheel-surface-light, 190,198,220),0.10), inset 0 -1px 0 rgba(0,0,0,0.45)',
                                 }}>
-                                    {/* Status LEDs + stripe: decoration by
-                                        definition — the label carries the state for
-                                        assistive tech. */}
+                                    {/* Decoration only; the label carries state for assistive tech. */}
                                     <div aria-hidden="true" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                         <div style={{
                                             width: 6, height: 6, borderRadius: '50%',
@@ -2427,20 +1644,8 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                                         : firstBloodVisible ? '#E7BA8D' : COLORS.gold,
                                     fontSize: '18px',
                                     fontWeight: '600',
-                                    // The row may not change height between spin
-                                    // states, and this label is the only thing in
-                                    // it long enough to wrap. On a 414px phone
-                                    // "Triple Lucky Spinning…" took three lines and
-                                    // grew the console's row by ~46px in the middle
-                                    // of a takeover. The two longest labels were
-                                    // shortened rather than truncated — an ellipsis
-                                    // on the one word naming the mode is worse than
-                                    // a shorter name — and the mode names now agree
-                                    // with each other: 5x, 3x Lucky.
+                                    // The row may not change height between spin states and this label is the only thing that can wrap ("Triple Lucky Spinning…" took three lines at 414px); mode names are short on purpose.
                                     whiteSpace: 'nowrap',
-                                    // With the label no longer able to wrap, the
-                                    // left group grows to its full width and meets
-                                    // the row's controls edge to edge on a phone.
                                     marginRight: '12px',
                                     textShadow: showSpinRecursionEffects
                                         ? `0 0 10px ${COLORS.recursion}`
@@ -2469,23 +1674,11 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                             </span>
                             </div>
 
-                            {/* The status bar's centre slot: standings while a
-                                King of the Wheel event is running, and the lucky
-                                spins it paid out afterwards. Standings during,
-                                payout after — and if both apply, both show, which
-                                is correct during an event you are already winning
-                                spins from.
-                                
-                                The payout used to be a large pulsing badge in the
-                                stage above the spin button, where it competed with
-                                the result panel for space and shifted the button
-                                down whenever it appeared. */}
+                            {/* Centre slot: standings during a King of the Wheel event, the lucky spins it paid out afterwards; both show if both apply. */}
                             <EventPayout luckySpins={kotwLuckySpins} isMobile={isMobile} />
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: isMobile ? '0 0 auto' : '1 1 0', minWidth: 0, justifyContent: 'flex-end' }}>
-                                {/* The box shelf: boxes held but not yet opened.
-                                    Mounted even when empty, invisibly, so a box
-                                    being put away always has somewhere to fly. */}
+                                {/* Box shelf: mounted even when empty, invisibly, so a box being put away has somewhere to fly. */}
                                 <MysteryBoxShelf
                                     ref={boxShelfRef}
                                     count={shelvedBoxes}
@@ -2494,12 +1687,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     compact={isMobile}
                                     onOpen={openBoxFromShelf}
                                 />
-                                {/* Info button — a machined control now, in the
-                                    plinth language: ground, lit rail on top, and
-                                    the light rising through it on hover (aqua,
-                                    the info light) instead of a border repaint.
-                                    The 50% circle is the ratified shape for the
-                                    `?` control. */}
+                                {/* Info button: the 50% circle is the ratified shape for `?`. */}
                                 <button
                                     onClick={() => setShowOddsInfo(true)}
                                     style={{
@@ -2530,20 +1718,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     ?
                                 </button>
 
-                                {/* Desktop only. On a phone the reel itself is the
-                                    respin — the same tap that starts a spin from
-                                    idle restarts it from a result, and the caption
-                                    names that gesture — so this was a second
-                                    control for one action, on the narrowest bar on
-                                    the surface. Same call as the Trophy button, the
-                                    leaderboard pill, the live ticker and the chat
-                                    launcher; see the don't in DESIGN.md §8.
-
-                                    It also takes the widest slot in a row that
-                                    reserves its tallest variant to keep the band
-                                    from changing height — so dropping it on the
-                                    phone buys back the space that the `?` and the
-                                    mode label were competing for. */}
+                                {/* Desktop only: on a phone the reel itself is the respin (DESIGN.md §8), and this widest slot would crowd the `?` and the label. */}
                                 {!isMobile && (state === 'result' || state === 'tripleResult' || state === 'luckyResult' || state === 'tripleLuckyResult' || state === 'recursion') && (
                                     <button onClick={respin} style={{
                                         padding: '8px 14px',
@@ -2566,84 +1741,19 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                             </div>
                         </div>
 
-                        {/* Strip Container.
-
-                            Horizontal padding is zero on desktop: the band runs to
-                            both screen edges, and padding would show as a gap at
-                            the very edge of the viewport, which is the one thing an
-                            edge-to-edge band cannot have.
-
-                            The container is a *mount* now, not a frame. The canvas
-                            inside draws its own machined edges — top hairline, floor
-                            lip, per-slot seams, vignette — so the old frame's
-                            border, inset shadows, edge-fade gradients and vignette
-                            overlay only fought it: four layers of depth sitting on
-                            top of the canvas, extinguishing the very edges it was
-                            drawing. All of that is gone. The last survivor, the
-                            dark bezel, went too: a rectangle drawn around a
-                            rectangle is how the mount still read as a box — two
-                            lines stacked 1px apart at top and bottom. So the
-                            container now draws no line at all; the canvas's own
-                            hairline and lip are the only edges, and the mount is
-                            implied by the row's curved surface around them, this
-                            drop shadow, and the fading rules above/below. The
-                            container is transparent so the row's themed gradient
-                            shows through the gaps — recursion, KOTW and result
-                            tint the whole band, not just the box around it. */}
+                        {/* The strip container is a mount, not a frame: the canvas draws its own edges, so no border, bezel or overlay here, no horizontal padding on desktop, and transparent so the row's themed gradient shows through. */}
                         <div style={isMobile
                             // Full-bleed and flexing: the shaft's mount is the
                             // whole width and whatever height is left.
                             ? { padding: 0, flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }
                             : { padding: '8px 0 22px' }}>
-                            {/* THE PHONE'S ONE GESTURE, and it belongs to the
-                                band rather than to the reel mount.
-
-                                It lived on the mount, which is only the LAST
-                                arm of the three-way switch below — so the
-                                3x/5x lanes and the bonus board, which stand in
-                                that band in place of the mount, had no tap
-                                target at all. The lanes come to rest on
-                                `tripleResult` / `tripleLuckyResult` and the
-                                phone has no way out of either: Try Again is
-                                desktop-only (see the bar above, and DESIGN.md
-                                §8 on why), so the only exit from a multi-spin
-                                payoff was reloading the page.
-
-                                One handler on the band covers every arm, which
-                                is also what the gesture always meant — "tap the
-                                reel" is the band, not whichever machine happens
-                                to be standing in it. Desktop is unaffected: the
-                                handler returns immediately off the phone. */}
+                            {/* The phone's one tap gesture lives on the band, not the reel mount, so the 3x/5x lanes and bonus board (which replace the mount) have a target; Try Again is desktop-only. Returns immediately off the phone. */}
                             <div
                                 onClick={handleBandTap}
                                 style={isMobile
                                     ? { position: 'relative', flex: '1 1 0', minHeight: 0, cursor: bandTappable ? 'pointer' : 'default' }
                                     : { position: 'relative' }}>
-                                {/* The street glow — THE NOCTURNE.
-
-                                    Not a screen sheen: the wet street under the
-                                    viaduct bleeding its amber station light up
-                                    across the deck's face. The first version of
-                                    this overlay was a diagonal streak — but a
-                                    streak is a line, and lines are what made the
-                                    old frame blocky; this one lives at the bottom
-                                    of the band, where the street is, and swells
-                                    from the curb rather than across the middle.
-                                    Faint by design — never arguing with the
-                                    detent ticks or the tile washes underneath —
-                                    and static by design, so there is nothing to
-                                    freeze under reduced motion. It is the only
-                                    overlay left over the canvas; the old edge
-                                    fades and vignette are gone because the canvas
-                                    already draws its own vignette, and two depth
-                                    systems on one screen is how the previous frame
-                                    looked smeared.
-
-                                    It lives at the strip container's level, not
-                                    inside the reel mount, so the takeover modes
-                                    stand on the same street: the bonus board and
-                                    the 3x/5x lanes get the amber curb under them
-                                    without each re-drawing it. */}
+                                {/* Street glow: static amber curb light at the bottom of the band, the only overlay over the canvas (which draws its own vignette). At the strip container's level so takeover modes share it. */}
                                 <div style={{
                                     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
                                     background: 'radial-gradient(ellipse 76% 50% at 50% 84%, rgba(255,183,94,0.05) 0%, rgba(var(--wheel-surface-light, 206,214,236),0.02) 40%, transparent 68%)',
@@ -2652,22 +1762,10 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                 }} />
 
                                 {isBonusMode ? (
-                                    /* The bonus board — the departure board
-                                        naming the next train. It replaces the
-                                        reel in the same band: same mount, same
-                                        row, the orange lamp on the console. The
-                                        board has no canvas detent, so its
-                                        platform line is a DOM hairline on both
-                                        breakpoints (the reel's desktop detent is
-                                        the canvas's own; the board is a different
-                                        machine and says so). */
+                                    // Bonus board: replaces the reel in the same mount. It has no canvas detent, so its platform line is a DOM hairline on both breakpoints.
                                     <div style={{
                                         position: 'relative',
-                                        // The board fills the shaft's space on a
-                                        // phone, the way the reel it stands in for
-                                        // does. It was a 90px strip — a sliver in a
-                                        // column that is now ~640 — left over from
-                                        // when the phone's reel was a small box.
+                                        // On a phone the board fills the shaft's space like the reel it stands in for.
                                         height: isMobile ? '100%' : `${STRIP_HEIGHT}px`,
                                         flex: isMobile ? '1 1 0' : undefined,
                                         minHeight: isMobile ? 0 : undefined,
@@ -2681,19 +1779,10 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                             isMobile={isMobile}
                                             isSpinning={state === 'bonusWheel'}
                                             isResult={state === 'bonusResult'}
-                                            // The landing index the strip was
-                                            // built around, not a re-derivation
-                                            // of it from the array's length.
+                                            // The landing index the strip was built around, not re-derived from its length.
                                             finalIndex={BONUS_FINAL_INDEX}
                                         />
-                                        {/* The platform line, turned to match the
-                                            board's travel: a vertical rule with
-                                            arrows above and below when it runs
-                                            across, a horizontal rule with arrows
-                                            at the sides when it runs down. An
-                                            indicator that points along the axis of
-                                            motion instead of across it is pointing
-                                            at a lane rather than at a slot. */}
+                                        {/* Platform line turned to match the board's travel axis: it must point along the motion, not across it. */}
                                         <div style={{
                                             position: 'absolute',
                                             ...(isMobile
@@ -2739,10 +1828,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                         }} />
                                     </div>
                                 ) : isTripleMode ? (
-                                    /* The 3x / 5x takeovers: parallel lanes, each
-                                        a reel arriving at the platform line. The
-                                        lanes share the band's row and the stage's
-                                        readout below; see SpinLanes.jsx. */
+                                    // 3x/5x takeovers: parallel lanes sharing the band's row (see SpinLanes.jsx).
                                     <SpinLanes
                                         laneCount={state === 'tripleLuckySpinning' || state === 'tripleLuckyResult' ? 3 : 5}
                                         isTripleLucky={state === 'tripleLuckySpinning' || state === 'tripleLuckyResult'}
@@ -2756,75 +1842,27 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                 ) : (
                             <div
                                 ref={reelMountRef}
-                                /* The tap is the band's, one level up — the
-                                   lanes and the bonus board replace this mount
-                                   and were left with no target when it was
-                                   here. */
+                                // The tap is on the band, one level up.
                                 style={{
                                     position: 'relative',
-                                    // The shaft takes the height the stage row can
-                                    // give it and the full width of the viewport.
-                                    // `100%` on both axes, with the row above
-                                    // deciding how tall — a phone in landscape has
-                                    // 390px of height to spend and a phone in
-                                    // portrait has 844, and a fixed 260 served
-                                    // neither.
+                                    // The shaft takes the full width and the height the stage row gives it; no fixed height (landscape 390 vs portrait 844).
                                     height: isMobile || highRollerOwnsReel ? '100%' : `${STRIP_HEIGHT}px`,
                                     width: '100%',
                                     overflow: 'hidden',
-                                    // No corners on either breakpoint now: the band
-                                    // leaves the screen on both sides on desktop,
-                                    // and the shaft does the same on a phone. A
-                                    // radius at the viewport edge is a notch.
+                                    // No corners: a radius at the viewport edge is a notch.
                                     borderRadius: 0,
                                     margin: 0,
-                                    // The mount's shadow, falling onto the page
-                                    // behind it. Everything else inset is gone —
-                                    // depth inside the band is the canvas's job.
+                                    // The mount's shadow; depth inside the band is the canvas's job.
                                     boxShadow: highRollerOwnsReel ? 'none' : '0 16px 36px -20px rgba(0,0,0,0.85)',
-                                    // The cursor travelled with the handler; it
-                                    // is on the band now, and covers the lane
-                                    // and board states this list had missed.
                                 }}>
 
-                                {/* The arrival takes the band and then opens out
-                                    of it: the reel's slots shutter closed here,
-                                    in the mount, and the station plays in a
-                                    fixed frame that grows out of this exact
-                                    rectangle over the column. Mounted inside the
-                                    mount because the shutter has to be precisely
-                                    where the reel is and because this element is
-                                    what the frame measures itself against — see
-                                    ArrivalTheatre.jsx. The wheel keeps rendering
-                                    underneath the whole time and is revealed
-                                    again when the blades lift. */}
-                                {/* Keyed on the event so a second arrival gets a
-                                    FRESH component and therefore a fresh clock.
-                                    Without it React reused the instance, the
-                                    `start` captured in its effect stayed at the
-                                    previous arrival's mount time, and the whole
-                                    timeline read as already finished: no
-                                    shutter, no train, a blank band. It only
-                                    survived review because arrivals are hours
-                                    apart in production and never overlapped. */}
+                                {/* Arrival: the reel's slots shutter here in the mount, and the station plays in a fixed frame growing from this rectangle (ArrivalTheatre.jsx). The wheel keeps rendering underneath. */}
+                                {/* Keyed on the event so a second arrival gets a fresh clock; reuse left `start` at the previous arrival's mount time and rendered a blank band. */}
                                 {arrivalOwnsReel && (
                                     <ArrivalTheatre key={arrival?.expiresAt || 'arrival'} />
                                 )}
 
-                                {/* THE PARLOUR's pockets, drawn OVER the reel in
-                                    the reel's own mount.
-
-                                    Over rather than instead of: the slots turn
-                                    one at a time, and a slot half way through
-                                    turning shows the item it was at its edges.
-                                    That only works if the reel is still
-                                    rendering underneath, which it is — exactly
-                                    as it keeps rendering behind the arrival's
-                                    blades.
-
-                                    Keyed on the table so a second game gets a
-                                    fresh canvas rather than one carrying the
-                                    previous winner's lit pocket. */}
+                                {/* Parlour pockets drawn OVER the reel, which keeps rendering underneath (a turning slot shows the item at its edges). Keyed on the table for a fresh canvas. */}
                                 {parlourOwnsReel && (
                                     <CanvasRouletteStrip
                                         key={roulette.openedAt || 'parlour'}
@@ -2836,23 +1874,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     />
                                 )}
 
-                                {/* THE PARLOUR's deck, on the phone only.
-
-                                    On a desktop this is a layer of the room and
-                                    lives in ParlourAtmosphere, under the whole
-                                    interface, falling through the margins the
-                                    layout leaves. The shaft has no margins —
-                                    the reel fills the viewport — so there the
-                                    room was entirely behind one opaque canvas
-                                    and the event arrived as a red trim on the
-                                    existing reel.
-
-                                    So on a phone the deck mounts here, in the
-                                    band, over the pockets and over nothing
-                                    else. Portalling it to the body was tried
-                                    and put cards over the topbar and the help
-                                    control, which breaks the room's one rule —
-                                    see ParlourDeck's footer. */}
+                                {/* Parlour deck, phone only: it mounts in the band, since portalling to the body put cards over the topbar and help control (see ParlourDeck's footer). Desktop uses ParlourAtmosphere. */}
                                 {parlourOwnsReel && isMobile && (
                                     <ParlourDeck
                                         key={`deck-${roulette.openedAt || 'parlour'}`}
@@ -2862,9 +1884,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     />
                                 )}
 
-                                {/* HIGH ROLLER's dealer, over the reel - the hand
-                                    every seat is playing against sits where every
-                                    spin's answer normally lands. Keyed on the table like the Parlour. */}
+                                {/* High Roller's dealer over the reel; keyed on the table like the Parlour. */}
                                 {highRollerOwnsReel && (
                                     <HighRollerRoom
                                         key={`hr-dealer-${highRoller.openedAt || 'table'}`}
@@ -2894,26 +1914,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     }} />
                                 )}
 
-                                {/* The DOM centre line and the triangle pointers
-                                    are gone from BOTH breakpoints now.
-
-                                    Desktop lost them when the canvas learned to
-                                    draw a detent; the shaft kept them on the
-                                    honest grounds recorded here at the time — "its
-                                    geometry has not been reviewed on a real
-                                    device". It has been now, and the verdict is the
-                                    one desktop already reached: a 3px bar lying
-                                    across the middle of the band is a bar painted
-                                    over the item you are trying to look at, at the
-                                    one moment the surface exists for, and with two
-                                    triangles parked outside the edges it was three
-                                    things all saying "here".
-
-                                    The shaft draws its own detent instead — the
-                                    same two machined marks and opening hairline,
-                                    seated in the rails rather than in the hairline
-                                    and the lip. See the indicator block in
-                                    CanvasSpinningStrip.jsx. */}
+                                {/* No DOM centre line or triangle pointers on either breakpoint: the canvas draws its own detent (see CanvasSpinningStrip.jsx), and a bar over the winning item is worse. */}
 
                                 {/* Pointer - Enhanced with heartbeat during slowdown */}
                                 {showAnySpinLuckyEffects ? (
@@ -2994,13 +1995,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                         </div>
                                     </>
                                 ) : null}
-                                {/* The phone's triangle pointers used to live here.
-                                    They are gone with the centre line above and for
-                                    the same reason — an arrow parked outside the
-                                    shaft's edges is a second indicator arguing with
-                                    the detent seated inside them. Lucky spins keep
-                                    their brackets on both breakpoints, because
-                                    those are a mode signal rather than a pointer. */}
+                                {/* No phone pointers: a second indicator would argue with the canvas detent. Lucky brackets stay on both breakpoints as a mode signal. */}
 
                                 {/* Result Shockwave Effect */}
                                 {state === 'result' && (
@@ -3043,48 +2038,16 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     isRecursion={showSpinRecursionEffects}
                                     themeType={arenaVisible ? 'kotw-arena' : showMysteryEffects ? 'mystery' : showSpinKotwLuckyEffects ? 'kotw' : firstBloodVisible && !showSpinRecursionEffects && !isLuckyMode ? 'first-blood' : null}
                                     accentColor={arenaVisible ? ARENA.gold : showMysteryEffects ? COLORS.mystery : showSpinKotwLuckyEffects ? KOTW_GOLD : showSpinRecursionEffects ? COLORS.recursion : isLuckyMode ? COLORS.green : firstBloodVisible ? '#D65B45' : eventAccent || null}
-                                    // Neither axis is fixed on a phone any more:
-                                    // the shaft fills its mount and the canvas
-                                    // measures its own box, the way the desktop
-                                    // band already did for width.
+                                    // The shaft fills its mount and the canvas measures its own box.
                                     stripWidth={undefined}
                                     stripHeight={isMobile ? undefined : STRIP_HEIGHT}
                                     finalIndex={FINAL_INDEX}
                                     isLuckySpin={showAnySpinLuckyEffects || isLuckyMode}
                                 />
 
-                                {/* The phone's payoff, drawn over the row it
-                                    landed on. See ShaftResult.jsx for why there is
-                                    no panel below the reel any more.
-
-                                    The row's `top` is the canvas's own formula —
-                                    `stripCentre + finalIndex × pitch − offset` —
-                                    and not the shaft's midpoint, because the spin
-                                    deliberately rests up to 45% of a pitch off
-                                    centre. Pinning this to the middle would float
-                                    the words away from their own sprite by up to
-                                    58px. Reading `canvasOffsetRef` during render is
-                                    safe here and only here: the offset is finished
-                                    moving by the time this state exists. */}
-                                {/* The idle caption, floated over the shaft's own
-                                    bottom vignette rather than given a row of its
-                                    own. That vignette is already the darkest part
-                                    of the reel — rows arrive out of it and leave
-                                    into it — so it is the one place on the surface
-                                    where text can sit over the reel and still be
-                                    the most legible thing in its area. Costs no
-                                    layout, which is the point: the reel now runs
-                                    to the bottom bar. */}
-                                {/* Not while the parlour owns the reel. On a
-                                    phone the table is a fixed tray over the
-                                    bottom of the shaft — the shaft has no apron
-                                    under it — and this line sits in exactly
-                                    that band, so "Tap the reel to spin" was
-                                    reading through the tray across the plaques
-                                    and the KEEP token. It is also wrong twice
-                                    over: the reel is a roulette wheel for those
-                                    forty-five seconds and tapping it does
-                                    nothing. */}
+                                {/* Phone payoff over the landed row (ShaftResult.jsx). `top` is the canvas's formula `stripCentre + finalIndex × pitch − offset`, not the midpoint: the spin rests up to 45% of a pitch off centre. Reading canvasOffsetRef in render is safe only because the offset has finished moving. */}
+                                {/* Idle caption floats over the shaft's bottom vignette, costing no layout. */}
+                                {/* Hidden while the parlour owns the reel: the phone table is a tray over this line, and tapping does nothing then. */}
                                 {isMobile && state === 'idle' && !tableOwnsReel && (
                                     <div style={{
                                         position: 'absolute',
@@ -3115,11 +2078,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                     </div>
                                 )}
 
-                                {/* `!parlourOwnsReel` closes the single frame
-                                    between the table opening and the effect
-                                    above putting the reel away — on a phone
-                                    that frame is the last pull painted across
-                                    the pockets. */}
+                                {/* `!parlourOwnsReel` closes the one frame between the table opening and the effect putting the reel away. */}
                                 {isMobile && !tableOwnsReel && (state === 'result' || state === 'luckyResult')
                                     && (state === 'result' ? result : luckyResult) && shaftHeight > 0 && (
                                     <ShaftResult
@@ -3130,13 +2089,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                         isNewItem={state === 'result' ? isNewItem : isLuckyNew}
                                         prestigePull={prestigePull}
                                         collection={collection}
-                                        // The landed row's centre. The row's top is
-                                        // the canvas's own formula — `stripCentre +
-                                        // finalIndex × pitch − offset` — and not the
-                                        // shaft's midpoint, because the spin
-                                        // deliberately rests up to 45% of a pitch
-                                        // off centre; expanding around the midpoint
-                                        // would open the panel off its own tile.
+                                        // Landed row's centre via the canvas's formula, not the shaft midpoint (the spin rests up to 45% of a pitch off centre).
                                         centerY={(shaftHeight / 2 - MOBILE_ROW_PITCH / 2)
                                             + FINAL_INDEX * MOBILE_ROW_PITCH
                                             - canvasOffsetRef.current
@@ -3162,75 +2115,12 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        // `flex-start`, not `center`. A centred flex column that
-                        // overflows its box overflows in BOTH directions, and the
-                        // part above the top edge cannot be scrolled to — the
-                        // scroll range only covers the bottom. On a short viewport
-                        // that silently ate the top of the idle wheel. Top-aligned,
-                        // any overflow goes downward where the scrollbar can reach
-                        // it, and the result still reads as sitting under the reel
-                        // because that is where it starts.
+                        // `flex-start`, not `center`: a centred overflowing flex column cannot scroll to its top.
                         justifyContent: 'flex-start',
                         paddingTop: tableOwnsReel || arenaVisible || firstBloodVisible || forgeVisible ? '8px' : `${SPACE.md}px`,
                         zIndex: Z.content,
-                        // On a phone the stage is a fixed-height apron under the
-                        // shaft rather than the page's leftover space: the shaft
-                        // is the star and takes the slack, and the stage gets
-                        // exactly what the payoff needs. Fixed rather than
-                        // content-sized, so the shaft does not lurch between idle
-                        // and result — the no-collapse rule, applied to the axis a
-                        // phone actually has to spend.
-                        //
-                        // **200, and it is measured rather than picked.** It was
-                        // 266 on a guess, and the guess cost the shaft two rows:
-                        // on a 390×800 phone the surface's column is 536px, so a
-                        // 266px apron plus the 44px status console left the shaft
-                        // 226 — under two rows at a 128px pitch, which rendered as
-                        // a dark panel with one item in it. What the apron
-                        // actually holds is the spin card at 110×147 plus its
-                        // caption (~190px) at idle, and SpinResult's tier line,
-                        // 92px item, name and rate (~210px) at the payoff. 200
-                        // covers both with the name free to wrap to two lines, and
-                        // hands the shaft back 66px.
-                        // **The apron is the idle text and nothing else.**
-                        //
-                        // It ran 266 -> 200 -> 136 while it still had to hold the
-                        // payoff, and every one of those was a compromise between
-                        // two states: ~63px of idle copy against a ~208px result
-                        // panel. Sizing for the payoff wasted 145px of shaft for
-                        // the 99% of the time nothing has landed; sizing for the
-                        // idle overflowed the moment one did; sizing per state
-                        // moved the reel at the exact moment the player is
-                        // watching it.
-                        //
-                        // The tension is gone rather than balanced: the phone's
-                        // result is drawn on the winning row now (ShaftResult), so
-                        // the apron only ever holds the idle caption and the "Tap
-                        // the reel to spin" line. 88px covers those with air.
-                        //
-                        // The takeovers are the exception and keep a taller apron:
-                        // the bonus plaque, the lucky panel and the lane readout
-                        // still answer down here, and they change at the same
-                        // moment the band swaps its own content — so that row
-                        // change happens between modes, never mid-spin.
-                        //
-                        // **Zero for the normal and lucky modes.** With the payoff
-                        // drawn in the shaft there is nothing left down here but
-                        // the idle caption, and reserving 88px permanently to hold
-                        // two lines of text that vanish the moment you spin is the
-                        // same trade this row has already lost three times.
-                        //
-                        // The caption moves into the shaft's own bottom fade
-                        // instead (see the idle overlay in the reel), so the reel
-                        // runs to the bottom bar in every state. Deliberately NOT
-                        // a height that changes between idle and spinning: that
-                        // would resize the canvas at the moment of the press and
-                        // jump the reel. One height, always, and it is nothing.
-                        //
-                        // The takeovers keep their apron: the bonus plaque and the
-                        // lane readout still answer down here, and that row change
-                        // happens when the band swaps its own content, never
-                        // mid-spin.
+                        // Phone apron under the shaft: zero height for normal and lucky modes (the result is drawn in the shaft, the idle caption floats in its fade). One height always: resizing at the press would jump the reel.
+                        // Takeovers keep a taller apron (plaque, lucky panel, lane readout); it changes when the band swaps content, never mid-spin.
                         ...(isMobile
                             ? {
                                 flex: '0 0 auto',
@@ -3240,38 +2130,13 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                 paddingTop: `${SPACE.sm}px`,
                             }
                             : null),
-                        // The box the result flanks pin themselves to. They are
-                        // absolute so that having or not having data cannot shift
-                        // the result panel, which has to stay exactly under the
-                        // reel for the winning column to read as continuing into
-                        // it. See ResultFlanks.jsx.
+                        // Flanks pin to this box absolutely so data cannot shift the result panel, which must stay exactly under the reel (see ResultFlanks.jsx).
                         position: 'relative',
                     }}>
-                        {/* Idle — the spin CTA lives in the stage now.
-
-                            It used to be the whole page while idle: a 240px wheel
-                            with orbital rings, sitting where the reel now is. In
-                            the HUD the reel owns that row permanently, so the tarot
-                            card becomes what it always functionally was — the spin
-                            button — and moves down here with its CTA, rarity legend
-                            and keyboard hint. */}
-                        {/* Idle only. This briefly stayed mounted through the spin
-                            as well, to stop the stage row emptying — a measured
-                            314px hole that it did close. It was still the wrong
-                            answer: it parked a dead, greyed-out control at the
-                            loudest moment on the surface, and closing a gap in a
-                            layout metric is not a reason to put something in front
-                            of someone. The hole is back and is a known open
-                            question; the reel is what should fill it. */}
+                        {/* Idle: the spin CTA (card, rarity legend, keyboard hint) lives in the stage. */}
                         {/* The phone's idle copy is drawn over the shaft's bottom
                             fade instead — see the reel — so this stays desktop's. */}
-                        {/* THE PARLOUR answers in the apron, which is the row
-                            the bonus plaque and the lane readout already answer
-                            in. The band is showing the wheel, so the bet — and
-                            afterwards the payout board — belongs directly under
-                            it, in the slot the spin CTA occupies the rest of the
-                            time. Rendered before the idle state and suppressing
-                            it, so the two never stack. */}
+                        {/* The Parlour answers in the apron like the bonus plaque and lane readout; rendered before and suppressing the idle state so they never stack. */}
                         {parlourOwnsReel && (
                             <RouletteTable
                                 table={rouletteTable}
@@ -3316,21 +2181,8 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                                 luckySpins={kotwLuckySpins} recursionSpins={recursionActive ? recursionSpinsRemaining : 0}/>
                         )}
 
-                        {/* The result panel lives in its own component now.
-
-                            It was ~350 lines inline here, including six
-                            hand-written rarity badges that each re-specified their
-                            own gradient, padding and text colour — the exact
-                            duplication the shared rarity ladder exists to prevent,
-                            and it had already drifted. SpinResult reads every tier
-                            from RARITY instead. */}
-                        {/* Desktop only. On a phone the winning row carries the
-                            answer itself (ShaftResult, up in the reel), which is
-                            what lets the apron below shrink to the idle text and
-                            hand the difference to the shaft. */}
-                        {/* `!parlourOwnsReel` for the same reason as the phone's
-                            ShaftResult: one frame of the last pull stacked
-                            under the table before the reel is put away. */}
+                        {/* Desktop only: on a phone the winning row carries the answer (ShaftResult). */}
+                        {/* `!parlourOwnsReel`, as for ShaftResult: avoids one frame of the last pull under the table. */}
                         {!isMobile && !tableOwnsReel && state === 'result' && result && (
                             <>
                                 <SpinResult
@@ -3349,57 +2201,21 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                             </>
                         )}
 
-                        {/* The takeover results — every mode answers on the same
-                            stage the normal spin does, in the same register:
-                            the bonus board's choice as a signboard, the lucky
-                            spin as the payoff panel wearing the green lamp, and
-                            the lanes' winners as the per-lane readout. All of
-                            them used to render inside their own takeover cards;
-                            the cards are gone, the stage is one. */}
+                        {/* Takeover results answer on the same stage in the same register: bonus signboard, lucky payoff panel, per-lane readout. */}
                         {state === 'bonusResult' && selectedEvent && (
                             <BonusEventPlaque
                                 event={selectedEvent}
                                 isMobile={isMobile}
                             />
                         )}
-                        {/* Recursion answers here too, and on both breakpoints.
-
-                            It was the last card on this surface — a 20px-radius
-                            box with its own glow ring, corner accents, matrix
-                            scanlines, a glitching monospace headline and a
-                            spinning wheel icon, rendered *instead of* the band
-                            and the console. Everything the takeover redesign
-                            moved out of cards a day earlier, still standing.
-
-                            Three things were wrong with it and only one was
-                            visual. It replaced the reel, so the pull that
-                            triggered recursion was never shown — the one moment
-                            the surface exists for, hidden by the announcement
-                            about it. It broke the No-Collapse Rule outright, the
-                            band's whole row vanishing for the duration. And it
-                            took the status row with it, which is what stranded
-                            the player: see the note on the row gate above.
-
-                            Now it is what every other takeover is — a theme of
-                            the band (recursion's own ground and green lamp, all
-                            of which the row already knew how to draw) plus one
-                            signboard on the stage. The reel keeps the item that
-                            was pulled, lit under the console's RECURSION! flash,
-                            and the plaque says what it bought. Unlike the item
-                            results this renders on the phone as well, because it
-                            is an announcement rather than a prize: there is no
-                            in-shaft answer for it to duplicate. */}
+                        {/* Recursion answers on both breakpoints as a theme of the band plus a signboard; the reel keeps the pulled item. Unlike item results it shows on the phone too: an announcement has no in-shaft answer. */}
                         {state === 'recursion' && (
                             <BonusEventPlaque
                                 event={RECURSION_ANNOUNCEMENT}
                                 isMobile={isMobile}
                             />
                         )}
-                        {/* Desktop only — the phone's lucky spin lands in the
-                            shaft like an ordinary one. It shares the reel, so it
-                            should share the payoff; a panel below the reel for
-                            this mode and an in-place result for the normal one
-                            would be two answers to one question. */}
+                        {/* Desktop only: the phone's lucky spin lands in the shaft like an ordinary one. */}
                         {!isMobile && state === 'luckyResult' && luckyResult && (
                             <LuckyResultPanel
                                 result={luckyResult}
@@ -3425,25 +2241,11 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
                             prestige={prestige}
                             showResultLine={state === 'result' && !!result}
                             isNewItem={isNewItem}
-                            // `collection` is a map of texture -> count, not a
-                            // list, so the number of distinct items owned is its
-                            // key count and the count of this one is a lookup.
-                            // Reading it as an array gives `undefined` and a
-                            // silently empty panel.
+                            // `collection` is a map of texture -> count, not a list; reading it as an array gives an empty panel.
                             owned={result ? (collection?.[result.texture] ?? 0) : 0}
-                            // Entries actually held, not map keys. A key with a
-                            // count of zero is not a collected item, and counting
-                            // keys made every stray optimistic write show up as
-                            // progress — which is exactly how a 1,558 collection
-                            // reported 1,559 until the next reload.
+                            // Count entries actually held, not keys: zero-count keys made optimistic writes show as progress.
                             collectedCount={Object.values(collection || {}).filter(n => n > 0).length}
-                            // `totalItemCount`, not `allItems.length`. `allItems`
-                            // is the common pool alone; the special tiers live in
-                            // `dynamicItems`, so a collection containing any of
-                            // them counts higher than the denominator and the
-                            // meter reads past full — it rendered "1,557 / 1,531".
-                            // This is the same total the idle card shows, which is
-                            // also the only way the two agree.
+                            // `totalItemCount`, not `allItems.length`: allItems is the commons only (the meter read 1,557 / 1,531).
                             poolSize={totalItemCount}
                             tierInk={result ? getRarityInk(getItemRarity(result)) : COLORS.text}
                             userId={user?.id}
@@ -3473,16 +2275,7 @@ function WheelSpinnerComponent({ allItems, collection, prestige, onSpinComplete,
     );
 }
 
-// Memoize to prevent unnecessary re-renders
-// Animation uses direct DOM manipulation so collection changes won't cause stutter
-//
-// This comparator is an allow-list, so a prop missing from it is silently frozen
-// at its first value. `stageColumn` was exactly that bug: when the viewport
-// crossed 1400px the page switched to a single-column grid and passed
-// stageColumn 1, but this comparator saw no change it cared about, skipped the
-// re-render, and the stage kept asking for column 2. Grid obliged by creating an
-// implicit second column, so the narrow layout came out as two columns with the
-// content crushed into a 291px strip. Add new props here when you add them.
+// This comparator is an allow-list: a prop missing from it is silently frozen at its first value (stageColumn was). Add new props here.
 export const WheelSpinner = memo(WheelSpinnerComponent, (prevProps, nextProps) => {
     // Return true if props are equal (skip re-render)
     // Return false if props are different (re-render)

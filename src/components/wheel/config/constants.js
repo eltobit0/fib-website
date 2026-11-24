@@ -1,20 +1,4 @@
-/**
- * Spacing scale for the wheel's page shell.
- *
- * A layout audit of this page counted eighteen distinct spacing values across
- * WheelPage and WheelSpinner — essentially every even number up to 40 — and two
- * different implied scales contradicting each other and DESIGN.md. DESIGN.md's
- * frontmatter declares xs 4 / sm 8 / md 14 / lg 20 / xl 28, but the wheel had
- * already voted with its feet for an 8-based rhythm (8/16/24/40 dominate the
- * shell), while 5, 6, 10, 11, 18, 26, 32 and 36 belonged to neither. DESIGN.md
- * §5 grants the wheel an exception for *glow and spectacle*; it does not license
- * an arbitrary spacing scale, so this ratifies the majority rhythm rather than
- * inventing a third one.
- *
- * Scope is the shell — the HUD's rows, the gaps between the reel, the sidebars
- * and the stage. Component interiors are not retrofitted; that is a much larger
- * sweep and would bury the layout work.
- */
+// Spacing scale for the wheel's page shell (HUD rows, gaps between reel, sidebars and stage), ratifying the 8-based rhythm; component interiors are not retrofitted.
 export const SPACE = {
     xs: 4,
     sm: 8,
@@ -23,23 +7,7 @@ export const SPACE = {
     xl: 40,
 };
 
-/**
- * Stacking order for the HUD, in one place.
- *
- * The wheel surface currently reaches 10000, via a 9996–10000 run across the
- * effects overlays plus one-off 900 / 950 / 999 / 1001 / 101 and an orphaned 19
- * sitting next to a pair of 20s. Nothing in that range is reasoned about; the
- * numbers just had to be bigger than whatever was already there.
- *
- * This scale covers the shell and the reel, which is what the HUD rebuild
- * touches. It matters more than it used to: the reel's pointers used to paint
- * below the card's own overlays purely because they shared one stacking context,
- * and once the overlays move to the shell that relationship has to be stated
- * rather than inherited. The `effects/` range above is deliberately left alone —
- * untangling it is a separate job across roughly two dozen files — so `banner`
- * and `modal` here are documentation of where those live, not a re-basing of
- * them.
- */
+// Stacking order for the shell and reel. The `effects/` range is deliberately left alone; `banner` and `modal` here document where those live, not a re-basing.
 export const Z = {
     base: 0,        // shell background, cosmic canvas
     content: 1,     // topbar, stage, sidebars — normal HUD furniture
@@ -69,175 +37,45 @@ export const COLORS = {
     recursion: '#00FF00', // Matrix green for recursion
     recursionDark: '#001100', // Dark green/black for recursion
 
-    // ── Rarity ink steps ──────────────────────────────────────────────────────
-    // Minecraft's chat colours were chosen to sit on a black chat box, not on a
-    // #1a1a2e panel, and they do not all survive the move. Measured against the
-    // three panel steps (bg / bgLight / bgLighter), #AA00AA is 2.67 / 2.31 / 2.07
-    // and #FF5555 is 5.43 / 4.70 / 4.21 — magenta fails AA everywhere, red passes
-    // on the page and fails on a raised row. The hue is what players recognise
-    // from chat, so the hue is kept and the lightness lifted; the same fix the
-    // stats module documents in DESIGN.md §7. Use the base colour for fills,
-    // borders, dots and glows; use the `*Ink` step the moment it becomes text.
-    // Ratios below are the worst of the three surfaces, i.e. on bgLighter.
+    // Rarity ink steps: Minecraft's chat colours fail AA on the panel steps (#AA00AA is 2.07 on bgLighter), so the hue is kept and the lightness lifted. Use the base colour for fills, borders, dots and glows, and the `*Ink` step the moment it becomes text. Ratios are the worst case, on bgLighter.
     purpleInk: '#DE6BDE',   // Exotic as text — 4.58:1
     redInk: '#FF8A8A',      // Rare as text — 5.84:1
-    // ── Relic: the mossy green ────────────────────────────────────────────────
-    // Relic is the structures tier, and green is the only hue left on the ladder
-    // with real separation: rare is red, exotic magenta, legendary gold, mythic
-    // aqua, event orange, insane platinum.
-    //
-    // Deliberately a MOSSY emerald rather than Minecraft's lime #55FF55, which is
-    // already a token here as COLORS.green. Two reasons, and the second is the one
-    // that decided it. Lime sits close enough to recursion's #00FF00 matrix green
-    // to be confusable on a dark panel; and in loot-game grammar bright green is
-    // the tier just above common, so a lime badge between magenta and gold would
-    // read as ranking BELOW exotic to anyone who has played anything else. A
-    // weathered, overgrown green says "old structure" and carries no such baggage.
-    //
-    // No `relicInk` step, and that is the rule being followed rather than an
-    // omission: this fill measures 7.22 / 6.25 / 5.61 across the three panel steps,
-    // so it clears AA as text on its own and doubles as its own ink. Exotic and
-    // rare need a lifted step because the Minecraft chat colours were chosen for a
-    // black chat box; relic was chosen for these panels and did not inherit that
-    // problem. Dark text on the fill: 7.37 against white's 2.36, hence lightFill.
+    // Relic: a MOSSY emerald, not lime #55FF55 (COLORS.green; too close to recursion's #00FF00 and reads as the tier just above common). No `relicInk`: the fill clears AA as text on its own (5.61 on bgLighter); dark text on the fill is `lightFill`.
     relic: '#3FBF6F',
-    // Common's old #888 is 3.74:1 on bgLighter, under the floor, and a neutral
-    // grey on a midnight-blue field reads as dead rather than quiet. This is the
-    // same grey pulled toward the field's own hue.
+    // Common is the old #888 pulled toward the field's hue (it was 3.74:1 on bgLighter, under the floor).
     neutralInk: '#9AA0B4',  // Common as text — 5.08:1
 
-    // ── Insane: the iridescent step ───────────────────────────────────────────
-    // Insane is the only tier with no flat colour, because every flat colour it
-    // could take is already spoken for one rung down (gold = legendary, aqua =
-    // mythic, magenta = exotic). It gets an oil-slick instead, and where a single
-    // hex is unavoidable it falls back to a near-white platinum: white outranks
-    // the whole ladder and collides with nothing on it.
+    // Insane is the only tier with no flat colour (every flat one is another tier's); the oil-slick is its identity, and platinum is the fallback where a single hex is unavoidable.
     insaneFlat: '#F2ECFF',
-    // Stops for the holographic sweep. Magenta is deliberately the *hot* #FF55FF
-    // rather than exotic's #AA00AA — two full lightness steps apart, and insane's
-    // never sits still on it, so the two never read as the same tier.
+    // Holo sweep stops: magenta is the hot #FF55FF, not exotic's #AA00AA, so the two never read as one tier.
     insaneHolo: ['#FF55FF', '#55FFFF', '#FFD700', '#FF55FF'],
 
-    // ── Mythic: the prismatic cycle, confined to the cool band ────────────────
-    // Mythic has always shimmered rather than sat on one colour, and it keeps
-    // that. What changed is where it is allowed to travel: the cycle used to run
-    // aqua -> purple -> gold, and after the ladder was rebuilt those last two
-    // stops are *other tiers* — purple is exotic and gold is legendary. A mythic
-    // tile spent two thirds of every cycle wearing another tier's colour, which
-    // was caught in review with two mythic tiles sitting magenta in one frame and
-    // aqua in the next.
-    //
-    // The replacement stays multi-hue, so it still reads as a shimmer and not a
-    // pulse, but every stop is in the cool blue-green band that no other tier
-    // owns: aqua, azure, teal. Teal is far enough from recursion's #00FF00 matrix
-    // green, which is a spin mode rather than a tier in any case.
+    // Mythic's cycle stays in the cool band no other tier owns (aqua, azure, teal); the old purple and gold stops are exotic and legendary.
     mythicCycle: ['#55FFFF', '#2E86FF', '#3BE8B0', '#55FFFF'],
 
-    // ── The daily bounty: sight white ─────────────────────────────────────────
-    // The bounty is a MARK on a common, not a tier and not a mode, so it may not
-    // take a hue that means either. Every saturated colour on this surface is
-    // spoken for - seven tiers, four modes, five events - so it takes none: a
-    // warm near-white, the colour of an iron sight catching the station lamp.
-    //
-    // Checked against its two nearest neighbours. Insane's flat platinum
-    // (#F2ECFF) is cool and only ever spent where a flat is unavoidable (canvas
-    // shadowColor); on the reel insane is always the moving slick, never a flat
-    // white, so the two never sit side by side. High Roller's brass (#E4C78B) is
-    // two lightness steps down and saturated enough to read as gold; this reads
-    // as white. What carries the identity is the SHAPE - a reticle and a word -
-    // and the hue only has to stay out of the way of everything else.
+    // The daily bounty is a MARK on a common, not a tier or a mode, so it takes no saturated hue: a warm near-white. Its identity is the SHAPE (a reticle and a word); keep it apart from insane's platinum (#F2ECFF) and High Roller's brass (#E4C78B).
     bounty: '#FFF1D6',
 
-    // ── The mystery box: gilt ─────────────────────────────────────────────────
-    // What the bounty pays, and the one thing on this surface allowed to turn
-    // the whole reel gold (the owner's brief: "golden coated"). Gold is already
-    // spent twice - legendary's #FFD700 and the chrome's #FFAA00 - so the box is
-    // never painted flat: it is gilt, a METAL, a three-stop ramp from pale leaf
-    // through deep gold to bronze, and it always travels. A flat legendary tile
-    // on a gilded band still reads as a legendary because it is a flat colour on
-    // a moving metal, not the same colour twice.
-    //
-    // `mystery` is the ramp's middle stop, for the few places that cannot take a
-    // gradient (a canvas shadow, a border). The tiles on a gilded reel keep their
-    // own tier colours throughout - the box is the band's coat, never an item's.
+    // The mystery box: gilt, a three-stop METAL ramp that always travels, never a flat gold (legendary and the chrome own gold). `mystery` is the middle stop for places that cannot take a gradient; tiles on a gilded reel keep their own tier colours.
     mystery: '#F2C14E',
     mysteryGilt: ['#FFF0B8', '#F2C14E', '#B7791F', '#FFF0B8'],
 };
 
-/**
- * The three bonus events' identities, in one place.
- *
- * There were three hand-maintained copies of this and all three had drifted:
- * `EVENT_COLORS` in CanvasBonusStrip (the board), `EVENT_IDENTITY` in
- * BonusEventPlaque (the answer), and `modeAccent` in WheelSpinner (the band and
- * its lamp while the mode runs). A player met the same event three times and was
- * told three different colours — the board promised gold for a triple-lucky, the
- * plaque agreed, and then the spin arrived under a green lamp. It is the same
- * failure the rarity ladder was consolidated to stop, one surface over.
- *
- * `color` is the identity — the tile's wash, the plaque's rail, the label. It
- * MUST equal the accent the mode executes under, because those are the same
- * event seen twice. `iconColor` differs only where an identity is literally
- * two-colour: DESIGN.md §8 defines the triple-lucky as "green with a gold
- * crown", so the crown is the one gold thing on a green sign.
- *
- * Icons themselves are not here: the board strokes canvas paths and the plaque
- * renders Lucide components, and there is no shared representation of a glyph
- * that both can take. They agree by drawing the same three shapes — Zap for the
- * lucky family, Layers for the 5x's parallel lines, Crown for triple lucky.
- */
+// The three bonus events' identities, in one place (the board, plaque and band lamp had drifted). `color` MUST equal the accent the mode executes under; `iconColor` differs only for triple-lucky's gold crown on a green sign. Icons agree by drawing the same shapes: Zap (lucky), Layers (5x), Crown (triple lucky).
 export const BONUS_IDENTITY = {
     lucky_spin: { color: COLORS.green, iconColor: COLORS.green },
     triple_spin: { color: COLORS.gold, iconColor: COLORS.gold },
     triple_lucky_spin: { color: COLORS.green, iconColor: COLORS.gold },
-    // Recursion is not a bonus event — it is a global one, triggered by a pull
-    // rather than selected by the board — but it is answered by the same
-    // signboard and runs the band under the same kind of lamp, so its identity
-    // belongs in the same table. The alternative is a fifth private copy of a
-    // colour, which is the failure this table was created to end.
+    // Recursion is a global event, not a bonus event, but it shares the signboard and lamp, so its identity lives in this table.
     recursion: { color: COLORS.recursion, iconColor: COLORS.recursion },
 };
 
 export const BONUS_IDENTITY_FALLBACK = { color: COLORS.orange, iconColor: COLORS.orange };
 
-/**
- * THE NOCTURNE's material grain — wet-night micro-glitter, as SVG noise.
- *
- * "Light is the material": a material is felt, a pattern is seen, so every use
- * renders this at ≤4% baked-in alpha, on the page field and on the plinth
- * furniture (the status console, the stage flanks, the milestone meter). It is
- * the grain of wet asphalt and milled concrete catching the street light —
- * never a texture to look at. At legible opacity it would be this surface's
- * poster-texture failure, the same mistake as a visible scanline or a grid:
- * something drawn on the world instead of the world being there.
- *
- * One URI, tuned once, so the whole surface shares one material. Static by
- * definition — nothing here may animate; the Ambient-Off Rule freezes motion,
- * never material.
- */
+// THE NOCTURNE's material grain (SVG noise): always at or under 4% baked-in alpha, one URI for the whole surface, and static (the Ambient-Off Rule freezes motion, never material).
 export const SURFACE_NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`;
 
-/**
- * THE NOCTURNE's deck, as tokens.
- *
- * The blue-hour ramp (#0d1322 -> #0a0d18 -> #05060a), the rail light
- * (rgba(206,214,236,a)) and the sky light are the most reused values on this
- * whole surface, and until now every one of them was a literal. DESIGN.md counts
- * the rail light alone at 25 uses across 5 files and states the Named-Or-Nothing
- * Rule about exactly this: a colour that appears in more than one file is a
- * token or a bug.
- *
- * This names them. It deliberately does NOT sweep the six files that already
- * spell them by hand — that is a mechanical pass across the canvases and the
- * effects tree, and burying it inside a redesign is how a refactor stops being
- * reviewable. New work takes the tokens; the sweep is owed separately.
- *
- * `rail(alpha)` is a function rather than a scale because the value is always
- * spent translucent and the alpha is the whole decision: 0.06 for a seam between
- * two neighbours, 0.10 for a lit top edge, 0.20 for a front lip. Three steps in
- * practice, but the call site is where the edge is being described, so it is the
- * call site that should say which edge it is.
- */
+// THE NOCTURNE's deck tokens. New work takes them; the six files that still spell them by hand are an owed sweep. `rail(alpha)` is a function because the call site is where the edge is described (0.06 seam, 0.10 lit top edge, 0.20 front lip).
 export const rail = alpha => `rgba(206,214,236,${alpha})`;
 
 export const DECK = {
@@ -256,9 +94,7 @@ export const DECK = {
     /** Station amber pooling up from a floor. */
     amberWash: 'rgba(255,183,94,0.07)',
 
-    // Station amber is the board's chrome and its one signal colour. It is the
-    // surface's existing gold (COLORS.gold) named for the job it does here, so
-    // the board and the band's centre line are literally the same lamp.
+    // Station amber is the board's one signal colour: COLORS.gold named for its job, so the board and the band's centre line are the same lamp.
     amber: COLORS.gold,
 
     // The board's ink ladder. Measured on #0a0d18: 15.9:1, 8.6:1, 5.2:1.
@@ -267,28 +103,7 @@ export const DECK = {
     inkDim: '#7C859C',
 };
 
-/**
- * The five global events, as the player knows them: a name and a colour.
- *
- * These were a fork, and `EventSelectionWheel.jsx` said so in its own comment
- * before this existed — "the same event is spelled out in four files… that is
- * the rarity ladder's story one level up, and it wants the same fix: one
- * table". The odds board would have been the sixth copy, so the table is here
- * now. The selection wheel takes it; the four banners still carry their own
- * `*_PRIMARY` constants and are the sweep that is still owed.
- *
- * **The icon is deliberately not here.** A constants module that imports
- * components stops being a constants module, and the icon is a render decision
- * each surface makes anyway — the selection wheel needs one per cell, a banner
- * needs one at 40px, the odds board needs one at 13px. The two values that had
- * actually DRIFTED are the name and the colour, and those are what this fixes.
- *
- * On `roulette`: the green is the wheel's own rarest pocket rather than the
- * room's burgundy, because the room is a fill and this is set as text. It and
- * the Community Goal's teal are the closest pair in the table; any surface
- * listing both has to separate them by something other than hue — the selection
- * wheel does it with icons, and so does the odds board's event register.
- */
+// The five global events: a name and a colour (the icon is a render decision each surface makes, so it is not here). The banners still carry their own `*_PRIMARY` constants. `roulette` is the wheel's rarest pocket green, set as text; it and the Community Goal's teal are the closest pair, so surfaces listing both must separate them by something other than hue.
 export const EVENT_IDENTITY = {
     // Station amber rather than the retired Gold Rush's #F59E0B: THE ARRIVAL
     // belongs to THE CONCOURSE, and its whole vocabulary is the platform lamp.
@@ -297,8 +112,6 @@ export const EVENT_IDENTITY = {
     first_blood:    { name: 'FIRST BLOOD',       color: '#DC2626' },
     community_goal: { name: 'COMMUNITY GOAL',    color: '#2DD4BF' },
     roulette:       { name: 'THE PARLOUR',       color: '#19B36B' },
-    // The table's brass - the trim on its rail and the Hit button - rather than
-    // its teal felt, which would sit on top of the Community Goal's teal. Pale
-    // enough to stay apart from the Arrival's saturated platform amber.
+    // The table's brass trim, not its teal felt (which would sit on the Community Goal's teal); pale enough to stay apart from the Arrival's amber.
     high_roller:    { name: 'HIGH ROLLER',       color: '#E4C78B' },
 };

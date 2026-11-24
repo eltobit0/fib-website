@@ -1,56 +1,22 @@
-// ============================================
-// Rarity Helpers - Shared utility for rarity-related functions
-// ============================================
-
 import React from 'react';
 import { Sparkles, Star, Diamond, Circle, Zap, Crown, Gem, Map } from 'lucide-react';
-// The wheel's palette, not the wiki's. Every consumer of these helpers lives under
-// components/wheel/, and the wheel renders against its own COLORS (hex, Minecraft-derived)
-// rather than the site-wide oklch tokens. Importing '../config/constants' here — which is what
-// this file used to do — made getRarityColor('legendary') return the wiki's blue-violet purple
-// while the surrounding wheel chrome used #AA00AA magenta, so the activity feed rows and the
-// pull toast disagreed with the "Legendary" label sitting right under them.
+// The wheel's palette, not the wiki's oklch tokens: '../config/constants' gave legendary the wrong purple.
 import { COLORS } from '../components/wheel/config/constants';
 
-/**
- * THE RARITY LADDER — this table is the source of truth for the whole wheel.
- *
- * It used to be four tables. This file had one; AdminPanel.jsx and UserProfile.jsx
- * each carried a private copy; CanvasSpinningStrip.jsx carried a fifth as
- * RARITY_COLORS. They had already drifted — UserProfile rendered `event` gold
- * where everything else rendered it orange, and its unknown-rarity fallback was
- * grey where this file's was gold — which is exactly the class of bug the comment
- * above was written about. The copies are gone; they all read this now.
- *
- * `order` is presentation only: it sorts lists and nothing persists it, so tiers
- * can be inserted without a migration. `color` is the fill/border/glow value.
- * `ink` is the same hue lifted to clear WCAG AA as text on the wheel's panels —
- * see the note in config/constants.js. Where `ink` is absent the fill already
- * clears the floor and doubles as text.
- */
+// THE RARITY LADDER: the single definition for the whole wheel; import it, never fork a copy.
+// `color` is for fills/borders/glows; `ink` is the hue lifted to clear WCAG AA as text (absent = fill already clears it).
 export const RARITY = {
     insane: {
         order: 0,
         label: 'Insane',
         color: COLORS.insaneFlat,
-        // The only tier rendered as a moving gradient rather than a colour. See
-        // getRarityStops / isIridescentRarity below.
+        // The only tier painted as a moving gradient rather than a colour.
         stops: COLORS.insaneHolo,
-        // `iridescent` is what marks the full-gradient treatment, and only insane
-        // has it. It is a separate flag from `stops` because mythic has stops too
-        // now — but mythic's stops drive a shimmer *within* its own flat colour,
-        // whereas insane has no flat colour to fall back to at all.
+        // Separate from `stops`: mythic has stops too but keeps a flat colour; insane has none to fall back to.
         iridescent: true,
     },
-    // Mythic carries stops too, but unlike insane it also has a flat `color`:
-    // the stops drive its shimmer, while the flat aqua is what a badge, a legend
-    // swatch or a label uses. Insane has no flat colour at all, which is what
-    // isIridescentRarity distinguishes.
     mythic: { order: 1, label: 'Mythic', color: COLORS.aqua, stops: COLORS.mythicCycle, lightFill: true },
     legendary: { order: 2, label: 'Legendary', color: COLORS.insane, lightFill: true },
-    // Relic is the wheel's own tier — the server's structures, with no counterpart
-    // in the plugin and so no chat colour to inherit. DESIGN.md records why the
-    // hue is a mossy emerald rather than Minecraft's lime.
     relic: { order: 3, label: 'Relic', color: COLORS.relic, lightFill: true },
     exotic: { order: 4, label: 'Exotic', color: COLORS.purple, ink: COLORS.purpleInk },
     rare: { order: 5, label: 'Rare', color: COLORS.red, ink: COLORS.redInk, lightFill: true },
@@ -58,118 +24,42 @@ export const RARITY = {
     common: { order: 99, label: 'Common', color: COLORS.neutralInk },
 };
 
-// `lightFill` above marks the tiers whose *fill* is bright enough that dark text
-// beats white on it. Measured as #1a1a1a vs #ffffff against the worst stop of
-// each gradient:
-//
-//   insane     platinum 15.1:1, holo stops 6.6–14.2   dark
-//   mythic     ramp 4.95–14.2 (azure is the floor)    dark
-//   legendary  gold 12.4:1                            dark
-//   relic      #3FBF6F — dark 7.37, white 2.36        dark
-//   rare       #FF5555 — dark 5.54, white 3.14        dark
-//   event      #FF8800 — dark 7.27, white 2.39        dark
-//   exotic     #AA00AA — dark 2.73, white 6.38        WHITE
-//
-// Exotic is the only tier that genuinely wants white; every Minecraft chat colour
-// above it is a bright hue, and bright hues take dark ink.
-//
-// Rare and event were briefly left unflagged on the grounds that changing them
-// was a restyle nobody asked for. That was the wrong call: white on both *fails*
-// AA (3.14 and 2.39 against a 4.5 floor), so it was a contrast defect being
-// preserved for the sake of not changing anything, and the "restyle" is a badge
-// label becoming legible.
+// `lightFill`: fills where dark text (#1a1a1a) beats white on the worst gradient stop. Only exotic (#AA00AA) wants white.
 
-/** Tier keys, rarest first. Use this to build legends, filters and odds tables. */
 export const RARITY_KEYS = Object.keys(RARITY).sort((a, b) => RARITY[a].order - RARITY[b].order);
 
 const tier = rarity => RARITY[rarity] || RARITY.common;
 
-/**
- * Get the color associated with a rarity level
- * @param {string} rarity - The rarity type (insane, mythic, legendary, exotic, rare, event, or default)
- * @returns {string} The color code for the rarity
- */
 export function getRarityColor(rarity) {
     return tier(rarity).color;
 }
 
-/**
- * The text-safe step for a rarity. Identical to getRarityColor for tiers whose
- * fill already clears AA. Use this for any label, count or name rendered *in* the
- * rarity's colour — getRarityColor is for the swatch beside it, not the words.
- * @param {string} rarity
- * @returns {string}
- */
+// For text rendered in the rarity's colour; getRarityColor is for the swatch beside it.
 export function getRarityInk(rarity) {
     const t = tier(rarity);
     return t.ink || t.color;
 }
 
-/**
- * The text colour to put ON a tier's own fill — a badge label, a count chip, a
- * glyph drawn inside the rarity's colour.
- *
- * Not the same question as getRarityInk, which is the tier's colour used AS text
- * on the panel. This is the inverse: the panel is the tier's colour and the text
- * has to survive on top of it. Both exist because getting them the wrong way
- * round is invisible until someone reads a badge.
- *
- * @param {string} rarity
- * @returns {string} '#1a1a1a' on light fills, '#fff' otherwise
- */
+// Text ON the tier's fill (the inverse of getRarityInk).
 export function getRarityOnColor(rarity) {
     return tier(rarity).lightFill ? '#1a1a1a' : '#fff';
 }
 
-/**
- * Whether this rarity is rendered as a moving iridescent gradient rather than a
- * flat colour. Only `insane` is, and deliberately only one tier ever should be:
- * the treatment means "top of the ladder", and a second one spending it would
- * make it mean "special-ish".
- * @param {string} rarity
- * @returns {boolean}
- */
+// Only insane, and only one tier ever should be.
 export function isIridescentRarity(rarity) {
     return Boolean(tier(rarity).iridescent);
 }
 
-/**
- * The gradient stops for an iridescent rarity, or null for flat tiers.
- * @param {string} rarity
- * @returns {string[]|null}
- */
 export function getRarityStops(rarity) {
     return tier(rarity).stops || null;
 }
 
-/**
- * Sample the iridescent ramp at `t` and return an {r,g,b} triple.
- *
- * Lives here rather than in either canvas file because both of them need it and
- * the whole point of this module is that the ladder is defined once. `t` wraps,
- * so a caller can advance it forever; the ramp's last stop repeats its first, so
- * the wrap has no seam.
- *
- * The DOM gets the same effect from the .fib-holo class in index.css. Canvas
- * cannot use a CSS class, which is the only reason this exists in two forms.
- *
- * @param {number} t - position along the ramp, any float
- * @returns {{r: number, g: number, b: number}}
- */
+// Canvas twin of .fib-holo (canvas can't use CSS classes). Flat colour only where a gradient can't go, e.g. shadowColor.
 export function sampleHolo(t) {
     return sampleRamp(RARITY.insane.stops, t);
 }
 
-/**
- * Sample any tier's ramp at `t`. Insane and mythic both animate along a stop
- * list; this is the one interpolator they share, so a tier's cycle is defined by
- * its `stops` entry in RARITY and nowhere else.
- *
- * @param {string[]} stops - hex colours; repeat the first as the last for a
- *   seamless loop
- * @param {number} t - wraps, so a caller can advance it forever
- * @returns {{r: number, g: number, b: number}}
- */
+// The one interpolator for animated tiers; `t` wraps, so repeat the first stop last for a seamless loop.
 export function sampleRamp(stops, t) {
     const segments = stops.length - 1;
     const pos = (((t % 1) + 1) % 1) * segments;
@@ -185,32 +75,8 @@ export function sampleRamp(stops, t) {
     };
 }
 
-/**
- * The canvas-side twin of the .fib-holo CSS class.
- *
- * Returns a horizontal CanvasGradient whose stops are offset by `phase` (0..1),
- * so calling it each frame with an advancing phase produces the same drifting
- * slick the DOM gets from background-position.
- *
- * Use this and not sampleHolo wherever the result is a *fill or stroke*. The
- * ramp passes through magenta, aqua and gold, which are exotic, mythic and
- * legendary respectively — so a border painted with one sampled point off it
- * impersonates a different tier every couple of seconds. All three hues have to
- * be on screen at once for the treatment to mean "insane". sampleHolo is for the
- * places that genuinely cannot take a gradient, which in practice is shadowColor.
- *
- * The stop list is walked three times and clamped to [0,1] because a
- * CanvasGradient rejects offsets outside that range; the naive
- * `(i/n + phase) % 1` version sorts its stops wrong at the wrap point and flashes
- * a hard seam once per cycle. Nothing is forced at 0 or 1 — canvas clamps,
- * extending the outermost in-range stops, which is what keeps the loop seamless.
- *
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} x - left edge of the gradient in canvas coordinates
- * @param {number} width
- * @param {number} phase - 0..1 position in the drift cycle
- * @returns {CanvasGradient}
- */
+// Canvas twin of .fib-holo. Use for any fill or stroke: paint animated tiers with the whole gradient, never one sampled point.
+// Stops are walked three times and clamped to [0,1]; the naive `(i/n + phase) % 1` flashes a seam at the wrap.
 export function createHoloGradient(ctx, x, width, phase) {
     const gradient = ctx.createLinearGradient(x, 0, x + width, 0);
     const stops = RARITY.insane.stops;
@@ -226,37 +92,18 @@ export function createHoloGradient(ctx, x, width, phase) {
     return gradient;
 }
 
-/**
- * Get a Lucide React icon component for a rarity level
- * @param {string} rarity - The rarity type
- * @param {number} size - Icon size in pixels (default 14)
- * @param {boolean} colored - Whether to apply rarity color (default true)
- * @returns {React.ReactElement|null} The icon component or null
- */
 export function getRarityIcon(rarity, size = 14, colored = true) {
-    // Icons are small and sit on panel surfaces, so they take the ink step for the
-    // same reason text does — a 12px magenta glyph at 2.3:1 is not an affordance.
+    // Icons count as text, so they take the ink step.
     const color = colored ? getRarityInk(rarity) : undefined;
 
     switch (rarity) {
-        // Insane's glyph is stroked with the shared SVG gradient rather than its
-        // flat colour, because that flat colour is platinum and at 9–12px it just
-        // looks white — the rarest tier reading as no tier at all. `color` is still
-        // passed so the icon degrades to platinum if the gradient's <defs> is not
-        // mounted, which is the case anywhere outside the wheel tree.
+        // Stroked with the shared SVG gradient; flat platinum at icon size reads as white.
         case 'insane': return colored
-            // `style` sets the CSS color property, which is what the class's
-            // `stroke: url(...) currentColor` falls back to when the gradient's
-            // <defs> is not on the page. lucide sets a stroke *attribute* from
-            // `color`, and a CSS stroke overrides that outright, so the attribute
-            // alone is not a fallback.
+            // `style` color is the CSS fallback for `stroke: url(...) currentColor` when the <defs> isn't mounted.
             ? <Crown size={size} color={color} style={{ color }} className="fib-holo-icon" />
             : <Crown size={size} />;
         case 'mythic': return <Sparkles size={size} color={color} />;
         case 'legendary': return <Star size={size} color={color} />;
-        // A map, not a gem or a star: relics are places. The glyph is the tier's
-        // identity in one shape, and it is the only one on the ladder that is not
-        // an object.
         case 'relic': return <Map size={size} color={color} />;
         case 'exotic': return <Gem size={size} color={color} />;
         case 'rare': return <Diamond size={size} color={color} />;
@@ -265,12 +112,6 @@ export function getRarityIcon(rarity, size = 14, colored = true) {
     }
 }
 
-/**
- * Get rarity badge info (label, color, and icon)
- * @param {string} rarity - The rarity type
- * @param {number} iconSize - Icon size in pixels (default 10)
- * @returns {{ label: string, color: string, icon: React.ReactElement }}
- */
 export function getRarityBadge(rarity, iconSize = 10) {
     const t = tier(rarity);
     const color = t.ink || t.color;
@@ -282,11 +123,7 @@ export function getRarityBadge(rarity, iconSize = 10) {
             return { label: t.label, color, icon: <Sparkles size={iconSize} /> };
         case 'legendary':
             return { label: t.label, color, icon: <Star size={iconSize} /> };
-        // Map, matching getRarityIcon above - the relics are places, and this is
-        // the only tier the switch had no branch for. Without it a relic fell to
-        // `default` and SpinHistory labelled it "Common" in common grey: not a
-        // missing badge but a wrong one, on the rarest thing most players will
-        // ever see in that list.
+        // Without this branch a relic fell to `default` and was labelled Common.
         case 'relic':
             return { label: t.label, color, icon: <Map size={iconSize} /> };
         case 'exotic':
@@ -300,30 +137,15 @@ export function getRarityBadge(rarity, iconSize = 10) {
     }
 }
 
-/**
- * Get Lucide icon component for rarity (for text-only contexts like AdminPanel)
- * Returns the same icon as getRarityIcon but without color applied
- * @param {string} rarity - The rarity type
- * @param {number} size - Icon size in pixels (default 14)
- * @returns {React.ReactElement|null} The icon component
- */
 export function getRarityEmoji(rarity, size = 14) {
-    // Using Lucide icons instead of unicode emojis for consistency
     return getRarityIcon(rarity, size, false) || <Circle size={size} />;
 }
 
-/**
- * Get CSS gradient for rarity backgrounds
- * @param {string} rarity - The rarity type
- * @param {number} opacity - Opacity value 0-1 (default 0.1)
- * @returns {string} CSS gradient string
- */
 export function getRarityGradient(rarity, opacity = 0.1) {
     const alphaHex = Math.round(opacity * 255).toString(16).padStart(2, '0');
     const stops = getRarityStops(rarity);
 
-    // The iridescent tier keeps its full stop sequence even as a background wash,
-    // so an insane row is recognisable at 10% the way it is at 100%.
+    // Keeps the full stop sequence even as a wash, so insane stays recognisable at 10%.
     if (stops) {
         const washed = stops.map((c, i) => `${c}${alphaHex} ${(i / (stops.length - 1) * 100).toFixed(0)}%`);
         return `linear-gradient(135deg, ${washed.join(', ')})`;
@@ -332,11 +154,6 @@ export function getRarityGradient(rarity, opacity = 0.1) {
     return `linear-gradient(135deg, ${getRarityColor(rarity)}${alphaHex} 0%, transparent 100%)`;
 }
 
-/**
- * Get rarity order for sorting (lower = rarer)
- * @param {string} rarity - The rarity type
- * @returns {number} Sort order value
- */
 export function getRarityOrder(rarity) {
     return tier(rarity).order;
 }

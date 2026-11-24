@@ -1,57 +1,6 @@
-/*
- * ═══════════════════════════════════════════════════════════════════════════
- * THE CONCOURSE — the luck record
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * What this replaces was the same drift `features/Achievements.jsx` was built
- * to undo, and its header lists the offences exactly: a 16px-radius modal with
- * a gradient header, rounded cards at 10px, per-section tinted panels and a
- * row of coloured chips. Every one of those is banned outright by THE NOCTURNE
- * (DESIGN.md §8) and none of them survived into §9's board. Opening this from
- * the player record read as leaving the site, which is the precise symptom the
- * achievements pass was called in to fix on the surface next door.
- *
- * So this is the departure board again: deck ground, ruled registers, station
- * amber as the only signal, rarity hue used only where the subject IS a tier.
- *
- * ── TWO WINDOWS, AND WHY BOTH ────────────────────────────────────────────────
- *
- * The panel's centre is now a pair, not a single figure, because the server
- * measures luck twice and the two answers are different questions rather than
- * competing estimates of one.
- *
- * THE RUN is the 5,000-spin peak the rating already used: endurance, the
- * stretch where somebody was quietly lucky for a long time. THE CLUSTER is the
- * short window — fifty to five hundred spins — where several specials landed on
- * top of each other. A run cannot see a cluster, because fifty good pulls
- * diluted across five thousand ordinary ones barely move its score; a cluster
- * cannot see a run, because it is only ever a few dozen spins wide.
- *
- * They routinely disagree by orders of magnitude and both are right. The panel
- * therefore prints them side by side with equal weight and never reconciles
- * them into one number, which would destroy the only interesting thing about
- * having two.
- *
- * ── THE ODDS ARE THE HEADLINE, NOT THE RATING ────────────────────────────────
- *
- * Every figure here already existed in the payload and this panel already drew
- * most of them. The one thing it never said was what any of it MEANT: it
- * reported "peak 172" and explained Poisson underneath, and a rating of 172
- * moves nobody. `peakWindowOneIn` and `tightestCluster.oneIn` are the same
- * measurement expressed as "1 in 158,489", which is the form a person repeats
- * out loud. Both come from the server so the odds and the rating cannot drift
- * apart — they are one log-improbability printed two ways.
- *
- * ── THE CAVEAT IS PART OF THE FIGURE ─────────────────────────────────────────
- *
- * A cluster's odds are the odds of ONE window turning out that way, and the
- * server tried thousands of windows to find the best one. In a long history a
- * 1-in-a-million window is roughly what you should expect to exist, so the
- * number describes a window and never a person. That sentence sits under the
- * figure rather than in a tooltip, because a rarity claim with the search
- * silently removed is the kind of thing players quote at each other and then
- * get corrected on.
- */
+// THE CONCOURSE: the luck record, a departure board (deck ground, ruled registers, amber as the only signal, rarity hue only where the subject IS a tier), like features/Achievements.jsx.
+// Two windows printed side by side with equal weight and never reconciled: THE RUN is the 5,000-spin peak (endurance) and THE CLUSTER the 50-500 spin window; each is blind to the other and they routinely disagree by orders of magnitude. The odds (`peakWindowOneIn`, `tightestCluster.oneIn`) are the headline and come from the server, one log-improbability printed two ways.
+// The caveat stays under the figure, not in a tooltip: a cluster's odds are those of ONE window the server found by trying thousands, so they describe a window, never a person.
 
 import React, { useEffect } from 'react';
 import { DECK, rail } from '../config/constants';
@@ -109,18 +58,12 @@ function Head({ children, tone = DECK.inkDim }) {
     );
 }
 
-/**
- * One of the two windows. Both carry the same furniture — a span, an odds
- * headline, the tiers that made it — so the eye can compare them directly
- * rather than learning two layouts.
- */
+// One of the two windows; both share the same furniture (span, odds headline, tiers) so they compare directly.
 function WindowCard({ title, span, oneIn, basis, pulls, lucky, footnote, isMobile }) {
     const tiers = TIERS.filter(t => (pulls?.[t] || 0) > 0);
     const totalPulls = TIERS.reduce((n, t) => n + (pulls?.[t] || 0), 0);
     const luckyPulls = lucky?.pulls || 0;
-    // Flagged from the first lucky pull, not from a majority. The odds already
-    // price these correctly, so this is not a correction — it is context, and a
-    // single lucky mythic is enough to change what the window means.
+    // Flagged from the first lucky pull: the odds already price these correctly, so this is context, not a correction.
     const luckyDriven = luckyPulls > 0;
     return (
         <div style={{
@@ -146,9 +89,7 @@ function WindowCard({ title, span, oneIn, basis, pulls, lucky, footnote, isMobil
                 />
             </div>
 
-            {/* The two cards are measured differently and the figures must not be
-                read against each other — see the note below the pair. Saying which
-                basis each one uses is what stops the comparison being made. */}
+            {/* The two cards are measured on different bases and must not be read against each other; each states its basis. */}
             {basis && (
                 <div style={{ color: DECK.inkDim, fontSize: 10.5, marginBottom: 10 }}>
                     {basis}
@@ -192,26 +133,7 @@ function WindowCard({ title, span, oneIn, basis, pulls, lucky, footnote, isMobil
 }
 
 export function LuckInfoModal({ onClose, luckRating, isMobile }) {
-    /*
-     * Escape closes it, which until now nothing did.
-     *
-     * This is the one overlay on the player record where the key was completely
-     * dead, and the reason is worth keeping because it looks like a safe
-     * omission and is not. UserProfile deliberately STANDS DOWN while any child
-     * of its is open — `childOpen` lists this modal by name — on the contract
-     * that "every child listed here either handles Escape itself or is dismissed
-     * by its own controls". This one only ever satisfied the second half, so
-     * with it open the key did nothing at all: the parent had stepped aside for
-     * a handler that was never written.
-     *
-     * Capture phase plus stopPropagation, matching the item plaque in
-     * CollectionBook.jsx. The profile's own note records why the phase matters:
-     * `stopPropagation` governs propagation BETWEEN nodes and does nothing to a
-     * listener already registered on the node you are standing on, so two
-     * bubble-phase listeners on `window` both run. Claiming the event in capture
-     * stops it before any of them, which is the right shape for the topmost
-     * thing on the screen — while this is open, it owns the key.
-     */
+    // Escape closes it: UserProfile stands down while any child is open (`childOpen` lists this modal), so this modal must handle the key itself. Capture phase plus stopPropagation, like the item plaque in CollectionBook.jsx: bubble-phase `window` listeners would all run.
     useEffect(() => {
         const onKey = e => {
             if (e.key !== 'Escape') return;

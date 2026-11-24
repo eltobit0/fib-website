@@ -1,57 +1,14 @@
-// ============================================
-// The wheel's release notes
-// ============================================
-//
-// One entry per release, newest first. `LATEST_VERSION` is what the popup fires
-// against: a visitor whose stored "seen" version is anything other than this gets
-// the modal once, and the topbar's mark stays lit until they close it.
-//
-// ── THE FIGURES HERE ARE FROZEN, AND THAT IS THE POINT ──────────────────────
-//
-// Every rate below is written out rather than derived from the live roster, and
-// the temptation to compute them from RELIC_ITEMS / TEAM_MEMBERS and friends
-// should be resisted. A changelog is a record of what changed on a date. If these
-// numbers tracked the live weights, then the next time a tier is retuned this
-// entry would quietly start describing the new odds while still claiming to be the
-// announcement of the old ones - a document that rewrites its own history is worse
-// than no document. `/api/items` is where the current odds live; this is where
-// September's odds live, permanently.
-//
-// ── ADDING A RELEASE ────────────────────────────────────────────────────────
-//
-// Prepend an entry and give it a new `version`. Nothing else has to change: the
-// popup, the unseen mark and the modal all read from this file, and every visitor
-// sees the new entry once on their next load. Bump `version` ONLY for things worth
-// interrupting someone over - a rarity ladder changing is; a bugfix is not.
+// One entry per release, newest first; a visitor sees LATEST_VERSION's entry once. Bump `version` only for things worth interrupting for.
+// Figures are frozen on purpose: never derive them from the live roster, or old entries would rewrite their history.
 
-/**
- * Block kinds the modal knows how to draw. Everything here is data, so a future
- * entry composes a page out of the same four shapes rather than shipping its own
- * layout:
- *
- *   rationale - why the release happened, in prose. Put it first.
- *   tier      - a rarity's colour, its rate, and the items that live in it
- *   ladder    - the whole rarity ladder as log-scaled bars, one row per tier
- *   changes   - a before/after table
- *   notes     - short labelled paragraphs for everything that is not a number
- *   feature   - one new thing to do: an accent, a title, prose, and a few facts.
- *               `accent` is a key the modal maps to its identity (high_roller,
- *               bounty, mystery) so this file never spells a colour.
- *
- * ── OLDER RELEASES STAY READABLE ────────────────────────────────────────────
- *
- * Only the newest entry pops up, but every entry here stays in the modal's
- * "Earlier releases" list and opens in full. So a release is never deleted to
- * make room for the next one - prepend, and the previous one moves down a slot.
- */
+// Block kinds: rationale, tier, ladder, changes, notes, feature (`accent` is a key the modal maps, so this file never spells a colour).
+// Never delete old releases; they stay readable in the modal.
 export const CHANGELOG = [
     {
         version: '2.3',
         date: '2026-09-26',
         title: 'The Lucky Book',
         tagline: 'Every special your lucky spins ever landed, and how often they landed one.',
-        // No rationale block, for the reason 2.1 gives: nothing here moves an odd.
-        // It is a new way to read spins that already happened.
         blocks: [
             {
                 kind: 'feature',
@@ -120,10 +77,6 @@ export const CHANGELOG = [
         date: '2026-09-23',
         title: 'High Roller & the Daily Bounty',
         tagline: 'A blackjack table, a hunt that resets every day, and a box that can hold any special.',
-        // No rationale block this time, on purpose: the Relic Update needed one because
-        // it moved odds people already knew, and a change like that has to say why.
-        // Nothing here moves an existing odd - three new things, each of which explains
-        // itself - so the entry opens straight onto them.
         blocks: [
             {
                 kind: 'feature',
@@ -222,10 +175,6 @@ export const CHANGELOG = [
         title: 'The Relic Update',
         tagline: 'A seventh rarity, and the odds around it rebuilt to make room.',
         blocks: [
-            // Leads the entry, deliberately. The first draft opened on the new tier
-            // and never said why it exists - a release note that lists what moved
-            // without saying what was wrong reads as change for its own sake, which
-            // is how players decide an update was done to them rather than for them.
             {
                 kind: 'rationale',
                 heading: 'Why the odds changed',
@@ -259,10 +208,7 @@ export const CHANGELOG = [
                 rarity: 'mythic',
                 heading: 'And one more, further up',
                 rate: '0.005% - same chance as the old Wandering Trader',
-                // Written out rather than filtered from MYTHIC_ITEMS, for the same
-                // reason every rate in this file is: the block announces ONE item,
-                // and a live filter would quietly grow it into a group portrait of
-                // the whole tier the next time something joins.
+                // Written out, not filtered from MYTHIC_ITEMS, so it never grows with the tier.
                 roster: [
                     { texture: 'mythic_special_trader', name: 'Special Trader', imageUrl: '/special_trader.png' },
                 ],
@@ -276,18 +222,7 @@ export const CHANGELOG = [
                 rarity: 'rare',
                 heading: 'And a new face at the bottom of the ladder',
                 rate: '1 in 1,563',
-                // Own roster, not the whole tier: eleven heads under this heading
-                // would announce eleven arrivals. See TIER_ROSTERS in
-                // ChangelogModal - the block's roster is the picture of what
-                // actually changed, and here exactly one thing did.
-                //
-                // The head URL is written out for the same reason every rate in
-                // this file is. The renderer serves whatever skin the account wears
-                // today, which is the right behaviour for the wheel and the wrong
-                // one for a record of a date - but a literal URL is at least the
-                // same shape as the one helpers.getMinecraftHeadUrl builds, so a
-                // reader can see it is the ordinary head render and not a special
-                // asset.
+                // Own roster, not the whole tier (see TIER_ROSTERS in ChangelogModal).
                 roster: [
                     { texture: 'rare_rzem', name: 'rzem', imageUrl: 'https://minotar.net/helm/rzem/64' },
                 ],
@@ -374,21 +309,10 @@ export const CHANGELOG = [
 
 export const LATEST_VERSION = CHANGELOG[0].version;
 
-// Per-browser rather than per-account, deliberately: /wheel is readable without
-// logging in, and an announcement about the odds is for everyone looking at them.
-// The cost is that it can reappear on a second device or after site data is
-// cleared, which for release notes is the right way round - showing it twice is a
-// smaller failure than never showing it to the half of the audience that is not
-// signed in. There is no server-side read tracking for this and deliberately so:
-// it would need a migration, an endpoint and an account.
+// Per-browser, not per-account: /wheel is readable signed out.
 const SEEN_KEY = 'fib:changelog:seen';
 
-/**
- * The version this browser has already been shown, or null.
- *
- * Every access is wrapped: localStorage throws outright in a private window with
- * site data blocked, and a release note is not worth taking the page down for.
- */
+// Wrapped: localStorage throws in private windows with site data blocked.
 export function readSeenVersion() {
     try {
         return window.localStorage.getItem(SEEN_KEY);
@@ -397,12 +321,10 @@ export function readSeenVersion() {
     }
 }
 
-/** Remember that this browser has seen `version`. Silent if storage is unavailable. */
 export function markVersionSeen(version) {
     try {
         window.localStorage.setItem(SEEN_KEY, version);
     } catch {
-        // No storage: the popup will show again next load. That is the documented
-        // degradation, not a bug to work around with a cookie.
+        // No storage: the popup shows again next load, by design.
     }
 }

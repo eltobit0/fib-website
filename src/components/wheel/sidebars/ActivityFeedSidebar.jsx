@@ -37,45 +37,14 @@ export function ActivityFeedSidebar() {
     const { feed: rawFeed, rareFeed, initialized } = useActivity();
     const [activeTab, setActiveTab] = useState('all'); // 'all' or 'special'
 
-    /*
-     * ── THE SECOND DELAY, AND WHY IT IS GONE ─────────────────────────────────
-     *
-     * This component used to hold every fresh drop back by a further 4500ms
-     * before showing it, on top of whatever the context had already done. That
-     * was correct when it was written: the context prepended to `feed` the
-     * instant an SSE frame landed, so each surface had to protect the reel
-     * itself, and this one did it with a local timer.
-     *
-     * The context gained that rule afterwards (`spinRevealDelay`, on the
-     * server-corrected clock) and this copy was never removed, so a drop was
-     * held twice — 4200ms there, then 4500ms again here, nearly nine seconds
-     * behind the reel it belonged to. Which is the harmless half.
-     *
-     * The harmful half was the branch that decided WHETHER to double it. It
-     * asked whether the item was under two seconds old, measured against
-     * `serverTime || Date.now()` — and `serverTime` was a context snapshot that
-     * had not updated since page load (the SSE field it read does not exist on
-     * the wire), so that comparison answered from a clock minutes stale, or,
-     * whenever the snapshot happened to be null, from the browser's own. The
-     * same drop therefore appeared at 4.2s or at 8.7s depending on which of two
-     * wrong clocks answered, and a player watching the strip and the drawer side
-     * by side saw them disagree about when a pull happened.
-     *
-     * `feed` is already the delayed feed. There is nothing left to do here but
-     * sort it, which is what the rest of this component wanted all along.
-     */
+    // `feed` is already the delayed feed (the context's `spinRevealDelay`, on the server-corrected clock): do not add a local hold here, which doubled the delay and compared against a stale `serverTime` snapshot.
     const feed = useMemo(() => {
         return [...rawFeed]
             .filter(item => item.event_type !== 'achievement_unlock')
             .sort((a, b) => parseActivityDate(b.created_at) - parseActivityDate(a.created_at));
     }, [rawFeed]);
 
-    // Mythic & Insane board - all time, not just what is still in the live feed.
-    // rawFeed is capped at the most recent 150 entries and the delayed feed inherits that
-    // cap, so filtering it only ever surfaced the handful of rare drops recent enough to
-    // still be in the window. rareFeed carries the full history; the delayed feed is still
-    // unioned in so a drop that lands right now appears on the same 4.5s delay as
-    // everywhere else, instead of spoiling the spin that produced it.
+    // Mythic & Insane board, all time: rawFeed is capped at the latest 150 entries, so filtering it only surfaced recent rares; rareFeed carries the full history, and the delayed feed is unioned in so a drop landing now keeps the same 4.5s delay.
     const specialFeed = useMemo(() => {
         const isSpecialRarity = item => item.item_rarity === 'mythic' || item.item_rarity === 'insane';
         const byId = new Map();
@@ -95,19 +64,7 @@ export function ActivityFeedSidebar() {
 
     return (
         <div style={{
-            // 380px wide, and `height: 100%` rather than a fixed 520px.
-            //
-            // This component no longer sits beside the reel — the desktop feed is
-            // ActivityTicker, a horizontal strip above it. The only thing that
-            // renders this now is the "All drops" drawer in WheelPage.
-            //
-            // `height: 100%` therefore depends entirely on that drawer giving it a
-            // definite height to resolve against. It briefly did not, and the
-            // percentage collapsed to `auto`: the feed grew to its full content
-            // length, ran off the bottom of the screen, and could not be scrolled,
-            // because the element that would have scrolled was the one growing.
-            // If this is ever mounted somewhere new, that container needs a real
-            // height, not just a maxHeight.
+            // 380px wide, `height: 100%`: only the "All drops" drawer in WheelPage renders this, so it depends on the drawer giving it a definite height (a percentage against an auto-height parent collapses and the feed overflows unscrollably). Any new mount needs a real height, not just a maxHeight.
             width: '380px',
             height: '100%',
             background: `linear-gradient(180deg, ${COLORS.bgLight}f8 0%, ${COLORS.bg}fc 100%)`,
@@ -346,9 +303,7 @@ export function ActivityFeedSidebar() {
                                     padding: isInsane ? '12px' : isMythic ? '11px' : '10px',
                                     marginBottom: '6px',
                                     borderRadius: '10px',
-                                    // Insane carries all three slick hues even at
-                                    // 7% alpha, so the row is identifiable as the
-                                    // top tier without reading the badge.
+                                    // Insane carries all three slick hues even at 7% alpha, so the row is identifiable as top tier without the badge.
                                     background: isInsane
                                         ? `linear-gradient(135deg, ${COLORS.insaneHolo[0]}12, ${COLORS.insaneHolo[1]}0A, ${COLORS.insaneHolo[2]}12)`
                                         : isMythic
@@ -367,12 +322,7 @@ export function ActivityFeedSidebar() {
                                     transition: 'all 0.2s ease',
                                 }}
                             >
-                                {/* The oil-slick drifting across an insane row.
-                                    This was a static overlay with `animation:
-                                    'none'` hardcoded — a shimmer that had never
-                                    shimmered. It takes the shared .fib-holo class
-                                    now, which also gets it the reduced-motion path
-                                    for free: the gradient stays, the drift stops. */}
+                                {/* The oil-slick on an insane row uses the shared .fib-holo class, which brings the reduced-motion path. */}
                                 {isInsane && (
                                     <div className="fib-holo" style={{
                                         position: 'absolute',
@@ -398,14 +348,7 @@ export function ActivityFeedSidebar() {
                                     }} />
                                 )}
 
-                                {/* Avatar. The ring is the player's PRESTIGE, not
-                                    the item's tier — see the note in
-                                    ActivityTicker: a ring around a face means
-                                    one thing everywhere else on this site, and
-                                    the row already states the item's rarity in
-                                    its fill, its border, its glow and the item's
-                                    own name. The per-tier SIZE step stays; that
-                                    one is this row's own hierarchy. */}
+                                {/* The avatar ring is the player's PRESTIGE, not the item's tier (see ActivityTicker); the per-tier SIZE step is this row's own hierarchy. */}
                                 <PrestigeRing standing={prestigeStanding(item)}>
                                 <img
                                     src={getDiscordAvatarUrl(item.discord_id, item.discord_avatar)}
@@ -569,12 +512,7 @@ export function ActivityFeedSidebar() {
                 color: COLORS.textMuted,
                 background: `linear-gradient(180deg, transparent 0%, ${COLORS.bgLighter}30 100%)`,
             }}>
-                {/* Legend, derived from the shared ladder. This was four hardcoded
-                    blocks with their colours written out beside the labels, which
-                    is how the feed and its own legend could disagree. Five tiers no
-                    longer fit one line in a 300px rail, so it wraps and the
-                    dividers are dropped — a wrapped row with dangling separators
-                    reads worse than spacing alone. */}
+                {/* Legend derived from the shared ladder, so the feed and its legend cannot disagree; it wraps without dividers (five tiers do not fit one line in a 300px rail). */}
                 {RARITY_KEYS.filter(key => key !== 'common' && key !== 'event').map(key => (
                     <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {getRarityIcon(key, 11)}

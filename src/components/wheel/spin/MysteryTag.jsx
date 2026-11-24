@@ -1,23 +1,7 @@
 import React from 'react';
 import { COLORS } from '../config/constants';
 
-/*
- * MYSTERY - the mark on a pull that came out of the daily bounty's box, wherever
- * the LUCKY badge would otherwise sit.
- *
- * One component rather than a sixth inline copy: the LUCKY badge exists in five
- * files and has drifted into three greens (the ticker's COLORS.green, the toast's
- * and the sidebar's #00FF00 - recursion's matrix green, which is a mode). This one
- * starts in one place so it cannot.
- *
- * A box pull is also written is_lucky = 1 (see the wheel backend's migration for
- * why), so callers show this INSTEAD of LUCKY, never beside it: the box is the
- * more specific truth, and two badges on one row say the same thing twice.
- *
- * Gilt, per COLORS.mysteryGilt: the word itself carries the metal ramp, and the
- * pill is only its hairline. 10px bold at the badge scale the ticker ratified,
- * 11px where a surface's own badges already run a step larger.
- */
+// MYSTERY: the mark on a pull from the daily bounty's box, in place of the LUCKY badge (a box pull is written is_lucky = 1, so callers show this INSTEAD of LUCKY, never beside it). One component because the LUCKY badge drifted into three greens across five files. Gilt per COLORS.mysteryGilt; 10px at the ticker's badge scale, 11px where a surface's badges run larger.
 export function MysteryTag({ size = 10, title = 'Pulled from a mystery box' }) {
     const [pale, mid, deep] = COLORS.mysteryGilt;
     return (

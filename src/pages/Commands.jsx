@@ -123,7 +123,7 @@ export default function Commands({ onNavigate }) {
             />
 
             <div className="wk-wrap cm-body">
-                {/* Only the search outcome is live: the whole list in the region was read out on every change. */}
+                {/* Only the search outcome is live, so the whole list is not read out on every change. */}
                 <div aria-live="polite">
                     {q && shown > 0 && <p className="cm-count">{`${shown} ${shown === 1 ? 'command matches' : 'commands match'}`}</p>}
                     {!shown && <p className="cm-empty-text">No command matches “{query}”.</p>}

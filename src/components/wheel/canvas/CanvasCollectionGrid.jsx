@@ -1,9 +1,3 @@
-// ============================================
-// CanvasCollectionGrid.jsx
-// ============================================
-// High-performance Canvas-based collection grid with virtual scrolling
-// Only renders visible items, dramatically reducing DOM and improving load time
-
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { IMAGE_BASE_URL } from '../../../config/constants.js';
 import { COLORS } from '../config/constants';
@@ -12,19 +6,7 @@ import { getRarityColor, getRarityInk, getRarityOnColor, getRarityStops, sampleH
 import { isSaverOn, useSaverMode } from '../../../config/power.js';
 import { getAtlasSprite, drawItemSprite, needsOwnImage } from './atlas.js';
 
-// ============================================
-// CONSTANTS
-// ============================================
-
-// The platform's geometry lives with the renderer that draws against it — see
-// TARGET_CELL / ITEM_GAP / GRID_PADDING below. Keeping it here as well is how the
-// wheel earned "the constant that outlived its geometry" five times in one
-// session: a second file restating a pitch is a second file that can disagree
-// about it.
-
-// ============================================
-// COLOR HELPERS
-// ============================================
+// Platform geometry lives with the renderer below (TARGET_CELL / ITEM_GAP / GRID_PADDING); do not restate it here.
 
 function hexToRgb(hex) {
     if (!hex) return { r: 0, g: 0, b: 0 };
@@ -36,15 +18,10 @@ function hexToRgb(hex) {
     } : { r: 0, g: 0, b: 0 };
 }
 
-// ============================================
-// IMAGE CACHE (LRU with max size)
-// ============================================
-
-const MAX_CACHE_SIZE = 500; // Maximum cached images
+const MAX_CACHE_SIZE = 500;
 const imageCache = new Map();
 const inFlightPromises = new Map();
 
-// LRU cache helper - move entry to end (most recently used)
 function touchCache(src) {
     if (imageCache.has(src)) {
         const value = imageCache.get(src);
@@ -53,7 +30,6 @@ function touchCache(src) {
     }
 }
 
-// Evict oldest entries if cache exceeds max size
 function evictIfNeeded() {
     while (imageCache.size > MAX_CACHE_SIZE) {
         // Map iterates in insertion order, so first key is oldest
@@ -63,18 +39,15 @@ function evictIfNeeded() {
 }
 
 function loadImage(src) {
-    // Return cached image if available (and mark as recently used)
     if (imageCache.has(src)) {
         touchCache(src);
         return Promise.resolve(imageCache.get(src));
     }
 
-    // Return in-flight promise if already loading
     if (inFlightPromises.has(src)) {
         return inFlightPromises.get(src);
     }
 
-    // Create new loading promise
     const loadPromise = new Promise((resolve) => {
         const img = new Image();
         // Note: crossOrigin not needed since we only draw, never read pixels
@@ -85,7 +58,6 @@ function loadImage(src) {
             resolve(img);
         };
         img.onerror = () => {
-            // Try fallback
             const fallback = new Image();
             fallback.onload = () => {
                 imageCache.set(src, fallback);
@@ -109,50 +81,8 @@ function loadImage(src) {
     return loadPromise;
 }
 
-// ============================================
-// THE PLATFORM — one mounted item
-// ============================================
-//
-// A cell is an object mounted in a case, and its tier is the rim of light around
-// the mount.
-//
-// ── WHY THIS IS NOT THE REEL'S GRAMMAR, AFTER TRYING IT ──────────────────────
-//
-// The first version of this board drew the cell exactly as the band draws a
-// slot: a wash rising from a floor line, a base bar as the emitter, a filament,
-// bottom-weighted seams, no light at all on a common. It is the same rule —
-// DESIGN.md §8's "rarity is light, never a container" — and on the reel it is
-// unarguable. Here it was wrong, and the owner called it on sight.
-//
-// The reason is that the two surfaces do different things with an item. **The
-// reel moves items past a single focal slot; the platform holds them still and
-// on display.** A shaft of light reads as "this one is arriving" — it is
-// directional, it has a floor and a ceiling, and it earns its meaning from
-// travel. Take the travel away and stand fifteen of them in a row and the light
-// has nothing to be about: what you get is a floor-lit strip where the part with
-// the item in it is the dimmest part of the cell. That was already the known
-// weakness in the band ("the empty middle") and the band survives it because
-// each slot is on screen for a moment. A case does not have moments.
-//
-// A display case mounts its objects in a rim. So the tier is a rim here: a lit
-// border around the mount, animated on the tiers whose identity is motion, with
-// a bloom that says the object inside is worth the frame. It is a container, and
-// on this surface that is the correct answer — the ladder still climbs, and it
-// climbs in the one dimension a static grid can actually read at a glance.
-//
-// ── WHAT IS KEPT FROM THE FIRST BUILD ────────────────────────────────────────
-//
-// Two things, because they were never what was wrong:
-//
-//   · **A collected common gets no colour.** The original book gave every held
-//     common a gold rim, which is most of why 1,559 items shouted at one volume.
-//     A common gets a quiet rail-light rim that says "held" and nothing more.
-//   · **A missing item is a recess**, cut darker than the platform, holding its
-//     tier's hue at low alpha so the silhouette of what is still out there reads
-//     as what it is.
-//
-// And the ladder is still the shared one in rarityHelpers.jsx. Not one tier hue
-// is spelled here.
+// Tier is a rim around the mount, not the reel's floor wash: a still grid has no travel for a shaft of light to mean.
+// A collected common gets no tier colour; a missing item is a dark recess. Tier hues come only from rarityHelpers.jsx.
 
 const ITEM_GAP = 8;      // Room for a rim and its bloom to breathe.
 const GRID_PADDING = 14; // So the first row's bloom is not clipped by the mount.
@@ -165,19 +95,8 @@ function rgbaOf(colour, alpha) {
 }
 
 /**
- * The tier's live rim, as {stroke, bloom, drift}.
- *
- * `stroke` is what the border is painted with and may be a gradient; `bloom` is
- * a flat colour, because canvas `shadowColor` cannot take one. `drift` is how
- * much the tier moves, 0 for the tiers that hold still.
- *
- * The two animated tiers keep the rule DESIGN.md §8 states twice: **paint an
- * animated tier with the whole gradient, never a single sampled point.** Insane's
- * ramp passes through magenta, aqua and gold — which are exotic, mythic and
- * legendary — so a border taking one colour off it spends two thirds of every
- * cycle impersonating the tiers below it. That bug shipped once here already and
- * the comment recording it is why this function returns a stroke and a bloom
- * separately rather than one colour.
+ * The tier's live rim, as {stroke, bloom, drift}. Animated tiers stroke with the whole gradient, never one sampled point
+ * (insane's ramp passes through other tiers' hues); bloom is flat only because canvas shadowColor cannot take a gradient.
  */
 function tierRim(ctx, type, x, size, time) {
     switch (type) {
@@ -197,9 +116,7 @@ function tierRim(ctx, type, x, size, time) {
             return { stroke: flat, bloom: flat, drift: 0.14 + Math.sin((time % 2) / 2 * Math.PI * 2) * 0.06, blur: 18 };
         }
         case 'legendary': {
-            // Steady gold, and deliberately so: motion belongs to the tiers above
-            // it. Legendary took insane's colour when the ladder was rebuilt, not
-            // insane's pulse.
+            // Steady on purpose: motion belongs to the tiers above legendary.
             const flat = getRarityColor('legendary');
             return { stroke: flat, bloom: flat, drift: 0.17, blur: 15 };
         }
@@ -216,11 +133,10 @@ function tierRim(ctx, type, x, size, time) {
     }
 }
 
-/** The tier's mark, drawn rather than typed. */
 function drawTierGlyph(ctx, type, cx, cy, r) {
     ctx.beginPath();
     switch (type) {
-        case 'insane': { // a crown
+        case 'insane': {
             ctx.moveTo(cx - r, cy + r * 0.55);
             ctx.lineTo(cx - r * 1.05, cy - r * 0.75);
             ctx.lineTo(cx - r * 0.42, cy - r * 0.05);
@@ -231,7 +147,7 @@ function drawTierGlyph(ctx, type, cx, cy, r) {
             ctx.closePath();
             break;
         }
-        case 'mythic': { // a four-point sparkle
+        case 'mythic': {
             ctx.moveTo(cx, cy - r);
             ctx.quadraticCurveTo(cx + r * 0.18, cy - r * 0.18, cx + r, cy);
             ctx.quadraticCurveTo(cx + r * 0.18, cy + r * 0.18, cx, cy + r);
@@ -239,7 +155,7 @@ function drawTierGlyph(ctx, type, cx, cy, r) {
             ctx.quadraticCurveTo(cx - r * 0.18, cy - r * 0.18, cx, cy - r);
             break;
         }
-        case 'legendary': { // a five-point star
+        case 'legendary': {
             for (let i = 0; i < 10; i++) {
                 const rad = i % 2 === 0 ? r : r * 0.45;
                 const a = -Math.PI / 2 + (i * Math.PI) / 5;
@@ -250,7 +166,7 @@ function drawTierGlyph(ctx, type, cx, cy, r) {
             ctx.closePath();
             break;
         }
-        case 'relic': { // a folded map: two creases and a torn lower edge
+        case 'relic': {
             ctx.moveTo(cx - r, cy - r * 0.62);
             ctx.lineTo(cx - r * 0.33, cy - r * 0.9);
             ctx.lineTo(cx + r * 0.33, cy - r * 0.62);
@@ -262,7 +178,7 @@ function drawTierGlyph(ctx, type, cx, cy, r) {
             ctx.closePath();
             break;
         }
-        case 'exotic': { // a cut gem
+        case 'exotic': {
             ctx.moveTo(cx, cy - r);
             ctx.lineTo(cx + r * 0.92, cy - r * 0.2);
             ctx.lineTo(cx, cy + r);
@@ -270,7 +186,7 @@ function drawTierGlyph(ctx, type, cx, cy, r) {
             ctx.closePath();
             break;
         }
-        default: { // a rhombus
+        default: {
             ctx.moveTo(cx, cy - r);
             ctx.lineTo(cx + r * 0.78, cy);
             ctx.lineTo(cx, cy + r);
@@ -289,13 +205,8 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
 
     ctx.save();
 
-    // Hovering lifts the object in its mount. A small translate, because on a
-    // case the thing that moves is the object and not the light.
     if (isHovered && isCollected) ctx.translate(0, -3);
 
-    // ── 1. The bloom ─────────────────────────────────────────────────────────
-    // Behind the mount, so the rim's own glow reads as light escaping the case
-    // rather than as a halo pasted over the deck.
     if (rim) {
         const spread = size * 1.25;
         const g = ctx.createRadialGradient(
@@ -309,17 +220,12 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
         ctx.fillRect(x - (spread - size) / 2, y - (spread - size) / 2, spread, spread);
     }
 
-    // ── 2. The mount ─────────────────────────────────────────────────────────
-    // Square, like everything else on this board. The rim is the frame; a radius
-    // on top of it would be a second one.
     if (isCollected) {
         if (isSpecial) {
             const fill = ctx.createLinearGradient(x, y, x + size, y + size);
             const stops = getRarityStops(type);
             if (stops && stops.length >= 3) {
-                // An animated tier fills with its whole ramp for the same reason
-                // its border strokes with it — one sampled point is another
-                // tier's colour two thirds of the time.
+                // Animated tiers fill with the whole ramp: one sampled point is another tier's colour two thirds of the time.
                 fill.addColorStop(0, `${stops[0]}24`);
                 fill.addColorStop(0.5, `${stops[1]}1A`);
                 fill.addColorStop(1, `${stops[2]}22`);
@@ -332,19 +238,13 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
             ctx.fillStyle = 'rgba(206,214,236,0.045)';
         }
     } else {
-        // Missing: a recess cut deeper than the platform.
         ctx.fillStyle = 'rgba(0,0,0,0.34)';
     }
     ctx.fillRect(x, y, size, size);
 
-    // ── 3. The rim ───────────────────────────────────────────────────────────
     ctx.lineWidth = 2;
     if (rim) {
-        // Three passes: two blurred for the bloom, one crisp on top. The stroke
-        // is `rim.stroke` every time — which is the full gradient on insane —
-        // while only shadowColor takes the flat sample, because it cannot take
-        // anything else. Stroking the sample instead is what made an earlier
-        // gradient border silently do nothing.
+        // Always stroke with rim.stroke (the full gradient on insane); only shadowColor takes the flat sample.
         ctx.strokeStyle = rim.stroke;
         ctx.shadowColor = rim.bloom;
         ctx.shadowBlur = rim.blur;
@@ -355,8 +255,7 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
         ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
     } else {
         ctx.shadowBlur = 0;
-        // A held common says "held" and nothing about rarity — the original book
-        // gave it a gold rim, and gold means legendary one row up.
+        // A held common gets no tier colour: gold means legendary.
         ctx.strokeStyle = isCollected
             ? 'rgba(206,214,236,0.20)'
             : (isSpecial ? `${tierColor}44` : 'rgba(206,214,236,0.07)');
@@ -365,7 +264,6 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
         ctx.lineWidth = 2;
     }
 
-    // ── 4. The object ────────────────────────────────────────────────────────
     const imgSrc = getItemImageUrl(item);
     const img = images.get(imgSrc);
     const imgSize = Math.round(size * 0.62);
@@ -378,9 +276,7 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
             ctx.globalAlpha = 0.18;
             if ('filter' in ctx) ctx.filter = 'grayscale(100%)';
         }
-        // Every sprite here is a downscale (the atlas tile is 96px), and
-        // nearest-neighbour downscaling drops different source pixels frame to
-        // frame. Unconditional, for the same reason it is in the band.
+        // Every sprite here is a downscale, and nearest-neighbour downscaling shimmers frame to frame.
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         drawItemSprite(ctx, item, img, imgX, imgY, imgSize);
@@ -392,12 +288,7 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
         ctx.fillRect(imgX, imgY, imgSize, imgSize);
     }
 
-    // ── 5. The tier's mark ───────────────────────────────────────────────────
-    // Vector paths, not unicode stand-ins. The original set these with ♕ ✦ ★ ❖ ◆
-    // in whatever the platform's default sans happened to be, which is a
-    // different glyph on every OS and none of them the shape the DOM draws one
-    // panel over — the same tier is a Lucide Crown in the register and was a
-    // Windows dingbat here.
+    // Vector marks, not unicode glyphs, which differ per OS from the DOM's Lucide icons.
     if (isSpecial) {
         const bx = x + size - BADGE_SIZE / 2 - 1;
         const by = y + BADGE_SIZE / 2 + 1;
@@ -414,7 +305,6 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
         drawTierGlyph(ctx, type, bx, by, BADGE_SIZE * 0.29);
     }
 
-    // ── 6. The count ─────────────────────────────────────────────────────────
     if (count > 1) {
         ctx.font = "700 13px 'Barlow Condensed', system-ui, sans-serif";
         ctx.textAlign = 'right';
@@ -428,10 +318,7 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
         ctx.shadowBlur = 0;
     }
 
-    // ── 7. Focus ─────────────────────────────────────────────────────────────
-    // The keyboard's caret, in station amber — the reader's cursor, not a claim
-    // about the item, so it never borrows a tier's colour. Drawn outside the rim
-    // so a tier's own border stays readable underneath it.
+    // Focus caret in station amber, never a tier colour, drawn outside the rim.
     if (isFocused) {
         ctx.strokeStyle = '#FFAA00';
         ctx.lineWidth = 2;
@@ -440,10 +327,6 @@ function drawItem(ctx, item, x, y, size, isCollected, count, images, time, isHov
 
     ctx.restore();
 }
-
-// ============================================
-// MAIN COMPONENT
-// ============================================
 
 export function CanvasCollectionGrid({
                                          items = [],
@@ -458,27 +341,18 @@ export function CanvasCollectionGrid({
     const imagesRef = useRef(new Map());
     const timeRef = useRef(0);
 
-    // Use refs for fast-changing values to avoid RAF effect teardown
     const scrollTopRef = useRef(0);
     const containerWidthRef = useRef(400);
     const hoveredIndexRef = useRef(-1);
-    // The keyboard's position on the platform. A ref because the render loop
-    // reads it every frame and a state write per arrow key would tear down the
-    // RAF effect; the scroller is the focusable element, so React never needs to
-    // re-render for the caret to move.
+    // A ref: the loop reads it every frame and a state write per arrow key would tear down the RAF effect.
     const focusedIndexRef = useRef(-1);
     const scrollerRef = useRef(null);
 
-    // State for values that need to trigger re-renders (layout calculation)
     const [containerWidth, setContainerWidth] = useState(400);
     const [scrollTop, setScrollTop] = useState(0);
 
-    // Calculate grid layout (needs state for useMemo)
     const layout = useMemo(() => {
-        // The pitch still divides the platform exactly — no ragged column of
-        // dead deck on the right — but a cell is now a pitch with a gap in it,
-        // because a rim and its bloom need somewhere to be. `cellSize` is the
-        // pitch; `tileSize` is the mount drawn inside it.
+        // `cellSize` is the pitch (divides the platform exactly); `tileSize` is the mount drawn inside it, leaving room for the rim.
         const availableWidth = Math.max(TARGET_CELL, containerWidth - GRID_PADDING * 2);
         const cols = Math.max(1, Math.round(availableWidth / TARGET_CELL));
         const cellSize = availableWidth / cols;
@@ -488,13 +362,11 @@ export function CanvasCollectionGrid({
         return { cols, rows, cellSize, tileSize, totalHeight };
     }, [containerWidth, items.length]);
 
-    // Keep layout ref in sync for RAF
     const layoutRef = useRef(layout);
     useEffect(() => {
         layoutRef.current = layout;
     }, [layout]);
 
-    // Load visible images
     useEffect(() => {
         if (items.length === 0) return;
 
@@ -514,27 +386,20 @@ export function CanvasCollectionGrid({
             }
         }
 
-        // Load images for visible items. Pool sprites come from the atlas, so
-        // this is now only the heads and custom art — which is also why the LRU
-        // cache below stopped mattering much: the thing that used to evict it was
-        // scrolling through a thousand item sprites.
+        // Pool sprites come from the atlas, so this loads only heads and custom art.
         Promise.all(visibleItems.filter(needsOwnImage).map(item => {
             const src = getItemImageUrl(item);
             return loadImage(src).then(img => {
                 if (img) imagesRef.current.set(src, img);
             });
         })).then(() => {
-            // A sprite arriving after the loop parked is the one case where the
-            // canvas is stale and no interaction is coming to fix it: outside
-            // saver mode the next frame picks it up on its own, and in saver
-            // mode there is no next frame until something asks.
+            // In saver mode a parked loop has no next frame, so a late sprite must ask for one.
             requestDrawRef.current?.();
         }).catch(err => {
             console.warn('Failed to preload some collection images:', err);
         });
     }, [items, layout, scrollTop, containerHeight]);
 
-    // Measure container with ResizeObserver feature check
     useEffect(() => {
         if (!containerRef.current) return;
 
@@ -543,7 +408,6 @@ export function CanvasCollectionGrid({
             setContainerWidth(width);
         };
 
-        // Feature detect ResizeObserver
         if (typeof ResizeObserver !== 'undefined') {
             const observer = new ResizeObserver(entries => {
                 for (const entry of entries) {
@@ -554,7 +418,6 @@ export function CanvasCollectionGrid({
             observer.observe(containerRef.current);
             return () => observer.disconnect();
         } else {
-            // Fallback to window resize
             const handleResize = () => {
                 if (containerRef.current) {
                     updateWidth(containerRef.current.getBoundingClientRect().width);
@@ -566,7 +429,6 @@ export function CanvasCollectionGrid({
         }
     }, []);
 
-    // Canvas sizing effect - only runs when dimensions change
     const lastSizeRef = useRef({ width: 0, height: 0, dpr: 1 });
 
     useEffect(() => {
@@ -577,7 +439,6 @@ export function CanvasCollectionGrid({
         const width = containerWidth;
         const height = containerHeight;
 
-        // Only resize if dimensions actually changed
         if (lastSizeRef.current.width !== width ||
             lastSizeRef.current.height !== height ||
             lastSizeRef.current.dpr !== dpr) {
@@ -594,16 +455,12 @@ export function CanvasCollectionGrid({
         }
     }, [containerWidth, containerHeight]);
 
-    // Keep items and collection refs in sync for RAF
     const itemsRef = useRef(items);
     const collectionRef = useRef(collection);
-    // Saver mode's park-and-wake pair — see the loop below and requestDraw.
     const parkedRef = useRef(false);
     const renderRef = useRef(null);
     const saverMode = useSaverMode();
-    // `requestDraw` is declared after the sprite preloader that has to call it,
-    // and hoisting it above would put a callback between two effects that read
-    // as one block. The ref is the seam.
+    // A ref because `requestDraw` is declared after the sprite preloader that calls it.
     const requestDrawRef = useRef(null);
     useEffect(() => {
         itemsRef.current = items;
@@ -612,7 +469,6 @@ export function CanvasCollectionGrid({
         collectionRef.current = collection;
     }, [collection]);
 
-    // Animation loop - reads from refs for stable effect
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -625,37 +481,24 @@ export function CanvasCollectionGrid({
         const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 600;
 
         const render = (timestamp) => {
-            // Mobile throttling: 30fps to save battery
             frameCount++;
             if (isMobileDevice && frameCount % 2 !== 0) {
                 animationRef.current = requestAnimationFrame(render);
                 return;
             }
 
-            // ── Saver mode draws on demand ───────────────────────────────────
-            //
-            // The board is a still picture that happens to redraw sixty times a
-            // second. Everything that makes it change — a scroll, a hover, a new
-            // item arriving — is an event, and events can ask for a frame. Only
-            // the insane tiles' hue drift is genuinely per-frame, and in saver
-            // mode that is the thing being switched off anyway.
-            //
-            // So: draw this frame, then stop, and let `requestDraw` below wake
-            // the loop when something actually moves. A parked grid on the
-            // collection page is a phone doing nothing while the player reads.
+            // Saver mode draws one frame and parks; `requestDraw` wakes it on scroll, hover or new data.
             if (parkedRef.current) {
                 animationRef.current = null;
                 return;
             }
             const shouldPark = isSaverOn();
 
-            // Use real delta time
             const dt = (timestamp - lastTime) / 1000;
             lastTime = timestamp;
             timeRef.current += dt;
             const time = timeRef.current;
 
-            // Read from refs for latest values
             const currentItems = itemsRef.current;
             const currentCollection = collectionRef.current;
             const currentLayout = layoutRef.current;
@@ -663,20 +506,17 @@ export function CanvasCollectionGrid({
             const currentHoveredIndex = hoveredIndexRef.current;
             const height = containerHeight;
 
-            // Clear (use identity transform for clearing, then restore scale)
             const dpr = window.devicePixelRatio || 1;
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            // Calculate visible range (account for padding)
             const { cols, cellSize, tileSize, rows } = currentLayout;
             const adjustedScrollTop = Math.max(0, currentScrollTop - GRID_PADDING);
             const startRow = Math.floor(adjustedScrollTop / cellSize);
             const visibleRows = Math.ceil(height / cellSize) + 2;
             const endRow = Math.min(startRow + visibleRows, rows);
 
-            // Draw visible items
             for (let row = startRow; row < endRow; row++) {
                 for (let col = 0; col < cols; col++) {
                     const idx = row * cols + col;
@@ -713,27 +553,17 @@ export function CanvasCollectionGrid({
                 animationRef.current = null;
             }
         };
-    }, [containerHeight]); // Stable deps - containerHeight is a prop
+    }, [containerHeight]);
 
-    /**
-     * Ask for a frame.
-     *
-     * Cheap and idempotent by design — the interaction handlers call it on every
-     * scroll event and every pointer move, and outside saver mode it is a single
-     * `if` that does nothing because the loop was never parked.
-     */
+    /** Ask for a frame. Cheap and idempotent: called on every scroll and pointer move. */
     const requestDraw = useCallback(() => {
         if (!parkedRef.current || !renderRef.current) return;
         parkedRef.current = false;
         animationRef.current = requestAnimationFrame(renderRef.current);
     }, []);
 
-    // Published to the ref in an effect, not in the render body. Writing a ref
-    // during render is a purity violation React can and does punish — under
-    // StrictMode or a re-render that never commits, the ref would carry a
-    // callback from a render that was thrown away. The cleanup only clears the
-    // slot if it still holds *this* callback, so a fast re-render cannot have
-    // its successor's value wiped by its predecessor's teardown.
+    // Published in an effect, not during render (a discarded render would leave its callback in the ref).
+    // The cleanup clears the slot only if it still holds this callback.
     useEffect(() => {
         requestDrawRef.current = requestDraw;
         return () => {
@@ -741,11 +571,8 @@ export function CanvasCollectionGrid({
         };
     }, [requestDraw]);
 
-    // A pull lands, a filter changes, or the player leaves saver mode: all three
-    // are reasons the board no longer matches what is on the canvas.
     useEffect(() => { requestDraw(); }, [items, collection, saverMode, requestDraw]);
 
-    // Helper to get item index at a point (shared by mouse move and click)
     const getItemIndexAtPoint = useCallback((clientX, clientY, rect) => {
         const x = clientX - rect.left - GRID_PADDING;
         const y = clientY - rect.top;
@@ -759,21 +586,9 @@ export function CanvasCollectionGrid({
             return idx;
         }
         return -1;
-    }, []); // Stable - reads from refs
+    }, []);
 
-    /*
-     * Everything that changes what the reader is pointing at goes through here.
-     *
-     * `onItemFocus` fires only when the index actually changes, so sweeping the
-     * pointer across the platform costs one parent render per cell crossed
-     * rather than one per mousemove event — and the RAF loop still reads the
-     * hover from a ref, so the canvas itself never re-mounts.
-     *
-     * It is also the one place saver mode has to ask for a frame on hover. The
-     * early return above is exactly the right gate for that: a parked loop needs
-     * waking when the lift moves to a different cell, and never when the pointer
-     * merely travelled a few pixels inside the one it was already on.
-     */
+    // onItemFocus fires only when the index changes; that early return is also the gate for waking a parked loop on hover.
     const announce = useCallback((idx, force = false) => {
         if (idx === hoveredIndexRef.current && !force) return;
         hoveredIndexRef.current = idx;
@@ -789,9 +604,7 @@ export function CanvasCollectionGrid({
             : null);
     }, [onItemFocus, requestDraw]);
 
-    // The last place the pointer was, in client coords. Scrolling the wheel does
-    // not fire a mousemove, so without this the lift stayed on whichever cell
-    // *used* to be under a stationary cursor and the readout named the wrong item.
+    // Scrolling fires no mousemove, so the last pointer position re-resolves the hover after a scroll.
     const pointerRef = useRef(null);
 
     const handleMouseMove = useCallback((e) => {
@@ -805,39 +618,22 @@ export function CanvasCollectionGrid({
         announce(-1);
     }, [announce]);
 
-    // Handle scroll - update both ref (for RAF) and state (for image loading effect)
     const handleScroll = useCallback((e) => {
         const newScrollTop = e.target.scrollTop;
         scrollTopRef.current = newScrollTop;
         setScrollTop(newScrollTop);
 
-        // Unconditionally, and before the hover check: the board itself moved,
-        // so a parked canvas is now showing the wrong rows whether or not the
-        // item under the pointer changed. `announce` wakes the loop for a lift
-        // that moved; this wakes it for the scroll.
+        // Before the hover check: the board moved, so a parked canvas is stale even if the hovered item did not change.
         requestDraw();
 
-        // The cells moved under a pointer that did not, so whatever was hovered
-        // a frame ago is now a different item. Skip if keyboard owns the platform.
+        // Skip if the keyboard owns the platform.
         const pt = pointerRef.current;
         if (pt && focusedIndexRef.current < 0) {
             announce(getItemIndexAtPoint(pt.x, pt.y, e.target.getBoundingClientRect()), true);
         }
     }, [announce, getItemIndexAtPoint, requestDraw]);
 
-    /**
-     * Arrow-key navigation across the platform.
-     *
-     * The grid was a canvas under a scroll container and nothing else: no tab
-     * stop, no caret, no way to open an item without a pointer. 1,559 items is
-     * exactly the case where that matters, and a canvas cannot inherit
-     * roving-tabindex from anywhere — the caret has to be drawn, so it is (see
-     * drawItem's focus block).
-     *
-     * One tab stop for the whole platform, which is the same contract the
-     * segmented controls upstairs have. Home and End go to the ends because a
-     * board this long is unusable without them.
-     */
+    /** Arrow-key navigation: one tab stop for the whole platform, with a caret drawn by drawItem. */
     const handleKeyDown = useCallback((e) => {
         const items = itemsRef.current;
         if (items.length === 0) return;
@@ -862,15 +658,11 @@ export function CanvasCollectionGrid({
 
         e.preventDefault();
         focusedIndexRef.current = next;
-        // The caret is drawn by the render loop, so moving it needs a frame of
-        // its own. `announce` cannot be relied on here: arrowing onto the cell
-        // the pointer already happens to be hovering takes its early return, and
-        // the caret would move without anything repainting it.
+        // Request a frame directly: `announce` returns early when arrowing onto the already-hovered cell.
         requestDraw();
         announce(next);
 
-        // Keep the caret on screen. Measured against the scroller's own height
-        // rather than a declared one: the platform flexes with the board.
+        // Measured against the scroller's own height: the platform flexes with the board.
         const scroller = scrollerRef.current;
         if (scroller) {
             const top = GRID_PADDING + Math.floor(next / cols) * cellSize;
@@ -880,15 +672,7 @@ export function CanvasCollectionGrid({
         }
     }, [onItemClick, announce, requestDraw]);
 
-    /*
-     * Tap to open, but not after a fling.
-     *
-     * The scroller handles click over a 1,559-cell touch grid, and a flick that
-     * happens to end on a cell is a scroll, not a choice — the browser fires the
-     * click anyway. Both the finger and the surface have to have stayed put:
-     * eight pixels of movement, or any scrolling between press and release,
-     * means the gesture was a scroll.
-     */
+    // Tap to open, but not after a fling: more than eight pixels of movement, or any scroll, means it was a scroll.
     const pressRef = useRef(null);
 
     const handlePointerDown = useCallback((e) => {
@@ -923,12 +707,10 @@ export function CanvasCollectionGrid({
                 overflow: 'hidden',
             }}
         >
-            {/* Item count for aria-describedby */}
             <div id="fib-collection-count" className="fib-sr-only">
                 {items.length} items
             </div>
 
-            {/* Canvas layer - underneath, no pointer events */}
             <canvas
                 ref={canvasRef}
                 style={{
@@ -939,7 +721,6 @@ export function CanvasCollectionGrid({
                 }}
             />
 
-            {/* Scrollable container - on top, handles all interactions */}
             <div
                 ref={scrollerRef}
                 onScroll={handleScroll}
@@ -948,9 +729,7 @@ export function CanvasCollectionGrid({
                 onMouseLeave={handleMouseLeave}
                 onKeyDown={handleKeyDown}
                 onPointerDown={handlePointerDown}
-                // Tabbing in put the UA ring on the scroller and left the platform
-                // with no caret at all, so the first arrow key appeared to do
-                // nothing. Focus lands on the first cell.
+                // Focus lands on the first cell, or the first arrow key appears to do nothing.
                 onFocus={() => {
                     if (focusedIndexRef.current < 0 && itemsRef.current.length > 0) {
                         focusedIndexRef.current = 0;
@@ -959,7 +738,6 @@ export function CanvasCollectionGrid({
                 }}
                 onBlur={() => {
                     focusedIndexRef.current = -1;
-                    // Re-announce stationary pointer or clear if none.
                     const pt = pointerRef.current;
                     if (pt && scrollerRef.current) {
                         announce(getItemIndexAtPoint(pt.x, pt.y, scrollerRef.current.getBoundingClientRect()));
@@ -983,17 +761,10 @@ export function CanvasCollectionGrid({
                     zIndex: 1,
                 }}
             >
-                {/* Spacer for scroll height */}
                 <div style={{ height: `${layout.totalHeight}px`, pointerEvents: 'none' }} />
             </div>
 
-            {/*
-             * A fallback only. The board upstairs answers an empty platform with
-             * its own message and a way out of the filters, because the reason a
-             * platform is empty lives with the controls that emptied it, not with
-             * the grid. This covers the case where the grid is mounted with
-             * nothing at all.
-             */}
+            {/* Fallback only: the board upstairs explains an empty filtered platform itself. */}
             {items.length === 0 && (
                 <div style={{
                     position: 'absolute', inset: 0,

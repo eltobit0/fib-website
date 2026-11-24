@@ -1,93 +1,15 @@
 /*
- * ══════════════════════════════════════════════════════════════════════════
- * THE ARRIVAL — the manifest board
- * ══════════════════════════════════════════════════════════════════════════
- *
- * A train pulls into the concourse, unloads one crate per player on the
- * platform, and leaves. This is the half that carries the meaning: the arrivals
- * board flipping out who was here and what landed in front of them.
- *
- * ── WHY THIS IS A BOARD AND NOT A NEW THING ──────────────────────────────────
- *
- * DESIGN.md §8 says the reel is "a main transit line arriving at its stop, and
- * everything around it is the city it moves through", and §9 built the
- * collection board as "the one building in that city that was never built".
- * Three surfaces now run THE CONCOURSE — the collection board, the leaderboard
- * and the player board. The city has had a station board since July and no
- * train. This event is the arrival the metaphor has been promising.
- *
- * So none of the vocabulary here is new. `FlapText` is already a mechanism for
- * numbers resolving into place on split-flap drums; the register row is already
- * one line per player with a value column. The reveal is assembled from parts
- * that shipped on three other surfaces, which is why it reads as this site's
- * event rather than a feature bolted to it.
- *
- * ── IT HANGS IN THE STATION NOW, IT DOES NOT SIT ABOVE IT ────────────────────
- *
- * It used to be a 440px card in the banner slot above the reel: the train ran
- * in the band and the numbers arrived in a panel over the top of it, and the
- * whole event was two objects on a page rather than one thing happening. The
- * owner's note was that it "shifts the strip down and shows the lucky spin
- * distribution above" — a fair description of a caption stacked on a picture.
- *
- * The board is now signage INSIDE the theatre frame: hung from the top edge on
- * two rods, in the same air the telegraph poles and the canopy are in, with the
- * spins from every crate flying up out of the platform and landing on its rows.
- * Nothing above the reel moves, because there is no longer anything above the
- * reel. See ArrivalTheatre.jsx.
- *
- * ── THE ORDER THE ROWS LAND IN ───────────────────────────────────────────────
- *
- * Smallest crate first, biggest last. A board that resolved in server order
- * would spend its best moment somewhere in the middle; climbing means the last
- * drum to settle is the largest number on the board, and on the ~42% of
- * arrivals where somebody clears ten it ends on that.
- *
- * That order is now the UNLOAD order too, and this is why the sort lives in the
- * theatre rather than here: the theatre hands the same sorted array to this
- * board and to the crates, so wagon `i` carries row `i`'s crate, the smallest
- * payout comes off the train first, and the biggest number on the board is both
- * the last thing unloaded and the last drum to settle.
- *
- * ── AND THE ORDER THEY ARE PRINTED IN, WHICH IS NOT THE SAME ─────────────────
- *
- * It used to be. The board listed the rows in that same sorted order, and the
- * names are on the board from the first frame — so before one drum had turned,
- * the LIST ITSELF was the result. Bottom row wins. The owner's note was that it
- * "is already sorted by who's gonna get how much lucky spins, which kinda
- * spoils it", and it did: six seconds of build-up under a leaderboard that had
- * already given the answer away.
- *
- * So the two orders are now separate things, and the split is the fix:
- *
- *   REVEAL order — `rows`, sorted, owned by the theatre. Which wagon carries
- *   whose crate, which crate falls when, which row's spins are in the air, and
- *   when each drum may turn. Every one of those is a physical fact about the
- *   platform and all four have to agree, which is why one array feeds them all.
- *
- *   DISPLAY order — `printed` below. Which line of the signage a player's name
- *   is written on. That is a presentation decision and nothing downstream reads
- *   it, so it is the one that was free to move.
- *
- * Display order is the manifest AS THE SERVER WROTE IT: `getPlatform()` returns
- * the platform `ORDER BY updated_at DESC`, so it lists who was on the platform
- * most recently first. It answers the note above rather than contradicting it —
- * the objection to server order was always about the board's best MOMENT
- * landing in the middle, and the moment is the reveal, which still climbs.
- *
- * What the player sees now: a plain list of who is here, and numbers arriving
- * on it out of order, smallest first, biggest last — wherever that row happens
- * to sit. The crescendo survives intact; the table of contents for it does not.
- *
- * ── AND THE ROWS WAIT FOR THEIR OWN SPINS ────────────────────────────────────
- *
- * `rowLandsAt` is derived from when that row's crate opens and how long its
- * spins take to fly here, so a number never resolves before the light that pays
- * for it has arrived. The clock is the SCENE's — read out of `emitRef` — and not
- * this component's, because three.js is fetched when the train is announced and
- * on a slow connection the scene starts its own clock a second late. A board
- * running on its own would resolve into an empty frame.
- */
+* THE ARRIVAL - the manifest board: signage inside the theatre frame, hung on two rods (see ArrivalTheatre.jsx),
+* built from existing vocabulary (`FlapText` drums, the register row).
+*
+* Two orders, deliberately separate. REVEAL order is `rows`, sorted smallest first and owned by the theatre: which
+* wagon carries whose crate, which row's spins are in the air, when each drum may turn. All four must agree, so one
+* array feeds them. DISPLAY order is `printed`: the manifest as the server wrote it (`getPlatform()` is
+* `ORDER BY updated_at DESC`), because printing the sorted order spoiled the result before any drum turned.
+*
+* Rows wait for their own spins: `rowLandsAt` comes from when the crate opens plus the spins' flight time, on the
+* SCENE's clock (read from `emitRef`), because three.js loads late and the scene starts its own clock a second late.
+*/
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { DECK, rail, COLORS } from '../config/constants';
@@ -109,14 +31,7 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
     const [landed, setLanded] = useState(() => (motionOff ? rows.length : 0));
     const [totalIn, setTotalIn] = useState(motionOff);
 
-    /*
-     * Resetting the cascade for a new arrival is a render-phase adjustment, not
-     * an effect — the same pattern `FlapText` uses and for the same reason:
-     * React documents this as the way to adjust state from props, and it leaves
-     * the loop below as the only thing that ever writes `landed`
-     * asynchronously. Doing it inside the effect is the cascading render the
-     * lint rule is named after.
-     */
+    // Resetting the cascade for a new arrival is a render-phase adjustment, as in `FlapText`; doing it in the effect cascades renders.
     const [shownFor, setShownFor] = useState(arrival);
     if (shownFor !== arrival) {
         setShownFor(arrival);
@@ -128,14 +43,8 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
     useEffect(() => {
         if (motionOff || n === 0) return undefined;
 
-        /*
-         * The scene's clock where there is one, and this component's where there
-         * is not. `emitRef.t` only exists once three.js has loaded, mounted and
-         * drawn a frame; if the chunk never arrives at all the board still has
-         * to pay out, so it falls back to its own mount and runs the same
-         * timings against it. That is a board resolving over a dark band, which
-         * is the right failure — the numbers are the event.
-         */
+        // The scene's clock when there is one (`emitRef.t` exists once three.js has drawn a frame); otherwise this component's,
+        // since the board must still pay out if the chunk never arrives.
         const own = performance.now();
         const last = totalLandsAt(n);
         let raf = 0;
@@ -159,41 +68,15 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
     const maxCrate = arrival.maxCrate || 15;
     const gutter = isPhone ? '14px' : '22px';
 
-    /*
-     * When this player's own line may show its numbers: the beat their row
-     * resolves, which is the same beat WheelPage schedules the topbar counter on.
-     *
-     * It used to appear with the board itself, at T_IRIS + 0.3 — so the footer
-     * announced "+12 for you" while the drum for that very row was still blank
-     * and the crate carrying it had not left the train. The board spends six
-     * seconds building to each number and this printed the player's one up front,
-     * which is the same failure the topbar counter had, one layer in.
-     *
-     * `totalIn` is the fallback for a player who is not on the public manifest at
-     * all — it should not happen, since a crate implies a platform row, but the
-     * honest behaviour there is to wait for the whole board rather than to leak.
-     */
+    // When this player's own line may show numbers: the beat their row resolves (same beat WheelPage schedules the topbar
+    // counter on). `totalIn` is the fallback for a player missing from the public manifest: wait for the whole board rather than leak.
     const myIndex = user ? rows.findIndex(row => row.userId === user.id) : -1;
     const myLineIn = myIndex >= 0 ? landed > myIndex : totalIn;
 
-    /*
-     * The rows in the order they are PRINTED, each still carrying the index it
-     * has in the reveal order. See the note at the top of the file.
-     *
-     * `reveal` is the whole point of pairing them: it is what decides when this
-     * row's drum may turn (`landed` counts reveal indices, and `rowLandsAt`
-     * climbs, so a prefix count is still exactly right), and it is the slot in
-     * `rowElsRef` the scene's crate `reveal` projects onto. Print the rows in a
-     * different order while writing `rowElsRef` by print position and every
-     * stream flies to the wrong name — the "second sort" `sortManifest`'s note
-     * warns about, arriving through the back door.
-     *
-     * Matched on `userId` rather than by array identity. They ARE the same
-     * objects today — `sortManifest` spreads the array, not the entries — but
-     * that is an implementation detail of a function in another file, and a
-     * board that silently drops every row the day someone maps over the
-     * manifest is not worth the microsecond.
-     */
+    // Rows in PRINT order, each carrying its reveal index. `reveal` decides when the drum turns (`landed` counts reveal
+    // indices) and is the `rowElsRef` slot the scene's crate projects onto; writing `rowElsRef` by print position would
+    // send every stream to the wrong name (the second sort `sortManifest` warns about). Matched on `userId`, not identity,
+    // since `sortManifest` sharing entries is an implementation detail of another file.
     const printed = useMemo(() => {
         const byUser = new Map(rows.map((row, reveal) => [row.userId, { row, reveal }]));
         const out = [];
@@ -201,19 +84,12 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
             const hit = byUser.get(entry.userId);
             if (hit) { out.push(hit); byUser.delete(entry.userId); }
         }
-        // Anyone the manifest did not account for keeps their reveal position.
-        // Unreachable — `rows` is built from that manifest — but a row that
-        // exists and is not drawn is a payout with nowhere to land.
+        // Unreachable (`rows` is built from the manifest), but a row that exists and is not drawn is a payout with nowhere to land.
         for (const hit of byUser.values()) out.push(hit);
         return out;
     }, [arrival, rows]);
 
-    /*
-     * The rods are drawn from the frame's top edge, so the body hangs BELOW its
-     * own pivot and can swing about it. A board that faded in where it was going
-     * to be is a graphic; one that comes down on its hangers and settles is a
-     * thing that was lowered into a station.
-     */
+    // The rods are drawn from the frame's top edge, so the body hangs below its pivot and can swing about it.
     const swing = motionOff
         ? undefined
         : `fib-arrival-sign-drop 1.05s cubic-bezier(0.16, 0.9, 0.3, 1) ${T_IRIS + 0.3}s both`;
@@ -256,13 +132,7 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
                             </div>
                         </div>
 
-                        {/*
-                          * The total is the SUM, and it resolves last of all.
-                          * It used to flap 200ms after the board appeared, which
-                          * finished the biggest number on the board before a
-                          * single crate was down and left the rows underneath
-                          * catching up to something already known.
-                          */}
+                        {/* The total is the SUM and resolves last, after the crates. */}
                         <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
                             <FlapText
                                 text={totalIn ? String(arrival.totalLuckySpins) : ''}
@@ -314,15 +184,7 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
                                     role="listitem"
                                     ref={el => { if (rowElsRef) rowElsRef.current[reveal] = el; }}
                                     className="fib-register-row is-static"
-                                    /*
-                                     * The label waits with the drum. It used to
-                                     * read out the crate from the first frame,
-                                     * which handed a screen reader the whole
-                                     * result while the train was still braking
-                                     * — the same spoiler the sorted list was,
-                                     * in the one modality where reordering the
-                                     * rows does nothing about it.
-                                     */
+                                    // The label waits with the drum, or a screen reader is handed the whole result while the train is still braking.
                                     aria-label={shown
                                         ? `${row.username}: ${row.crate} lucky spins`
                                         : `${row.username}: waiting for their crate`}
@@ -345,21 +207,7 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
                                         }}
                                     />
 
-                                    {/*
-                                      * The NAMES are on the board from the first
-                                      * frame; only the amounts wait for the
-                                      * crates.
-                                      *
-                                      * The first build faded whole rows in as
-                                      * they landed, which left a reserved void
-                                      * where the manifest goes for the four
-                                      * seconds the train takes to unload — the
-                                      * board looked broken rather than
-                                      * expectant. It is also less true: who is
-                                      * on the platform is known the moment the
-                                      * train appears, and it is what they are
-                                      * getting that is still in the air.
-                                      */}
+                                    {/* Names are on the board from the first frame (who is here is known); only the amounts wait for the crates. */}
                                     <span style={{
                                         fontFamily: "'Barlow Condensed', system-ui, sans-serif",
                                         fontSize: isPhone ? '13px' : '15px',
@@ -373,9 +221,7 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
                                         {row.username}
                                     </span>
 
-                                    {/* The crate against the biggest one this
-                                        arrival could hold — so a 12 reads as a 12
-                                        and not merely as "more than the row above". */}
+                                    {/* The crate against the biggest this arrival could hold, so a 12 reads as a 12. */}
                                     <BoardMeter
                                         value={shown ? row.crate / maxCrate : 0}
                                         tone={isBest ? DECK.amber : rail(0.35)}
@@ -396,21 +242,8 @@ export function ArrivalBoard({ arrival, arrivalCrate, rows, emitRef, rowElsRef }
                         })}
                     </div>
 
-                    {/*
-                     * This player's own line, and it is the only place a balance
-                     * appears. The manifest above is public — the board is the
-                     * whole event and a payout nobody can see is the failure this
-                     * replaced — but a running lucky-spin TOTAL is nobody else's
-                     * business, so it rides on the private message instead.
-                     *
-                     * Rendered from the start and faded in on `myLineIn` rather
-                     * than mounted at that beat: the line is the last thing on the
-                     * board, so mounting it would grow the sign by its height six
-                     * seconds after it was lowered into place and shove the rows
-                     * up mid-cascade. Holding the space costs nothing — opacity
-                     * takes the divider with it, so there is no stray rule sitting
-                     * above an empty gap in the meantime.
-                     */}
+                    {/* This player's own line: the only place a balance appears (the manifest is public, a running total is private).
+                    Rendered from the start and faded in on `myLineIn` so mounting it does not grow the sign and shove the rows mid-cascade. */}
                     {arrivalCrate && (
                         <div
                             aria-hidden={!myLineIn}

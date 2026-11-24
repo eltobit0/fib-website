@@ -1,39 +1,7 @@
 /**
- * Strips live runtime state out of the saved Antimatter Depths structures and
- * re-applies the trial spawner configs.
- *
- * Run this after EVERY structure-block save. It is not optional cleanup — the
- * files are broken on arrival without it.
- *
- * A structure block saves a block entity exactly as it sits in the build world,
- * including state that only makes sense in that world:
- *
- *   - `vault.server_data.state_updating_resumes_at` is an ABSOLUTE game time.
- *     A vault ticking in the build world rewrites it constantly, so every save
- *     captures a fresh timestamp (192833, then 232704, …). A newly generated
- *     world starts near tick 0 and reads that as "do not update state until
- *     tick 232704" — the vault sits dead for hours of world time and no amount
- *     of right-clicking does anything. There is no way to save a live vault
- *     clean; vanilla's own ominous_vault.nbt ships as `{config, id}`, which
- *     means Mojang post-processes these files too.
- *
- *   - `trial_spawner` saves `spawn_data` / `components` and loses the config
- *     keys unless they were placed with setblock. Without `normal_config` /
- *     `ominous_config` it falls back to the default config, whose
- *     `spawn_potentials` is empty, so the spawner has nothing to spawn and
- *     never activates. Vanilla ships exactly `{id, normal_config,
- *     ominous_config}` and the state `ominous=false,waiting_for_players`
- *     (`ominous` is applied by the game when a player has Bad Omen, so
- *     hardcoding it does not stick — the key ejection lives in both configs
- *     for that reason).
- *
- * A text component stored as an NBT string is also normalised to a compound:
- * a quoted-JSON `item_name` is read as LITERAL text, which makes the vault's
- * `key_item` compare unequal to the real key under `isSameItemSameComponents`.
- * The vault then rejects the key silently — no message, no particles. The
- * "Revaulting" advancement still fires, because its trigger only checks the
- * block and the item id, so it is not evidence the key was accepted.
- *
+ * Strips runtime state from the saved Antimatter Depths structures and re-applies trial spawner configs. Run after EVERY save:
+ * a saved vault carries an absolute `state_updating_resumes_at` (dead for hours in a new world), spawners lose their configs,
+ * and a quoted-JSON `item_name` makes the vault silently reject its key.
  *   npm run sanitize:structures
  */
 
@@ -72,15 +40,7 @@ const KEEP = {
 
 const SPAWNER_STATE = { ominous: 'false', trial_spawner_state: 'waiting_for_players' };
 
-// ---------------------------------------------------------------------------
-// Type-preserving NBT reader/writer.
-//
-// Every tag keeps its {t, v} type so a read->write round trip is byte-identical
-// apart from what we deliberately change. Structure files mix byte/short/int
-// freely and a lossy parse would silently rewrite block coordinates at the
-// wrong width. Compounds stay as ordered arrays of {n, t, v} to preserve key
-// order.
-// ---------------------------------------------------------------------------
+// Type-preserving NBT reader/writer: a lossy parse would rewrite coordinates at the wrong width. Compounds keep key order.
 
 function readNbt(buf) {
   let p = 0;
@@ -138,8 +98,6 @@ function writeNbt(rootTag) {
 }
 
 const val = (cmp, key) => { const e = cmp.find((x) => x.n === key); return e ? e.v : undefined; };
-
-// ---------------------------------------------------------------------------
 
 let filesChanged = 0;
 let problems = 0;

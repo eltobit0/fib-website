@@ -1,27 +1,5 @@
-/**
- * Every release of the plugin, newest first. The Changelog page renders it.
- *
- * Rebuilt from the plugin's history (McPlayHDnet/ForceItemBattle): from 2.9.0 on, every
- * version is the one the plugin's build actually carried, dated by the first GitHub release
- * that shipped the change. The build number sat at 3.0.1 from July to November 2024 and
- * skipped 3.3-3.5, so 3.0.2-3.0.6 are this page's own labels for the releases in between.
- * Before the June 2024 release automation there were no real version numbers at all, so
- * 1.0.0-2.7.0 are milestone labels dated by their commits.
- *
- * Hand-written, because a release's commits are not a player's changelog. What is not
- * left to memory: scripts/vendor-pool.mjs reads the version the plugin's build.gradle.kts
- * carries on main and prints a [WARNING] when the newest entry here is not that version,
- * so a release shipped without an entry shows up at the next build.
- *
- *   type    'major' | 'feature' | 'update' | 'fix'
- *   date    '25th September 2026', as the page has always written it; parsed by the page
- *   face    the item on the release's node, picked for what the release is about: a material, or a path for a custom texture
- *   fixes   bug fixes, listed under "Fixed", so each reads without its own "Fixed"
- *   mc      the Minecraft version(s) a release brought support for, as a list
- *
- * Nothing about what the server checks for on the players' side goes in here (see Rules
- * in DESIGN.md): an entry can say fair play changed, never what is looked for.
- */
+// Newest first. 3.0.2-3.0.6 and pre-2.9.0 versions are this page's own labels. vendor-pool.mjs warns when the newest entry
+// isn't the plugin's build.gradle.kts version. Never say what the server checks for on the players' side (DESIGN.md Rules).
 export const CHANGELOG = [
     { version:'26.11.1', date:'3rd November 2026',  type:'feature', face:'COMMAND_BLOCK', title:'Host Your Own',           description:'The plugin now runs on any server, with or without a stats service', changes:['The stats service address is now set in config.yml', 'Without a stats service the game plays as normal, with stats, achievements, the collection and leaderboards turned off', '/stats and /top now say when stats are not available', 'The world no longer has to be called "world": dimensions and /reset now follow the server\'s level-name', 'Item descriptions for /info now come with the plugin, so hosting no longer needs a separate config', 'The Extreme setting is now off by default on new servers'] },
     { version:'26.10.2', date:'14th October 2026', type:'fix', face:'LIGHT_BLUE_STAINED_GLASS_PANE',     title:'Mirror Battle Fixes',     description:'Mirror Battle keeps the shared row secret, and the wandering trader is fixed', changes:['In Mirror Battle, players outside your team now only see that you found an item, not which one', 'In Mirror Battle, the tab list no longer shows anyone\'s current item'], fixes:['The wandering trader\'s trades', 'Back-to-backs missing items inside a bundle held on the cursor'] },

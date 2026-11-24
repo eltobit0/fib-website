@@ -8,19 +8,7 @@ import { RARITY, RARITY_KEYS, getRarityIcon, getRarityInk } from '../../../utils
 import { prestigeColor, prestigeInk, prestigeLabel, isIridescentPrestige, prestigeStanding } from '../../../utils/prestigeHelpers.js';
 import { useCollectionLeaderboard } from '../../../hooks/useCollectionLeaderboard.js';
 
-/*
- * Which collection the left panel is reading, remembered for this browser.
- *
- * Both sides are wrapped: `localStorage` throws outright in a few
- * configurations rather than merely coming back empty — Chrome with site data
- * blocked, some private windows — and a panel that cannot remember a tab is not
- * a reason to take the stage down. Every failure falls back to the default,
- * which is the behaviour this had before it remembered anything.
- *
- * Validated on read rather than trusted: this is a value another tab, an old
- * build or a curious player can put anything into, and only these two strings
- * mean something.
- */
+// Which collection the left panel reads, remembered per browser. localStorage can throw (blocked site data, private windows) and the value is validated on read: only these two strings mean anything.
 const SCOPE_KEY = 'fib-collection-scope';
 const SCOPES = ['main', 'prestige'];
 
@@ -41,76 +29,14 @@ function writeScope(scope) {
     }
 }
 
-/**
- * The two panels either side of the stage: your collection, and the standings.
- *
- * The stage is a full-width row with a centred result in it, so at 1920px several
- * hundred pixels sit empty on each side of the one thing anybody is looking at.
- * These fill it with the two destinations a player actually wants between spins —
- * and each one is *both* a readout and the way in, because a number you cannot act
- * on and a button that tells you nothing are the same waste of the same space.
- *
- * **They are the primary entry points, not a second set.** The topbar previously
- * carried a `BookOpen` icon for the collection and a leaderboard pill showing the
- * podium; both are gone, moved here. That follows the rule this page has already
- * applied twice — a Trophy button was deleted from the topbar for being "a second,
- * blanker entry point to the identical view", and the same objection would have
- * applied to these. A 19px icon in a crowded bar is also a weaker affordance than a
- * panel with your actual progress on it.
- *
- * **They do not touch the reel.** The two sidebars that used to flank the *band*
- * were removed so the reel could run the full width of the screen, and that is not
- * being undone: these live in the stage row underneath it. The reel keeps every
- * pixel it was given.
- *
- * Present at idle, through the spin and at the result, because a shortcut that
- * exists only in the seconds after a spin is not a shortcut. When a spin lands, the
- * collection panel gains one line about what the pull changed; nothing else moves.
- */
+// The panels either side of the stage: your collection and the standings. Each is both a readout and the way in, and they are the primary entry points (the topbar's icon and pill are gone).
+// They live in the stage row and never touch the reel; present at idle, mid-spin and at the result.
 
-// 272, up from 208, to carry the per-player rarity tally. Measured rather than
-// guessed: the stage is 1920 wide, the result's content is ~250px and a worst-case
-// item name ("Waxed Oxidized Cut Copper Stairs", stepped down to 22px) about 420px,
-// so each side has roughly 640px free. 272 uses well under half of that and still
-// leaves ~350px of air between the panel and the payoff.
-//
-// Both panels take the same width even though the collection side needs less. Two
-// panels of different widths flanking a centred object read as a mistake before
-// they read as an optimisation.
+// Both panels take one width (272) so unequal widths flanking a centred object do not read as a mistake; measured against ~640px free per side at 1920.
 const PANEL_WIDTH = 272;
 
-/**
- * A plinth you can press, with content inside it that may also be pressable.
- *
- * ── WHY THE CONTROL IS AN OVERLAY AND NOT THE PANEL ──────────────────────────
- *
- * The panel used to *be* a `<button>`, with the label, the stats and the
- * progress bar as its children. That broke twice over the moment the prestige
- * work put a scope toggle inside it:
- *
- *   1. **A `<button>` cannot contain a `<button>.`** It is invalid HTML, React
- *      logs a DOM nesting error on every mount, and the parser is free to hoist
- *      the inner control out of the outer one — so what the browser ends up with
- *      is not what the JSX says. The `stopPropagation` that used to sit on the
- *      toggle's wrapper was treating the click symptom of a structural problem.
- *   2. **`aria-label` on a button replaces everything inside it.** The panel
- *      announced as "Open your collection book, button" and nothing else: the
- *      held count, the completion figure and the progress bar were all
- *      unreachable to a screen reader. The numbers were the reason for the panel.
- *
- * So the plinth is a plain `<div>` again — it keeps every one of its styles,
- * because the material is the design — and the press target is a transparent
- * `<button>` stretched across it underneath the content. The content sits above
- * with `pointer-events: none`, so a click anywhere still lands on the overlay
- * and the whole panel is still one big target. Anything genuinely interactive
- * inside opts back in with `pointer-events: auto` and is now a *sibling* of the
- * press target rather than its descendant, which is what makes it reachable by
- * keyboard and legal as markup.
- *
- * Hover moves to the container so the plinth still lights from anywhere on it;
- * focus stays on the overlay, and lighting the rail is the focus indicator (the
- * same one the hover state uses — it is a 272px slab, not a 24px icon).
- */
+// A plinth you can press, with content that may also be pressable. The press target is a transparent `<button>` overlay beneath the content, not the panel itself: a button cannot contain a button, and an aria-label on a panel-button swallows its numbers. Content above is `pointer-events: none`; interactive children opt back in as siblings.
+// Hover is on the container; the lit rail is the focus indicator.
 function Panel({ side, label, icon, onClick, actionLabel, children }) {
     const [hovered, setHovered] = React.useState(false);
     const [focused, setFocused] = React.useState(false);
@@ -136,13 +62,7 @@ function Panel({ side, label, icon, onClick, actionLabel, children }) {
                     gap: '10px',
                     textAlign: 'left',
                     padding: `${SPACE.md}px`,
-                    // No radius, no ring: the Nocturne's platform furniture is the
-                    // band's deck material at rest — a square plinth, a lit rail
-                    // along the top, station amber entering from the floor. It is
-                    // the same machine as the reel above, not a card near it. The
-                    // grain is SURFACE_NOISE, the concrete's own micro-glitter —
-                    // it sits above the light layers so the amber still rises
-                    // through it, and it never moves.
+                    // No radius, no ring: the band's deck material at rest, with SURFACE_NOISE grain above the light layers.
                     borderRadius: 0,
                     border: 'none',
                     cursor: 'pointer',
@@ -161,11 +81,7 @@ function Panel({ side, label, icon, onClick, actionLabel, children }) {
                     color: 'inherit',
                 }}
             >
-                {/* The press target. First in source order and at the bottom of
-                    the stack, so the content paints over it — it is a hit area,
-                    not a layer you can see. It carries the accessible name for
-                    the action; the panel's numbers stay as readable content
-                    beside it instead of being swallowed by an aria-label. */}
+                {/* The press target: first in source order, under the content, carrying the accessible name; the numbers stay readable content. */}
                 <button
                     type="button"
                     onClick={onClick}
@@ -181,17 +97,12 @@ function Panel({ side, label, icon, onClick, actionLabel, children }) {
                         background: 'none',
                         padding: 0,
                         cursor: 'pointer',
-                        // The lit rail above IS the focus indicator, and it is
-                        // driven by `focused`. A default ring would draw a second
-                        // one inside the plinth's own edge.
+                        // The lit rail IS the focus indicator (`focused`); a default ring would draw a second inside the edge.
                         outline: 'none',
                     }}
                 />
 
-                {/* Everything below is content over the hit area. `pointer-events:
-                    none` is what keeps the whole 272px slab clickable — without
-                    it the text would eat the clicks the overlay is there to
-                    catch. Interactive children opt back in. */}
+                {/* Content over the hit area; `pointer-events: none` keeps the whole slab clickable. Interactive children opt back in. */}
                 <span style={{
                     position: 'relative',
                     zIndex: 1,
@@ -225,20 +136,7 @@ function Panel({ side, label, icon, onClick, actionLabel, children }) {
     );
 }
 
-/**
- * A player's collection by tier: how many distinct insane, mythic, legendary,
- * exotic and rare items they hold.
- *
- * The five slots are always rendered, with a muted dot where the count is zero,
- * because the tiers are a fixed ladder and a fixed ladder should line up between
- * rows. Dropping the empty ones would shift every badge left and make two rows
- * impossible to compare at a glance, which is the only reason to put them here.
- *
- * Icons and colour come from the shared ladder — `getRarityIcon` and
- * `getRarityInk`, never a local table. `ink` rather than `color` because these are
- * a glyph and a number read at 11px, and icons count as text: several of the
- * ladder's fills are Minecraft chat colours that fail contrast at this size.
- */
+// A player's collection by tier. All five slots always render (a muted dot at zero) so rows line up for comparison. Icons and colour come from the shared ladder; `ink`, not `color`, since a glyph and number at 11px are text.
 function RarityTally({ entry }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -270,34 +168,8 @@ function RarityTally({ entry }) {
     );
 }
 
-/**
- * The prestige ring around an avatar.
- *
- * One treatment: a solid ring in the level's own colour with a real bloom,
- * whether the level is earned or still being worked toward. The level itself is
- * the thing worth showing, and the ring shows it.
- *
- * ── THREE THINGS THIS WENT THROUGH, ALL RECORDED ────────────────────────────
- *
- * It first read only COMPLETED runs, and completing one means collecting all
- * 1,559 items a second time — so every player who had prestiged wore nothing at
- * all, and it was reported from production as prestige not showing up.
- *
- * Then in-progress was drawn dimmer: thinner ring, dimmer colour, weaker glow.
- * Reported as looking worse than the earned ring, which it did — dimming is the
- * wrong axis for "finished" versus "still going".
- *
- * Then in-progress was drawn as a dashed ring at full strength, which was
- * honest and legible and which the owner simply did not like. So the visual
- * distinction is gone: **earned and in-progress look identical**, and the
- * difference lives in the tooltip and in the leaderboard's own prestige column.
- * That is a deliberate trade, not an oversight — a player mid-run reads as
- * prestiged, because they are.
- *
- * The one thing that must never come back: `opacity` on this element. The avatar
- * is its child, so opacity dims the player's face along with the ring. Alpha
- * belongs in the colour.
- */
+// The prestige ring around an avatar: a solid ring in the level's colour with a bloom; earned and in-progress rings look identical by owner's decision (the difference lives in the tooltip and the leaderboard column).
+// Never put `opacity` on it: the avatar is its child and would dim with it. Alpha belongs in the colour.
 export function PrestigeRing({ standing, children, pad = 2 }) {
     const { level, earned } = standing;
     if (!level) return <>{children}</>;
@@ -314,12 +186,7 @@ export function PrestigeRing({ standing, children, pad = 2 }) {
                 zIndex: 2,
                 flexShrink: 0,
                 display: 'block',
-                // `pad` IS the ring's thickness, and it is a prop because this
-                // ring now goes on faces from 18px (a live-activity toast) to
-                // 68px (the player board's head). 2px on an 18px avatar is a
-                // fifth of its diameter — a ring that thick stops reading as a
-                // frame around a face and starts reading as a coloured disc with
-                // a face on it. The bloom scales with it for the same reason.
+                // `pad` is the ring's thickness, a prop because faces run from 18px (toast) to 68px (player board); a fifth of a face's diameter stops reading as a frame. The bloom scales with it.
                 padding: `${pad}px`,
                 borderRadius: '50%',
                 lineHeight: 0,
@@ -372,36 +239,8 @@ export function StageFlanks({
     const { leaderboard, myRank } = useCollectionLeaderboard(userId);
     const { globalEventStatus, kotwWinnerPending } = useActivity();
     const arenaActive = (globalEventStatus?.type === 'king_of_wheel' && (globalEventStatus.active || globalEventStatus.pending)) || kotwWinnerPending;
-    /*
-     * Which collection the counter is reading.
-     *
-     * Only offered to a player who has a run open — for everyone else there is
-     * one collection and a toggle between it and nothing is furniture. The
-     * default stays `main` so the panel a player has read a thousand times says
-     * the same thing it always did until they ask it not to.
-     *
-     * ── WHY IT IS PERSISTED AND NOT PLAIN STATE ─────────────────────────────
-     *
-     * It was `useState('main')`, and this component UNMOUNTS. WheelSpinner
-     * renders it as `hasFlanks && !isTripleMode && <StageFlanks …>`, so the
-     * 3x/5x takeover removes the flanks for the length of the sequence and
-     * mounts a fresh copy afterwards — with a fresh `useState`, back on
-     * Collection. A player watching their prestige run would land a bonus and
-     * find the panel had quietly switched itself back, which was reported as
-     * exactly that.
-     *
-     * Lifting it into WheelSpinner would fix that one unmount and nothing else.
-     * The same reset also fires on crossing the `hasFlanks` breakpoint, and on
-     * every reload — and this is a per-viewer display preference, which is the
-     * kind of thing that ought to survive all three. So it goes to
-     * localStorage, alongside `fib-sound-settings` and the rest of the `fib-*`
-     * keys.
-     *
-     * Reading it is still safe when the preference has gone stale: `showing`
-     * below falls back to `main` whenever there is no run open, so a player who
-     * finishes a run does not come back to a panel reading a collection that no
-     * longer exists.
-     */
+    // Which collection the counter reads; offered only with a run open, default `main`.
+    // Persisted in localStorage, not state: this component UNMOUNTS during the 3x/5x takeover and across the `hasFlanks` breakpoint, which reset it. `showing` falls back to `main` with no run open, so a stale preference is safe.
     const [scope, setScope] = useState(readScope);
     const chooseScope = useCallback((next) => {
         setScope(next);
@@ -429,9 +268,7 @@ export function StageFlanks({
                 onClick={onOpenCollection}
                 actionLabel="Open your collection book"
             >
-                {/* The result line, and only this, comes and goes. It sits above
-                    the standing figures rather than replacing them, so nothing
-                    below it moves when a spin lands. */}
+                {/* Only the result line comes and goes; it sits above the standing figures so nothing below moves. */}
                 {showResultLine && (
                     <Stat
                         value={isNewItem ? 'New' : 'Duplicate'}
@@ -446,14 +283,7 @@ export function StageFlanks({
                     tone={showing === 'prestige' ? prestigeInk(run.level) : undefined}
                 />
 
-                {/* The lens. Two words, only for a player who has a run open.
-                    `pointer-events: auto` opts it back out of the content layer's
-                    pass-through: the panel opens the collection book, and
-                    switching which number you are reading is not a request to
-                    leave. This used to be `stopPropagation` on the click, which
-                    was the only tool available while these were nested inside the
-                    panel's own button — they are siblings now, so the toggle
-                    simply receives its own clicks and nothing bubbles anywhere. */}
+                {/* The lens, only with a run open. `pointer-events: auto` opts it out of the content layer's pass-through; it is a sibling of the press target, so no stopPropagation is needed. */}
                 {run && (
                     <div
                         style={{
@@ -532,9 +362,7 @@ export function StageFlanks({
                 onClick={onOpenLeaderboard}
                 actionLabel="Open the full leaderboard"
             >
-                {/* Five rows, by collection size — the board's default sort and the
-                    one the rank means something for. Ranks six and below are what
-                    the full board is for. */}
+                {/* Five rows by collection size, the board's default sort; ranks beyond are for the full board. */}
                 {topFive.map((entry, i) => {
                     const isMe = userId != null && entry.id === userId;
                     return (
@@ -555,27 +383,7 @@ export function StageFlanks({
                             }}>
                                 {i + 1}
                             </span>
-                            {/*
-                              * The prestige ring.
-                              *
-                              * A player who has prestiged wears their level around
-                              * their avatar, in the tier's own colour — the ladder
-                              * is the only place a colour comes from, so a ring
-                              * cannot drift from the rarity it is named after.
-                              *
-                              * Level 5 takes the full holo sweep via `.fib-holo`
-                              * and never a sampled point: insane's ramp passes
-                              * through magenta, aqua and gold, which are exotic,
-                              * mythic and legendary, so a ring painted from one
-                              * sample off it would spend two thirds of its cycle
-                              * impersonating a lower prestige. A 2px ring is small
-                              * enough that a wrong colour is the only thing it
-                              * would ever say.
-                              *
-                              * The board's ORDER is untouched: prestige is status,
-                              * not standing, so a prestiged player still sits
-                              * exactly where their collection puts them.
-                              */}
+                            {/* The prestige ring in the tier's own colour from the ladder; level 5 takes the full holo sweep via `.fib-holo`, never a sampled point (insane's ramp passes through three other tiers' hues). Prestige is status, not standing: the board's ORDER is untouched. */}
                             <PrestigeRing standing={prestigeStanding(entry)}>
                                 <img
                                     src={getDiscordAvatarUrl(entry.discord_id, entry.discord_avatar)}
@@ -610,9 +418,7 @@ export function StageFlanks({
                             </span>
                         </div>
 
-                        {/* Indented to start under the name, so the tallies form a
-                            column of their own rather than restarting at the rank
-                            number and colliding with it visually. */}
+                        {/* Indented under the name so the tallies form their own column. */}
                         <div style={{ paddingLeft: '38px' }}>
                             <RarityTally entry={entry} />
                         </div>
@@ -620,9 +426,7 @@ export function StageFlanks({
                     );
                 })}
 
-                {/* Your own rank, but only when you are not already in the five
-                    above — otherwise it is the same fact twice, and your row up
-                    there is already the highlighted one. */}
+                {/* Your own rank, only when you are not already in the five above. */}
                 {myRank && myRank > 5 && (
                     <span style={{
                         fontSize: '11px',

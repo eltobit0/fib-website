@@ -10,19 +10,7 @@ import {
 } from '../../../utils/rarityHelpers.jsx';
 import { PrestigeFlag, PrestigeCount } from './PrestigeFlag.jsx';
 
-/**
- * The lucky spin's payoff, on the stage.
- *
- * The lucky spin is the same single-strip surface as a normal spin wearing the
- * green lamp, so its result is the same panel wearing it too: the winner's
- * column continuing down from the reel, the item standing in its tier's light.
- * The only additions are the mode's: the equal-chance chip in the lucky green,
- * and the tier label reads "Lucky" rather than the tier name — the equal-chance
- * roll is the story here, not the rarity.
- *
- * The old design boxed this in a rounded card with sparkles, corner icons and
- * floating particles; none of that survived the move to the band language.
- */
+// The lucky spin's payoff on the stage: the normal result panel wearing the green lamp, with the equal-chance chip in lucky green and the tier label reading "Lucky" (the equal-chance roll is the story, not the rarity).
 export function LuckyResultPanel({ result, isNewItem, prestigePull, collection, isMobile }) {
     if (!result) return null;
 
@@ -119,9 +107,7 @@ export function LuckyResultPanel({ result, isNewItem, prestigePull, collection, 
                         NEW
                     </span>
                 )}
-                {/* A lucky spin lands in a prestige run like any other, so it owes
-                    the same answer the ordinary result panel gives: is this new to
-                    the collection I am currently filling. */}
+                {/* A lucky spin lands in a prestige run like any other, so it owes the same new-to-this-run answer. */}
                 <PrestigeFlag pull={prestigePull} itemName={result.name} />
             </div>
 

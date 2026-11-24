@@ -1,32 +1,12 @@
 /*
- * ══════════════════════════════════════════════════════════════════════════
- * THE PARLOUR — the table
- * ══════════════════════════════════════════════════════════════════════════
- *
- * The half of this event that is not scenery: the countdown, the three colours,
- * the room's bets as they come in, and the payout board that replaces all of it
- * once the ball has stopped.
- *
- * ── THIS IS THE ONE OVERLAY ON THE SITE THAT TAKES INPUT ─────────────────────
- *
- * Every other takeover is `pointer-events: none` — the arrival's header is
- * explicit that owning the screen for fifteen seconds is already a lot to ask,
- * and blocking the page on top of that would be the site holding the player
- * still. This one has a decision in it with lucky spins behind it, so the
- * BUTTONS take pointer events and nothing else does. The frame around them, the
- * wheel, the seat rail and both veils stay transparent to the mouse, so chat,
- * the nav and the collection book are all still reachable during the thirty
- * seconds — you can ignore the table entirely and it will pay you anyway.
- *
- * ── AND WHY THE COUNTDOWN IS NOT THE DEADLINE ────────────────────────────────
- *
- * The number on screen is drawn from `betsCloseAt` on the server's clock, but it
- * is only ever a picture of the deadline: `placeRouletteBet` re-checks the
- * window itself, so a client whose clock is slow shows a second that is not
- * there and gets a 409 if it tries to spend it. That is the right way round.
- * The alternative — trusting the client's countdown — is a bet accepted after
- * the pocket was rolled, which is the one bug this event cannot survive.
- */
+* THE PARLOUR - the table: countdown, the three colours, the room's bets and the payout board.
+*
+* The one overlay that takes input: only the BUTTONS take pointer events; the frame, wheel,
+* seat rail and veils stay transparent so chat, nav and the collection stay reachable.
+*
+* The countdown is only a picture of `betsCloseAt`: `placeRouletteBet` re-checks the window
+* server-side, so a slow client clock gets a 409 rather than a bet accepted after the roll.
+*/
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -44,36 +24,11 @@ import {
 const ORDER = ['red', 'black', 'green'];
 
 /**
- * The table's own column.
- *
- * ── DESKTOP: THE APRON ───────────────────────────────────────────────────────
- *
- * Centred under the band, in the row the bonus plaque and the lane readout
- * already answer in. The frame around it is full-bleed — it is a room, and the
- * floor should reach the edges — but the controls are not, and letting them
- * inherit that width produced three 500px buttons on a desktop viewport. A bet
- * is a small, deliberate act; the target should be the size of a chip tray, not
- * of the room it is in.
- *
- * ── THE PHONE HAS NO APRON, AND THE TABLE FELL OFF THE SCREEN ────────────────
- *
- * This is the shaft (DESIGN.md §8): the reel runs vertically and is sized to
- * fill the viewport, so the row underneath it is below the fold — and the wheel
- * shell does not scroll, `scrollHeight` being exactly `innerHeight`. Measured at
- * 390x844 the three plaques laid out at **y = 846**, two pixels past the bottom
- * of a page with nowhere to go.
- *
- * So on a phone this was an event that asked the player a question they could
- * not answer, and paid them the fold either way. It survived because every
- * review of this feature had been done on a desktop, where the apron exists.
- *
- * The fix is not to shrink the shaft — the reel becoming the roulette is the
- * whole event, and cropping it to make room for the controls would trade the
- * picture for the buttons. The table becomes a fixed tray above the tab bar,
- * which is where a phone puts a decision anyway. It is transparent to touch
- * except on the plaques themselves, so the rest of the surface stays live for
- * the whole forty-five seconds exactly as it does on desktop.
- */
+* The table's own column. Desktop: centred under the band, controls chip-tray sized rather than
+* inheriting the full-bleed frame width. Phone (DESIGN.md §8): the shaft fills the viewport and the
+* wheel shell does not scroll, so an apron row fell below the fold (y=846 at 390x844); the table is
+* a fixed tray above the tab bar instead, transparent to touch except on the plaques.
+*/
 const PHONE_TAB_BAR = 56;
 
 const tableBox = (isMobile) => (isMobile
@@ -89,9 +44,7 @@ const tableBox = (isMobile) => (isMobile
         margin: '0 auto',
         padding: '14px 12px 12px',
         boxSizing: 'border-box',
-        // The tray reads OUT of the shaft rather than sitting on top of it: no
-        // edge, no card, just the room getting denser toward the bottom of the
-        // screen until the plaques are on solid ground.
+        // The tray reads out of the shaft: no edge, just the room getting denser toward the bottom.
         background: 'linear-gradient(180deg, rgba(28,4,7,0) 0%, rgba(28,4,7,0.82) 26%, rgba(28,4,7,0.93) 100%)',
         pointerEvents: 'none',
     }
@@ -104,15 +57,9 @@ const tableBox = (isMobile) => (isMobile
     });
 
 /**
- * The seats, ordered so the board resolves shortest odds first.
- *
- * Folds and losses, then colour hits, then greens — and within a group by name,
- * so it is stable rather than dependent on however the server happened to
- * enumerate the room. The arrival's `sortManifest` exists for the identical
- * reason and its comment is the longer version of this one: two things index
- * into this array, and a second sort anywhere would pair a row with somebody
- * else's money.
- */
+* The seats, shortest odds first, then by name so it is stable against server enumeration.
+* Keep in step with the arrival's `sortManifest`: two things index into this array, and a second sort would pair a row with somebody else's money.
+*/
 function sortSeats(seats) {
     return [...seats].sort(
         (a, b) => (a.payout ?? 0) - (b.payout ?? 0)
@@ -121,23 +68,11 @@ function sortSeats(seats) {
 }
 
 /**
- * The table's container, and on a phone its escape hatch.
- *
- * `position: fixed` was not enough on its own, which is worth writing down
- * because it looks like it should be: the apron sits inside an ancestor with
- * `position: relative; z-index: 1`, and that is a STACKING CONTEXT, so the
- * tray's `z-index: 12` only ever competed with its own siblings. The shaft's
- * canvas is a sibling of that ancestor at a higher level, so the tray was laid
- * out correctly, at the right coordinates, fully opaque — and painted
- * underneath the reel, where `elementFromPoint` found a canvas instead of a
- * plaque. A control that is present, positioned and invisible is worse than one
- * that is missing, because nothing about the DOM says anything is wrong.
- *
- * So on a phone it portals to `document.body`, out of every stacking context
- * the wheel builds. THE ARRIVAL's theatre does the same thing for the same
- * reason and its header says so. Desktop stays in the apron, in flow, where the
- * row is its own.
- */
+* The table's container; on a phone it portals to `document.body`. `position: fixed` alone failed
+* because the apron's ancestor (`position: relative; z-index: 1`) is a stacking context, so the
+* tray painted under the shaft's canvas while looking correct in the DOM. THE ARRIVAL's theatre
+* portals for the same reason.
+*/
 function Tray({ isMobile, style, className, children }) {
     const tray = <div className={className} style={{ ...tableBox(isMobile), ...style }}>{children}</div>;
     return isMobile ? createPortal(tray, document.body) : tray;
@@ -161,38 +96,11 @@ function Avatar({ seat, size = 26, ring }) {
 }
 
 /**
- * One colour's plaque, and the pile of chips already on it.
- *
- * ── IT IS A PLAQUE, NOT A COLOURED BUTTON ────────────────────────────────────
- *
- * This shipped as three rounded rectangles filled with a translucent wash of
- * their own colour — which is what a web button looks like when it has been
- * given a hue and nothing else. In a room made of brass, lacquer and card stock
- * it was the one object on screen that had visibly come from somewhere else,
- * and it is the ONLY thing in this event a player touches, so it should be the
- * best-made object in the room rather than the cheapest.
- *
- * A casino plaque is what it actually is: a chamfered slab with a milled metal
- * edge, a lacquered face and the denomination cut into it. Two absolutely
- * positioned layers do the edge and the face, both wearing the same chamfer, so
- * the metal follows the corner cuts instead of a rectangle sitting behind them.
- *
- * ── THE STATES LIVE IN CSS ───────────────────────────────────────────────────
- *
- * Hover, focus-visible and active are three things an inline `style` object
- * cannot express, and the previous build therefore had none of them: no hover
- * at all, and the browser's default focus ring on the site's only interactive
- * overlay. Everything the plaque does on its own is in `.fib-parlour-plaque`;
- * everything that comes from the pocket's colour arrives as a custom property.
- *
- * ── THE PILE IS PART OF THE PLAQUE ───────────────────────────────────────────
- *
- * Unchanged, and still right. What a player wants to know in the last five
- * seconds is not "how many are on red" in the abstract — it is whether to join
- * them, which is a property of the thing they are about to press. Faces rather
- * than a count, because the answer to "is anyone else on this" is a face, and a
- * stack of them is legible at a glance in a way "4" is not.
- */
+* One colour's plaque and the chip pile on it. Edge and face are two layers wearing the same
+* chamfer. Hover, focus-visible and active live in `.fib-parlour-plaque` (inline styles cannot
+* express them); the pocket colour arrives as a custom property. The pile is faces, not a count,
+* because the question in the last seconds is whether to join them.
+*/
 function BetButton({ colour, multiplier, seats, mine, locked, onPick }) {
     const c = COLOURS[colour];
     const chosen = mine === colour;
@@ -214,14 +122,7 @@ function BetButton({ colour, multiplier, seats, mine, locked, onPick }) {
                 '--c-top': shade(c.hex, -0.65),
                 '--c-lo': shade(c.hex, -0.45),
                 '--c-glow': glow(c.hex, 0.55),
-                /*
-                 * All three words are the same ivory, which is what a real
-                 * plaque does — the denomination is cut in one colour whatever
-                 * the chip is worth — and it is also the only step that clears
-                 * AA on all three lacquers. The pocket's own ink stays where
-                 * §8 put it: on the payout board, where the word is on the
-                 * page rather than on the colour it names.
-                 */
+                // All three words are ivory: the only step that clears AA on all three lacquers. The pocket's ink stays on the payout board (§8).
                 '--ink': chosen ? '#FFFFFF' : CARD_IVORY,
             }}
         >
@@ -231,10 +132,7 @@ function BetButton({ colour, multiplier, seats, mine, locked, onPick }) {
             <span className="fib-parlour-plaque-body">
                 <span className="fib-parlour-bet-chip" aria-hidden="true" />
                 <span className="fib-parlour-plaque-label">{c.label}</span>
-                {/* "PAYS 6×" rather than "6x": the multiplier is the one number
-                    on this surface a player has to reason about before the
-                    clock runs out, and a bare figure beside a colour is a label
-                    they have to interpret. Multiplication sign, not the letter. */}
+                {/* "PAYS 6×" (multiplication sign): the multiplier is the one number a player must reason about before the clock runs out. */}
                 <span className="fib-parlour-plaque-odds">PAYS {multiplier}×</span>
 
                 <span style={{
@@ -270,10 +168,8 @@ function RouletteTable({
     const { user } = useAuth();
     const requestRef = useRef(false);
     const awaitingTableRef = useRef(false);
-    // Which table this client has made a choice at, keyed by its deadline so a new
-    // table starts untouched. An untouched seat is settled `away` for nothing, so
-    // KEEP must not look chosen until it has been pressed - the server's `acted`
-    // says so authoritatively, and this covers the gap before its broadcast lands.
+    // Keyed by deadline so a new table starts untouched. An untouched seat settles `away` for nothing, so
+    // KEEP must not look chosen until pressed; the server's `acted` is authoritative, this covers the gap.
     const [touchedTable, setTouchedTable] = useState(null);
 
     // Broadcasts are authoritative, but must not overwrite an in-flight choice.
@@ -290,15 +186,7 @@ function RouletteTable({
 
     const locked = t >= T_CALL || Boolean(result);
 
-    /*
-     * The two beats that are not a player action: the croupier's call, and the
-     * pocket lighting. Fired on the edge rather than on the state, because this
-     * component re-renders four times a second and a sound tied to a condition
-     * rather than to a crossing would play four times a second with it.
-     *
-     * 250ms of granularity is invisible here — both land inside the animation
-     * they belong to, and the reveal's bell rings for over a second.
-     */
+    // Fired on the edge, not the state: this re-renders four times a second and a condition-tied sound would play that often.
     const firedRef = useRef({ call: t >= T_CALL, reveal: t >= T_REVEAL });
     useEffect(() => {
         const fired = firedRef.current;
@@ -383,13 +271,7 @@ function RouletteTable({
     if (result && t >= T_REVEAL) {
         const rows = sortSeats(result.results || []);
         const pocket = COLOURS[result.pocket?.colour] || COLOURS.black;
-        /*
-         * The player's own line comes from the PRIVATE payout message, not from
-         * finding their row in the public list. The server sends that message to
-         * one client and no other, which makes "which of these seats is mine" a
-         * question this component never has to answer — and therefore never has
-         * to be given an identity to answer it with.
-         */
+        // The player's line comes from the PRIVATE payout message, so this component never needs to know which seat is its own.
         const mine = payout;
 
         const totalShown = t >= totalResolvesAt(rows.length);
@@ -474,26 +356,7 @@ function RouletteTable({
 
     return (
         <Tray isMobile={isMobile}>
-            {/*
-                THE MARQUEE IS GONE, AND IT IS NOT COMING BACK.
-
-                It read "THE PARLOUR · 5 ON THE TABLE" in tracked brass above
-                "PLACE YOUR BETS" — which is a kicker, and a kicker is the one
-                thing the craft floor bans outright rather than defaults away
-                from: no brief earns it back, the heading carries its own
-                weight. It was also saying the same fact twice inside 200px,
-                because the stake is already stated at the bottom of this same
-                tray ("5 lucky spins on the table") where it sits beside the
-                fold button it actually informs.
-
-                The argument for it was that the player needs the terms stated
-                somewhere. They still are — on the plaques, which now read PAYS
-                2× and PAYS 6×, and in that bottom line. Nothing was lost but
-                the eyebrow.
-
-                The brass hairline stays. A rule is furniture, not a label: the
-                band above separates itself with exactly this line, twice, and
-                it is what gives the tray a top edge on a phone. */}
+            {/* No marquee kicker here; the terms are on the plaques (PAYS 2×/6×) and the bottom line. The brass hairline stays: it gives the tray a top edge on a phone. */}
             <div className="fib-parlour-rule" aria-hidden="true" />
             <div className="fib-parlour-caption">THE PARLOUR <span>· {stake} ON THE TABLE</span></div>
 
@@ -511,11 +374,7 @@ function RouletteTable({
                 {locked ? 'NO MORE BETS' : (
                     <>
                         PLACE YOUR BETS
-                        {/* The seconds are the one figure here that changes
-                            every second, so they are set on the numeral's own
-                            fixed advance — otherwise 19 → 18 → 17 walks the
-                            whole line left and right while the player is
-                            reading it. */}
+                        {/* Seconds use the numeral's fixed advance so 19 -> 18 -> 17 does not walk the line sideways. */}
                         <span style={{
                             marginLeft: 10,
                             color: secondsLeft <= 5 ? COLORS.redInk : COLORS.text,
@@ -541,10 +400,7 @@ function RouletteTable({
                 ))}
             </div>
 
-            {/* Folding is a button too, not an absence of one. A player who has
-                decided to keep their five should be able to say so and see it
-                confirmed, rather than being left wondering whether not pressing
-                anything counted. */}
+            {/* Folding is a button too, so keeping the stake can be confirmed. */}
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 gap: 10, minHeight: 30,

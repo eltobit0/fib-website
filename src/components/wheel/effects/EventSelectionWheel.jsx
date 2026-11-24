@@ -1,36 +1,5 @@
-// ============================================
-// EventSelectionWheel.jsx
-// ============================================
-//
-// Which global event the milestone just picked, rolled in the banner slot.
-//
-// This was a full-screen takeover: `position: fixed`, a 90%-black scrim over the
-// entire page at z-index 10000, a 28px title, a 400x120 strip and a bounce-in
-// result panel. It is now a strip inside the row between the ticker and the reel —
-// the same row the milestone meter counts down in, and the same row the event
-// banner appears in a moment later.
-//
-// Three reasons it moved.
-//
-// It reads as one mechanism now. The meter fills, the roll happens in the same
-// place, and the winning event's banner opens there. Before, the slot counted up to
-// something that then happened somewhere else entirely.
-//
-// It stops covering the page at the exact moment the page is interesting. The scrim
-// blacked out the reel, the ticker and everyone's live drops for four seconds to
-// show a four-item strip; the reel carries on running behind this.
-//
-// And DESIGN.md recorded the takeover as an unreviewed surface running its own
-// undocumented palette — a warm `#1a1814` family that was ratified nowhere. The
-// shell here is the milestone meter's: the Nocturne's viaduct deck (see
-// DESIGN.md §8, THE NOCTURNE). The meter counts down to this moment in this
-// exact spot, so the roll arriving in the same plinth reads as the same machine
-// continuing — the station's departure board naming the next train. The only
-// colours that may signal here are the event identities themselves; everything
-// else is deck and amber.
-//
-// The mechanism is untouched: same strip build, same rAF, same quartic ease-out,
-// same phases, same server-supplied `selectionDuration`. Only the frame changed.
+// Which global event the milestone just picked, rolled in the banner slot between the ticker and the reel.
+// The shell is the milestone meter's (DESIGN.md §8, THE NOCTURNE); only the event identities may signal colour.
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Zap } from 'lucide-react';
@@ -40,102 +9,36 @@ import { useActivity } from '../../../context/ActivityContext.jsx';
 import { useSound } from '../../../context/SoundContext.jsx';
 import { prefetchArrivalScene } from './arrivalScene.js';
 
-// ── Event configurations ────────────────────────────────────────────────────
-//
-// Name, icon and colour. `bgGradient` and `description` used to be here too and
-// are gone: both belonged to the full-screen takeover this component stopped
-// being. The gradient painted the old scrim's result panel, and the description
-// was the line under the 32px event name — see the note at the bottom of the
-// render for why that panel was removed. Neither had a reader since; they were
-// eight literal colours and four strings that looked like design and were not.
-//
-// What remains is the one thing this file is allowed to signal with. The header
-// comment's rule — "the only colours that may signal here are the event
-// identities themselves" — is about THESE four values, and they are deliberate.
-//
-// They WERE a fork — GoldRushBanner, KingOfWheelBanner, FirstBloodBanner and
-// CommunityGoalBanner each kept their own copy of their event's identity
-// (FB_PRIMARY, KOTW_PRIMARY and friends), so the same event was spelled out in
-// four files, and this comment used to say the fix was "one table". The table
-// exists now: `EVENT_IDENTITY` in config/constants.js, written when the odds
-// board would otherwise have become the sixth copy. The name and the colour
-// come from there. The four banners are still their own copies and are still
-// the sweep that is owed.
-//
-// The ICON is not in the identity table on purpose — a constants module that
-// imports components stops being one — so it has its own, in
-// config/eventIcons.js. It is what lets this strip carry THE PARLOUR's green
-// and the Community Goal's teal two cells apart, which is the one pair in the
-// table that hue alone does not separate.
+// Name, icon and colour per event. Name and colour come from `EVENT_IDENTITY` in config/constants.js; the four
+// banners still keep their own copies. The icon is in config/eventIcons.js (a constants module that imports
+// components stops being one), which lets this strip carry THE PARLOUR's green and the Community Goal's teal two cells apart.
 const EVENT_CONFIG = Object.fromEntries(
     Object.entries(EVENT_IDENTITY).map(([key, id]) => [key, { ...id, icon: EVENT_ICONS[key] }]),
 );
 
 /**
- * The cell pitch, in one place because two things need it and they must agree.
- *
- * The animation computes how far to travel as `RUN_UP * cellWidth`, and the
- * strip renders cells of `cellWidth`. When those disagree the reel lands on the
- * wrong event — silently, because both halves look fine on their own. Resizing the
- * cells for the inline layout without moving the animation's copy did exactly that:
- * the roll travelled 29 x 180 = 5,220px across a strip of 132px cells, landing on
- * index 39 of 40 instead of 29, so the header named one event and the strip stopped
- * on another.
- *
- * That is the bug this function was written to end, and for a while it did not,
- * because **nothing ever called it.** It was added as the fix and the two
- * restatements it was meant to replace were both left in place — the animation
- * kept `isMobile ? 140 : 180` and the render kept `isMobile ? 108 : 132` — so the
- * roll went on travelling 5,220px across 132px cells and stopping 10 cells past
- * its own winner, in the dead space after the last cell. What the player saw was
- * an empty strip; what actually happened is that the header named the event and
- * the reel pointed at nothing.
- *
- * So: one call site each, and the value is captured into `pitch` when the roll
- * starts. A ref rather than a re-read, because the two halves must agree for the
- * whole roll and `isMobile` can flip mid-roll if the window is resized — which is
- * the same disagreement arriving by a different door. Capturing it is what the
- * "prevent resize mid-spin" comment on the animation always meant to do; it just
- * captured the wrong number.
- */
+* The cell pitch, in one place: the animation computes travel as `RUN_UP * cellWidth` and the strip renders cells of
+* `cellWidth`; if they disagree the reel lands on the wrong event silently. Both call this once, and the value is
+* captured into `pitch` when the roll starts, since `isMobile` can flip mid-roll on a resize.
+*/
 function cellWidth(isMobile) {
     return isMobile ? 108 : 132;
 }
 
 /**
- * The strip's three sections, and the window has to stay full through all of them.
- *
- * `RUN_UP` is the travel — the roll moves exactly this many cells, so it is what
- * the distance is computed from. `RUN_OUT` is what remains to the right of the
- * winner when it stops; the widest this window ever gets is 460px, so ~2 cells
- * would cover it and 10 is comfortable.
- *
- * `LEAD_IN` is new, and it is the other half of the empty-strip report. The strip
- * used to begin *at* the pointer: cell 0 was centred at offset 0, with nothing to
- * its left at all, so the first frames of every roll had a half-empty window on
- * the left in the same way the mispitched landing had one on the right. Two cells
- * covers the widest window; three, because a cell arriving exactly on the edge
- * fade is not the same as one arriving behind it.
- */
+* The strip's sections, which must keep the window full: `RUN_UP` is the travel in cells, `RUN_OUT` what remains right
+* of the winner (the window is at most 460px), `LEAD_IN` the cells left of the pointer at offset 0 (three, because a
+* cell arriving exactly on the edge fade is not one arriving behind it).
+*/
 const LEAD_IN = 3;
 const RUN_UP = 29;
 const RUN_OUT = 10;
 
-/**
- * The strip, and the index the winner sits at.
- *
- * The index is returned rather than derived by the caller, because the caller
- * deriving it is how the pitch bug happened one field over: two places computing
- * the same number from different assumptions, both looking correct alone.
- */
+/** The strip and the index the winner sits at; returned so the caller never re-derives it from different assumptions. */
 function buildEventStrip(availableEvents, selectedEvent) {
-    // `availableEvents` is the server's list (`EVENT_TYPES.map(e => e.type)`), so
-    // a backend that ships a fifth event before the frontend knows about it sends
-    // a type EVENT_CONFIG has no row for. Such a cell cannot be drawn, and a cell
-    // that is not drawn is a cell of width zero — which slides every cell after it
-    // one pitch left and un-aligns the landing. Filtering here keeps the fillers
-    // to types that can actually be rendered; the placeholder in the render path
-    // covers the same hazard for `selectedEvent`, which we may not drop.
+    // `availableEvents` is the server's list, so a backend shipping a fifth event first sends a type EVENT_CONFIG has no
+    // row for. An undrawn cell has width zero and slides every later cell one pitch left, un-aligning the landing, so
+    // fillers are filtered here; the render path's placeholder covers `selectedEvent`, which may not be dropped.
     const known = availableEvents.filter((type) => EVENT_CONFIG[type]);
     const pool = known.length ? known : Object.keys(EVENT_CONFIG);
     const filler = () => pool[Math.floor(Math.random() * pool.length)];
@@ -161,19 +64,8 @@ function EventSelectionWheel({ isMobile = false }) {
     const animationRef = useRef(null);
     const startTimeRef = useRef(null);
 
-    // ── What this roll was launched against ──────────────────────────────────
-    //
-    // Both of these are facts about the roll currently on screen, fixed when it
-    // starts and never re-derived while it runs. `pitch` is what the travel
-    // distance was computed from, so the cells must be drawn at it (see
-    // cellWidth); `finalIndex` is where the builder put the winner, so the cell
-    // the pointer lands on and the cell that lights up are one statement.
-    //
-    // State and not refs, though a ref is the obvious way to express "captured
-    // once". Both are read while rendering, and a ref read during render is a
-    // value React is not tracking — it would hold the right number and simply
-    // not repaint when it changed. That is the same class of silent
-    // disagreement as the pitch bug itself, so: state.
+    // Facts about the roll on screen, fixed when it starts. State, not refs: both are read while rendering, and a ref read
+    // during render is not tracked by React and would not repaint when it changed.
     const [pitch, setPitch] = useState(cellWidth(isMobile));
     const [finalIndex, setFinalIndex] = useState(LEAD_IN + RUN_UP);
 
@@ -194,51 +86,24 @@ function EventSelectionWheel({ isMobile = false }) {
             setIsVisible(true);
             setPhase('spinning');
             setOffset(0);
-            // The answer from last time, cleared before this roll starts.
-            //
-            // Same family as the isGone latch below, and missed for the same
-            // reason: this component is only ever *emptied* between events, never
-            // unmounted, so its state survives from one global event to the next.
-            // `resultEvent` is what the header reads, so the second event of a
-            // session opened by naming the FIRST one — the header said "GOLD RUSH"
-            // and the under-rail glowed amber for the whole four seconds a roll
-            // that had not landed yet, instead of saying "Selecting…". Invisible
-            // in a fresh tab, which is where it kept getting tested.
+            // Cleared before this roll starts: this component is emptied between events, never unmounted, so `resultEvent` would
+            // otherwise name the previous event in the header while the new roll has not landed.
             setResultEvent(null);
             startTimeRef.current = Date.now();
 
             /*
-             * Start fetching the event's music now, while the strip is still
-             * spinning.
-             *
-             * This component is the only four seconds of warning the site gets:
-             * the server broadcasts `event_selection`, waits out this animation,
-             * and only then triggers the event. Every soundtrack is
-             * `preload = 'none'` — see the init effect in SoundContext for the
-             * 66MB that made it so — which means the first play of a session
-             * pays for the fetch in front of the listener, and the two scored
-             * takes are cut against pictures that do not wait.
-             *
-             * So the wheel that announces the event also warms it. Four seconds
-             * is ample for the 484KB train and the 824KB roulette, and this is
-             * the one place that knows which of the five is coming before it
-             * arrives.
-             */
+            * Start fetching the event's music now: this roll is the only four seconds of warning (the server broadcasts
+            * `event_selection`, waits out this animation, then triggers the event), and soundtracks are `preload = 'none'`
+            * (see the init effect in SoundContext), so a first play would fetch in front of the listener.
+            */
             primeEventSound?.(eventSelection.selectedEvent);
 
-            /*
-             * And the arrival's scene, which is the heaviest thing any event
-             * pulls in: a 551KB chunk that is otherwise requested at the moment
-             * the theatre mounts, i.e. with nothing left to hide the fetch
-             * behind. Same four seconds, same reasoning as the music.
-             */
+            // Likewise the arrival's scene, a 551KB chunk otherwise requested when the theatre mounts.
             if (eventSelection.selectedEvent === 'arrival') prefetchArrivalScene();
 
             playSfx?.('spin_start');
 
-            // How far to travel. The strip starts with the cell at LEAD_IN under
-            // the pointer, so the roll moves RUN_UP cells to bring the winner —
-            // which sits RUN_UP further along — into that same spot.
+            // The strip starts with the cell at LEAD_IN under the pointer, so the roll moves RUN_UP cells to bring the winner there.
             const totalDistance = RUN_UP * itemWidth;
             const duration = eventSelection.selectionDuration || 4000;
 
@@ -271,13 +136,8 @@ function EventSelectionWheel({ isMobile = false }) {
         };
     }, [eventSelection, playSfx, primeEventSound]);
 
-    // Exit fades rather than pops. The context clears eventSelection about a
-    // second after the landing; that clear is the cue — the event's own banner
-    // slides into this same slot right about then, so the roll dissolves
-    // beneath it instead of vanishing the moment it is beaten. A fresh
-    // selection mid-fade (events queue fast on a busy server) snaps it back:
-    // the reset below is a render-phase state correction, the pattern React
-    // prescribes for deriving state from changing props.
+    // Exit fades rather than pops: the context clears eventSelection about a second after landing, as the event's banner
+    // slides into this slot. A fresh selection mid-fade snaps it back (a render-phase state correction).
     const [isGone, setIsGone] = useState(false);
     const isClosing = isVisible && !eventSelection && !isGone;
     if (eventSelection && isGone) setIsGone(false);
@@ -292,30 +152,13 @@ function EventSelectionWheel({ isMobile = false }) {
     // 132, down from 180. The slot is one row, not a screen. Read from the pitch
     // the roll was launched against, never re-derived — see cellWidth().
     const ITEM_WIDTH = pitch;
-    // 50 on a phone, up from 46, and the four extra pixels are load-bearing.
-    //
-    // At 108px wide the longest name ("KING OF THE WHEEL") wraps to two lines, so
-    // the cell needs icon + gap + two lines: 45.8px at the old 9px, against a 46px
-    // strip — 0.2px of headroom, which any font-metric variance or user font
-    // scaling clipped. At the 10px the type ramp actually calls for, it needs 48px.
-    // 50 clears that with 2px to spare and takes the label off the floor breach at
-    // the same time. Owner-approved 2026-08-20; the banner slot grows 4px on a
-    // phone, which is the whole cost.
+    // 50 on a phone, not 46, and load-bearing: at 108px wide "KING OF THE WHEEL" wraps to two lines, which needs 48px at
+    // the 10px the type ramp calls for (45.8px at the old 9px against a 46px strip clipped). Owner-approved 2026-08-20.
     const STRIP_HEIGHT = isMobile ? 50 : 52;
     const config = resultEvent ? EVENT_CONFIG[resultEvent] : null;
 
-    // ── The roll must always resolve, even for an event we cannot draw ────────
-    //
-    // The header reads "Selecting…" until `config` exists. For an event type this
-    // build has no row for — a backend shipping a fifth event first, the same skew
-    // the strip's placeholder cell covers — `config` never arrives, so the roll
-    // finished and the panel sat there saying it was still choosing until it faded.
-    // The one thing this component exists to say, it did not say.
-    //
-    // Falling back to the id turns `aurora_hour` into "AURORA HOUR": not the
-    // styled identity, but the truth, and a name the player can repeat to someone.
-    // `landed` is what drives the resolved treatment now, rather than `config` —
-    // an unresolved-looking header on a finished roll was the actual defect.
+    // The roll must always resolve, even for an event this build cannot draw: fall back to the id ("AURORA HOUR") so the
+    // header does not say "Selecting..." on a finished roll. `landed` drives the resolved treatment, not `config`.
     const landed = Boolean(resultEvent);
     const resultLabel = config
         ? config.name
@@ -338,11 +181,8 @@ function EventSelectionWheel({ isMobile = false }) {
             `}</style>
 
             <div style={{
-                // The milestone meter's shell, deliberately — and now the meter's
-                // plinth exactly: square, no ring, the Nocturne's blue-hour deck
-                // material, lit rail on top, a signal entering from the floor.
-                // While the roll runs the signal is amber; the moment it lands it
-                // becomes the event's own colour, which is the result.
+                // The milestone meter's plinth exactly: square, no ring, deck material, lit rail on top, a signal from the floor.
+                // The signal is amber while rolling and becomes the event's own colour on landing.
                 width: isMobile ? 'min(340px, 92vw)' : '460px',
                 padding: isMobile ? '9px 14px 11px' : '10px 18px 12px',
                 borderRadius: 0,
@@ -355,10 +195,7 @@ function EventSelectionWheel({ isMobile = false }) {
                 opacity: isClosing ? 0 : 1,
                 transition: 'opacity 0.32s ease-in',
             }}>
-                {/* The header line, in the meter's own format: what this is on the
-                    left, what is happening on the right. While it rolls the right
-                    side says so; when it lands it becomes the event's name in the
-                    event's colour, which is the result — no separate panel. */}
+                {/* The header line in the meter's format; on landing it becomes the event's name in its colour, which is the result. */}
                 <div style={{
                     display: 'flex',
                     alignItems: 'baseline',
@@ -382,12 +219,7 @@ function EventSelectionWheel({ isMobile = false }) {
 
                     <span style={{
                         fontSize: isMobile ? '12px' : '13px',
-                        // Keyed on `landed`, not on `config`: a finished roll reads
-                        // as finished whether or not we have an identity for what
-                        // it landed on. Only the colour still needs the config —
-                        // an unknown event has no hue to claim, so it resolves in
-                        // the deck's own amber rather than borrowing another
-                        // event's.
+                        // Keyed on `landed`, not `config`; an unknown event has no hue to claim, so it resolves in the deck's own amber.
                         fontWeight: landed ? 700 : 400,
                         color: config ? config.color : (landed ? COLORS.gold : COLORS.textMuted),
                         textShadow: config ? `0 0 14px ${config.color}66` : 'none',
@@ -403,19 +235,13 @@ function EventSelectionWheel({ isMobile = false }) {
                 position: 'relative',
                 width: '100%',
                 height: `${STRIP_HEIGHT}px`,
-                // A lit window in the plinth, not a recessed box: no radius, and
-                // the depth is the deck's own darker blue-hour ground rather than
-                // a shadow. The only edges are the rail passing in front above and
-                // the signal below; the cells carry their own floor light.
+                // A lit window in the plinth, not a recessed box: no radius, depth is the deck's darker ground.
                 background: 'linear-gradient(180deg, #090c15 0%, #05070d 100%)',
                 borderRadius: 0,
                 boxShadow: 'inset 0 1px 0 rgba(206,214,236,0.06)',
                 overflow: 'hidden',
             }}>
-                {/* The indicator, built like the reel's detent rather than the reel's
-                    old 4px bar: a mark seated in each edge with the line between
-                    them opening out, so nothing is drawn through the event it is
-                    pointing at. Same reasoning as DESIGN.md's indicator section. */}
+                {/* The indicator, built like the reel's detent: a mark seated in each edge so nothing is drawn through the event it points at. */}
                 <div style={{
                     position: 'absolute',
                     top: 0,
@@ -434,10 +260,7 @@ function EventSelectionWheel({ isMobile = false }) {
                     display: 'flex',
                     alignItems: 'center',
                     height: '100%',
-                    // Backed off by the lead-in, so the cell under the pointer at
-                    // offset 0 is index LEAD_IN and there are cells to its left.
-                    // The strip used to start here, which left the window's left
-                    // half empty for the opening frames of every roll.
+                    // Backed off by the lead-in so the cell under the pointer at offset 0 is index LEAD_IN with cells to its left.
                     left: `calc(50% - ${ITEM_WIDTH / 2 + LEAD_IN * ITEM_WIDTH}px)`,
                     transform: `translateX(-${offset}px)`,
                     transition: phase === 'result' ? 'none' : undefined,
@@ -445,12 +268,7 @@ function EventSelectionWheel({ isMobile = false }) {
                     {strip.map((eventType, index) => {
                         const eventConfig = EVENT_CONFIG[eventType];
 
-                        // An unknown type still has to occupy its slot. Returning
-                        // null here removed the cell from the flex row, so the
-                        // strip lost a pitch and everything after it — including
-                        // the winner — slid one cell toward the pointer. Blank,
-                        // full width, no icon: it reads as an empty slot going
-                        // past rather than as the reel mis-landing.
+                        // An unknown type still occupies its slot: returning null drops a pitch and slides the winner one cell toward the pointer.
                         if (!eventConfig) {
                             return <div key={index} style={{ width: `${ITEM_WIDTH}px`, flexShrink: 0, height: '100%' }} />;
                         }
@@ -463,14 +281,8 @@ function EventSelectionWheel({ isMobile = false }) {
                                 key={index}
                                 style={{
                                     width: `${ITEM_WIDTH}px`,
-                                    // Without this the cells collapse. The strip is
-                                    // an absolutely positioned flex container with
-                                    // `left` but no width, so it is shrink-to-fit
-                                    // and bounded by the box it sits in — the cells
-                                    // are flex items, `flex-shrink` defaults to 1,
-                                    // and forty of them divide up 424px instead of
-                                    // taking 132 each. The strip looked half empty
-                                    // because most of it was squeezed into a sliver.
+                                    // Without this the cells collapse: the strip is absolutely positioned with `left` but no width, so shrink-to-fit
+                                    // flex items (`flex-shrink` 1) divide 424px instead of taking 132 each.
                                     flexShrink: 0,
                                     height: '100%',
                                     display: 'flex',
@@ -478,11 +290,7 @@ function EventSelectionWheel({ isMobile = false }) {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '8px',
-                                    // The reel's own language: light from the floor
-                                    // rather than a box. The winner used to get 3px
-                                    // borders on all four sides plus two glow bars —
-                                    // four edges and a fill, which is the boxed tile
-                                    // §8 spent a rebuild getting rid of.
+                                    // The reel's own language: light from the floor rather than a boxed tile (§8).
                                     background: isLanding
                                         ? `linear-gradient(180deg, transparent 30%, ${eventConfig.color}18 76%, ${eventConfig.color}44 100%)`
                                         : 'transparent',
@@ -493,9 +301,7 @@ function EventSelectionWheel({ isMobile = false }) {
                                     position: 'relative',
                                 }}
                             >
-                                {/* The seam between cells, bottom-weighted for the
-                                    same reason the reel's is: a full-height rule
-                                    repeated at the cell pitch is a grid. */}
+                                {/* The seam between cells is bottom-weighted like the reel's; a full-height rule at the pitch is a grid. */}
                                 <div style={{
                                     position: 'absolute',
                                     left: 0,
@@ -513,20 +319,9 @@ function EventSelectionWheel({ isMobile = false }) {
                                     }}
                                 />
                                 <span style={{
-                                    // ── The 9px floor breach is gone here too ──────
-                                    //
-                                    // DESIGN.md says outright "The 9px floor breach is
-                                    // gone", with 10px allowed only for an uppercase
-                                    // letter-spaced badge — which is exactly what this
-                                    // is. One size at both breakpoints, because the
-                                    // rule is about what a person can read and a phone
-                                    // is the harder case, not the easier one.
-                                    //
-                                    // Measured: desktop needs 39px of its 52px strip
-                                    // with every name on one line; mobile wraps the two
-                                    // longest to two lines and needs 48px, which is why
-                                    // STRIP_HEIGHT went to 50 above. Change either one
-                                    // and re-measure both — they are one decision.
+                                    // 10px, one size at both breakpoints (DESIGN.md: the 9px floor breach is gone; 10px is allowed for an uppercase
+                                    // letter-spaced badge). Desktop needs 39px of its 52px strip; mobile wraps the two longest names and needs 48px,
+                                    // hence STRIP_HEIGHT 50 above. Change either and re-measure both.
                                     fontSize: '10px',
                                     fontWeight: 700,
                                     color: eventConfig.color,
@@ -566,16 +361,7 @@ function EventSelectionWheel({ isMobile = false }) {
             </div>
             </div>
 
-            {/* The separate result panel is gone — a 32px name flanked by two
-                pulsing icons on a `bounceIn`, plus a description line, plus a
-                "Selecting event..." line during the roll. All four are said by the
-                header row above: it reads "Selecting…" while it turns and becomes
-                the event's name in the event's colour when it lands.
-
-                Its `bounceIn` was also a 1.1 overshoot, which §8 permits on the spin
-                control alone. The banner that opens a moment later carries the
-                description and everything else about the event, so repeating it here
-                for 1.5 seconds was saying the same thing twice in a row. */}
+            {/* No separate result panel: the header row says "Selecting..." while it turns and becomes the event's name in its colour on landing. */}
         </div>
     );
 }

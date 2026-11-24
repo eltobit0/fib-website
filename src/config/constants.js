@@ -3,24 +3,18 @@ const isDev = typeof window !== 'undefined' &&
 
 export const API_BASE_URL = isDev ? 'http://localhost:3001' : '';
 
-// ── V2 midnight blue design tokens ───────────────────────────────────────────
 export const COLORS = {
-    // Backgrounds
     bg:          'oklch(17% 0.025 255)',
     bgLight:     'oklch(21% 0.023 255)',
     bgLighter:   'oklch(25% 0.021 255)',
     bgHover:     'oklch(28% 0.019 255)',
-    // Text
     text:        'oklch(94% 0.007 255)',
     textMid:     'oklch(74% 0.012 255)',
     textMuted:   'oklch(58% 0.012 255)',
     textDim:     'oklch(42% 0.013 255)',
-    // Borders
     border:      'oklch(30% 0.019 255)',
     borderF:     'oklch(24% 0.022 255)',
-    // Accent
     accent:      'oklch(76% 0.16 68)',   // amber — the primary accent throughout
-    // Semantic
     green:       'oklch(64% 0.20 142)',
     red:         'oklch(62% 0.22 25)',
     yellow:      'oklch(82% 0.16 90)',
@@ -28,7 +22,6 @@ export const COLORS = {
     blue:        'oklch(65% 0.16 255)',
     purple:      'oklch(62% 0.18 300)',
     orange:      'oklch(72% 0.18 55)',
-    // Game state colours
     early:       'oklch(64% 0.20 142)',
     mid:         'oklch(76% 0.16 68)',
     late:        'oklch(62% 0.22 25)',
@@ -44,147 +37,32 @@ export const COLORS = {
     recursionDark:'oklch(12% 0.025 155)',
 };
 
-/**
- * Item sprites, served from our own origin.
- *
- * These are vendored out of the resource pack into `public/fib-items/` by
- * `scripts/vendor-textures.mjs` and committed, so they ship with the build.
- * The stats module moved to them first (see Stats/tokens.js); this is the rest
- * of the app following, and the wheel is the reason it mattered enough to do.
- *
- * raw.githubusercontent.com is not a CDN. It sends `cache-control: max-age=300`
- * and throttles, and the wheel preloads the *entire* pool before it will let
- * anyone spin — 1,537 sprites, fetched 20 at a time, each wave waiting on the
- * slowest member. Against a throttling origin that is a cold-start stall of
- * tens of seconds, repeated every five minutes once the max-age lapses. From
- * our own origin the same set is immutable and cacheable, and the second visit
- * costs nothing.
- *
- * Re-run `npm run vendor:textures` after adding items to the pool. The vendored
- * set is derived from the stats data layer's ITEM_POOL, which is not the same
- * list the wheel gets from `/api/items` — they happen to coincide today (all
- * 1,537 wheel textures and all 1,540 unicodeItems materials are present), but
- * nothing enforces it. A sprite that goes missing renders as barrier rather
- * than reaching for the network, so check the script's output for the warning
- * about pool items with no texture instead of relying on a runtime fallback.
- */
+// Vendored into public/fib-items/ by scripts/vendor-textures.mjs: raw.githubusercontent throttles and the wheel preloads the
+// whole pool. Re-run `npm run vendor:textures` after pool changes and check its missing-texture warning; nothing enforces it.
 export const IMAGE_BASE_URL     = '/fib-items';
 
-/**
- * The pack's custom items — cavendish, gros_michel, the antimatter set, the
- * wheel. These live in the pack's `item/` directory rather than `fib/`, so they
- * are vendored separately (see scripts/vendor-textures.mjs) and keyed by name
- * rather than by pool membership.
- */
+// Pack custom items live in `item/`, not `fib/`, so they are vendored separately and keyed by name.
 export const CUSTOM_IMAGE_BASE_URL = '/fib-custom';
 
-/**
- * The relic tier's artwork — isometric renders of the server's structures.
- *
- * A directory of its own rather than a corner of /fib-custom, because these are
- * not pack textures at all: they are 256px square renders, trimmed of their
- * transparent margin and padded back to a square so every tile in the tier shares
- * one aspect ratio. Nothing vendors them; they are committed as-is.
- */
+// Committed renders, not pack textures; nothing vendors them.
 export const RELIC_IMAGE_BASE_URL = '/fib-relics';
 
-/**
- * The upstream pack. Kept for tooling and for anything that genuinely wants the
- * canonical remote URL. Not a runtime fallback for the pool — see above.
- */
+// Not a runtime fallback for the pool.
 export const REMOTE_IMAGE_BASE_URL = 'https://raw.githubusercontent.com/eltobit0/fib-resources/main/ForceItemBattle/assets/minecraft/textures/fib';
 export const WHEEL_TEXTURE_URL  = '/wheel.png';
-/**
- * The desktop reel's tile pitch, and the height of the band it runs in.
- *
- * Both were smaller (80 / 100), sized when the strip was a row inside a card in
- * a centred column. That gave ~56px of item art in a 100px band — a thin ribbon
- * floating in a large empty field, with the tiles, the thing the player actually
- * watches for four seconds, the smallest element on screen.
- *
- * The two are coupled and must stay so. `drawItem` centres a square of
- * `ITEM_WIDTH * 0.70` inside the band, so a band shorter than the pitch clips the
- * art and a much taller one strands it; the ~1.4 ratio here leaves the glow room
- * to bloom without opening a gap. Everything laid over the band — pointers,
- * centre line, shockwave rings — is sized from STRIP_HEIGHT rather than
- * hardcoded, so changing this moves the whole assembly together.
- *
- * How many tiles are in shot is now a property of the monitor, not of this file.
- * The reel is a full-width row of the HUD grid, so it spans the page: about 15
- * tiles at 1920 and 11 at 1440. Two earlier attempts tried to buy that width
- * from inside a centred column and could not — the ceiling there was 8.5 tiles,
- * and dropping to 6.2 whenever the sidebars appeared.
- *
- * MOBILE_ITEM_WIDTH (70, in CanvasSpinningStrip) is deliberately not derived
- * from this: mobile runs the reel vertically, where the constraint is the phone
- * rather than the page.
- */
+// Coupled with STRIP_HEIGHT: drawItem centres ITEM_WIDTH * 0.70 in the band, and the overlays size from STRIP_HEIGHT.
+// MOBILE_ITEM_WIDTH (CanvasSpinningStrip) is deliberately independent.
 export const ITEM_WIDTH         = 120;
 export const STRIP_HEIGHT       = 170;
 export const SPIN_DURATION      = 4000;
-/*
- * The winner's slot is PINNED and the strip's length is derived from it — which
- * is the opposite of how these two were written, and the reason the band had a
- * hole in it.
- *
- * It was `STRIP_LENGTH = 80` with `FINAL_INDEX = STRIP_LENGTH - 8`, so the
- * winner sat at 72 with exactly seven tiles behind it: 7 × 120 = 840px of strip
- * to the right of a winner that comes to rest at the centre of the viewport. Any
- * viewport wider than 1680px therefore ran out of strip before it ran out of
- * canvas, and the right-hand edge of the band was empty on every spin — on a
- * 1920px screen, one tile's worth of nothing. It was in every mode, because
- * every mode lands the same way: the reel, recursion, lucky and triple spins all
- * target FINAL_INDEX.
- *
- * Lengthening the strip the obvious way would not have fixed it. With the
- * derivation this way round, `STRIP_LENGTH = 88` moves the winner to 80 and
- * leaves the same seven tiles behind it — a longer run-up and an identical hole.
- * The tail is the quantity that matters, so the tail is the constant.
- *
- * TAIL_LENGTH covers half the viewport at rest: 16 × 120 = 1920px, good to a
- * 3840px window. The cost is eight extra decorative tiles per spin, which are
- * plain objects the renderer already skips when off-screen.
- *
- * These MUST match `spin.js`'s copies. The server builds the authoritative strip
- * and the client verifies achievements against it, so a disagreement here is not
- * a visual bug — see the note there.
- */
+// The winner's slot is pinned and the tail is the constant: 16 tiles covers half a 3840px viewport.
+// MUST match spin.js's copies; the server builds the authoritative strip that achievements are verified against.
 export const FINAL_INDEX        = 72;
 export const TAIL_LENGTH        = 16;
 export const STRIP_LENGTH       = FINAL_INDEX + 1 + TAIL_LENGTH;
 
-// ── Special items (unchanged) ─────────────────────────────────────────────────
-
-/*
- * The legendary tier, mirroring SEED_SPECIAL_ITEMS in the wheel-backend.
- *
- * Offline fallback and strip filler only — the live roster and the real odds come
- * from /api/items, exactly as for EXOTIC_ITEMS and RELIC_ITEMS below.
- *
- * These chances went stale once already: they still read 0.0003 / 0.0004 / 0.0005
- * after the backend compressed the tier for the relic band, so the fallback quoted
- * odds nearly twice the real ones. When seed.js moves a legendary weight, move it
- * here in the same commit.
- *
- * Wandering Trader is back in this list, and never left it in a shipped release.
- * It spent part of the relic branch in MYTHIC_ITEMS — promoted on its weight alone,
- * because at 0.005% it was rarer than anything here — and came back before any of
- * that went live, at 1,500 rather than the 500 it left with, second-rarest in the
- * tier. The Special Trader holds the mythic slot instead. The full argument is in
- * seed.js, next to the row; players see one change, not two, because the relic
- * release has not gone out yet and the changelog says so in a single entry.
- *
- * Its texture still says `legendary_`, which is an id and not a label, and which
- * happens to read true again.
- *
- * ENTRIES CARRY AN EXPLICIT `texture` WHERE THEY HAVE ONE, and both consumers of
- * this list must prefer it. CollectionBook and AdminPanel both build a texture as
- * `special_${username}`, which is right for the four heads and silently wrong for
- * the two item-shaped members: ChromaRGBDirt and the Wandering Trader have no
- * username, so that template produced the string `special_null` — the same string
- * for both of them. It was a latent collision with one such member; adding a
- * second is what surfaced it.
- */
+// Mirrors SEED_SPECIAL_ITEMS in wheel-backend; offline fallback and strip filler only (live odds come from /api/items).
+// Move chances here when seed.js moves them. Consumers must prefer an explicit `texture`: `special_${username}` collides for username-less members.
 export const TEAM_MEMBERS = [
     { name: 'apppaa',          username: 'apppaa',          chance: 0.0001,   rarity: 'legendary' },
     { name: 'threeseconds',    username: 'threeseconds',    chance: 0.00022,  rarity: 'legendary' },
@@ -196,42 +74,15 @@ export const TEAM_MEMBERS = [
         texture: 'legendary_wandering_trader', imageUrl: '/wandering_trader.png' },
 ];
 
-/**
- * EXOTIC — the tier between legendary and rare: the plugin's custom items.
- *
- * Item-shaped, not member-shaped. Every other special tier below is a list of
- * people (a username resolves to a player head); exotic is the one tier made of
- * objects, so it follows INSANE_ITEMS/MYTHIC_ITEMS instead and carries an
- * explicit imageUrl into the vendored pack textures.
- *
- * These are all eight entries of the plugin's CustomMaterials enum. Six of them
- * were already spinning as ordinary commons under their vanilla Minecraft names —
- * the Wheel of Fortune arriving as "Nether Star" — because the wheel's common
- * pool is the raw Minecraft item registry and knows nothing about the plugin.
- * The backend excludes those six materials from the pool now.
- *
- * The last two share their material with a genuine force item: a plain BRUSH is a
- * real EARLY pool item and a plain TOTEM_OF_UNDYING a LATE one, so both keep
- * their vanilla names and stay common, and these two ride alongside them under
- * synthetic textures. That is why they were never in the wheel at all.
- *
- * This list mirrors SEED_SPECIAL_ITEMS in the wheel-backend and is used only for
- * the strip's visual filler and the offline collection-book fallback; the live
- * roster and the real odds come from `/api/items`. Textures must match the
- * backend's exactly or the collection book files a pull under a texture it has no
- * entry for.
- */
+// Mirrors SEED_SPECIAL_ITEMS in wheel-backend (the plugin's eight CustomMaterials); filler and offline fallback only.
+// Textures must match the backend's exactly or the collection book can't file a pull.
 export const EXOTIC_ITEMS = [
     { name: 'Wheel of Fortune', texture: 'exotic_wheel_of_fortune', chance: 0.00055, type: 'exotic',
         imageUrl: `${CUSTOM_IMAGE_BASE_URL}/wheel.png` },
     { name: 'Eye of Antimatter', texture: 'exotic_eye_of_antimatter', chance: 0.00055, type: 'exotic',
         imageUrl: `${CUSTOM_IMAGE_BASE_URL}/eye_of_antimatter.png` },
-    // The three locators are animated in the pack — their /fib-custom textures are
-    // vertical sprite strips (8, 26 and 10 frames) with a .mcmeta sidecar, and an
-    // <img> or a canvas drawImage of one renders a single very tall picture rather
-    // than an animation. IMAGE_BASE_URL has the same three already vendored as
-    // static single-frame renders, keyed by MATERIAL name, which is what the stats
-    // item index draws. Point at those. See scripts/vendor-textures.mjs.
+    // The locators' /fib-custom textures are animated vertical sprite strips; use the static single-frame
+    // renders in IMAGE_BASE_URL, keyed by material name. See scripts/vendor-textures.mjs.
     { name: 'Antimatter Locator', texture: 'exotic_antimatter_locator', chance: 0.00055, type: 'exotic',
         imageUrl: `${IMAGE_BASE_URL}/knowledge_book.png` },
     { name: 'Trial Locator', texture: 'exotic_trial_locator', chance: 0.00055, type: 'exotic',
@@ -243,31 +94,12 @@ export const EXOTIC_ITEMS = [
         imageUrl: `${CUSTOM_IMAGE_BASE_URL}/old_book.png` },
     { name: 'Totem of Antimatter', texture: 'exotic_totem_of_antimatter', chance: 0.00055, type: 'exotic',
         imageUrl: `${CUSTOM_IMAGE_BASE_URL}/totem_of_antimatter.png` },
-    // The plugin's own name for it. "Trail Ruins" is the structure this locator
-    // finds, not what the item is called.
+    // The plugin's own name for it.
     { name: 'Kiln-Fired Brush', texture: 'exotic_kiln_fired_brush', chance: 0.00055, type: 'exotic',
         imageUrl: `${CUSTOM_IMAGE_BASE_URL}/kiln_fired_brush.png` },
 ];
 
-/**
- * The relic tier — the server's structures.
- *
- * Every other tier on the wheel is a person (rare, legendary, mythic) or an object
- * (exotic, insane). These are PLACES, which is the identity of the tier and the
- * reason the artwork is a render rather than a sprite.
- *
- * Same contract as EXOTIC_ITEMS above: this mirrors SEED_SPECIAL_ITEMS in the
- * wheel-backend and is used only for the strip's visual filler and the offline
- * collection-book fallback. The live roster and the real odds come from
- * `/api/items`. Textures must match the backend's exactly, or the collection book
- * files a pull under a texture it has no entry for.
- *
- * Ordered rarest first, which is also weight order: 0.026% up to 0.038%, totalling
- * 0.2% — one relic in 500 spins. The band was 0.035–0.050% for one iteration and was
- * narrowed because 1 in 392 sat too close to exotic's 1 in 227 to read as its own
- * tier; the legendary heads below it then came down so the six could keep a spread
- * anyone can feel. The full reasoning is in the wheel-backend's seed.js.
- */
+// Mirrors SEED_SPECIAL_ITEMS in wheel-backend; filler and offline fallback only. Textures must match the backend's exactly.
 export const RELIC_ITEMS = [
     { name: 'Trial Chambers', texture: 'relic_trial_chambers', chance: 0.00026, type: 'relic',
         imageUrl: `${RELIC_IMAGE_BASE_URL}/trial_chambers.png` },
@@ -310,12 +142,7 @@ export const MYTHIC_ITEMS = [
     { name: 'eltobito',     texture: 'mythic_eltobito',     chance: 0.00003, type: 'mythic', username: 'eltobito' },
     { name: 'Gros Michel',  texture: 'mythic_gros_michel',  chance: 0.00004, type: 'mythic',
         imageUrl: `${CUSTOM_IMAGE_BASE_URL}/gros_michel.png` },
-    // Holds the slot, and the exact 0.005%, that the Wandering Trader vacated when
-    // it went back to legendary — so this tier's rate did not move across the swap.
-    // The two traders are one entity in the plugin (TraderKind.WANDERING /
-    // TraderKind.SPECIAL), which is why the head is the same render with its cloth
-    // recoloured to the <light_purple> the plugin already gives this one. See
-    // scripts/repixel-special-trader.py.
+    // One entity with the Wandering Trader in the plugin, so the same head recoloured (scripts/repixel-special-trader.py).
     { name: 'Special Trader', texture: 'mythic_special_trader', chance: 0.00005, type: 'mythic',
         imageUrl: '/special_trader.png' },
 ];

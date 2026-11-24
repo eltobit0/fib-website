@@ -1,9 +1,3 @@
-// ============================================
-// CanvasResultItem.jsx
-// ============================================
-// Canvas-based result item display with animated glows
-// Matches the glow style from CanvasSpinningStrip
-
 import React, { useEffect, useRef, useState } from 'react';
 import { IMAGE_BASE_URL } from '../../../config/constants.js';
 import { COLORS } from '../config/constants';
@@ -12,16 +6,8 @@ import { sampleHolo, sampleRamp, createHoloGradient } from '../../../utils/rarit
 import { useSaverMode } from '../../../config/power.js';
 import { getAtlasSprite, drawItemSprite, needsOwnImage } from './atlas.js';
 
-// ============================================
-// CONSTANTS
-// ============================================
-
-const DEFAULT_SIZE = 80; // Default box size
-const GLOW_PADDING = 30; // Extra space for glow effects
-
-// ============================================
-// HELPERS
-// ============================================
+const DEFAULT_SIZE = 80;
+const GLOW_PADDING = 30;
 
 function hexToRgb(hex) {
     if (!hex) return { r: 255, g: 170, b: 0 };
@@ -44,10 +30,6 @@ const lerpColor = (c1, c2, t) => {
         b: Math.round(lerp(rgb1.b, rgb2.b, t))
     };
 };
-
-// ============================================
-// IMAGE CACHE
-// ============================================
 
 const imageCache = new Map();
 
@@ -77,16 +59,10 @@ function loadImage(src) {
     });
 }
 
-// ============================================
-// ROUNDED RECT HELPER - Browser Compatibility
-// ============================================
-
 function drawRoundedRectPath(ctx, x, y, w, h, r) {
-    // Feature detect and use native roundRect if available
     if (typeof ctx.roundRect === 'function') {
         ctx.roundRect(x, y, w, h, r);
     } else {
-        // Manual path construction fallback for older browsers
         ctx.moveTo(x + r, y);
         ctx.lineTo(x + w - r, y);
         ctx.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -100,34 +76,16 @@ function drawRoundedRectPath(ctx, x, y, w, h, r) {
     }
 }
 
-// ============================================
-// MAIN COMPONENT
-// ============================================
-
 export function CanvasResultItem({
                                      item,
                                      size = DEFAULT_SIZE,
                                      isRecursionSpin = false,
-                                     isLuckySpin = false, // For Lucky Spin / Triple Lucky - use green instead of gold
+                                     isLuckySpin = false,
                                      showAnimation = true,
                                      className = '',
                                      style = {},
                                  }) {
-    /**
-     * Saver mode collapses this to the still frame the component already knows
-     * how to draw.
-     *
-     * `showAnimation={false}` is an existing prop with an existing meaning —
-     * draw once, do not schedule — used by the panels that show a result they do
-     * not want breathing. Saver mode wants exactly that everywhere, so it is
-     * folded in here rather than threaded through every call site, where a
-     * missed one would be a loop nobody could find.
-     *
-     * This one matters more than its size suggests. A result is not a transient
-     * state: the band holds the winner until the next press, so "looking at what
-     * you just pulled" is where a phone spends most of its time on this surface,
-     * and it was the state with a permanent 30fps canvas loop in it.
-     */
+    /** Saver mode folds into `showAnimation={false}` here rather than at every call site, where a missed one is a hidden loop. */
     const saverMode = useSaverMode();
     const animate = showAnimation && !saverMode;
     const canvasRef = useRef(null);
@@ -136,7 +94,6 @@ export function CanvasResultItem({
     const imageRef = useRef(null);
     const [imageLoaded, setImageLoaded] = useState(false);
 
-    // Item type checks
     const isInsane = isInsaneItem(item);
     const isMythic = isMythicItem(item);
     const isSpecial = isSpecialItem(item);
@@ -146,39 +103,30 @@ export function CanvasResultItem({
     const isEvent = isEventItem(item);
     const isRecursionType = isRecursionItem(item);
 
-    // For lucky spins, common items should show green instead of gold
-    // Every tier must appear in both of these — see the note in CanvasSpinningStrip:
-    // `isSpecialType` gates the glow and the ring, so a tier left out of it reveals
-    // as a bare common.
+    // Every tier must appear in both checks (see CanvasSpinningStrip): `isSpecialType` gates the glow and ring.
     const isLuckyCommon = isLuckySpin && !isInsane && !isMythic && !isSpecial && !isExotic && !isRelic && !isRare && !isEvent && !isRecursionType;
 
     const isSpecialType = isInsane || isMythic || isSpecial || isExotic || isRelic || isRare || isEvent || isRecursionType || isLuckyCommon;
 
-    // Canvas dimensions (extra space for glow)
     const canvasSize = size + GLOW_PADDING * 2;
     const centerX = canvasSize / 2;
     const centerY = canvasSize / 2;
 
-    // Load item image with race condition protection
     useEffect(() => {
         if (!item) return;
 
-        // Reset state immediately when item changes
         imageRef.current = null;
         setImageLoaded(false);
 
         let cancelled = false;
 
-        // Pool items are drawn straight from the atlas, so there is nothing to
-        // fetch and nothing to wait for — the result can render on the frame the
-        // item arrives. Only the sprites the atlas does not pack still load here.
+        // Pool items draw straight from the atlas; only unpacked sprites load here.
         if (!needsOwnImage(item)) {
             setImageLoaded(true);
             return () => { cancelled = true; };
         }
 
         loadImage(getItemImageUrl(item)).then(img => {
-            // Only update if this is still the current item and not cancelled
             if (!cancelled && img) {
                 imageRef.current = img;
                 setImageLoaded(true);
@@ -190,7 +138,6 @@ export function CanvasResultItem({
         };
     }, [item]);
 
-    // Canvas sizing effect - only runs when size changes
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -200,7 +147,6 @@ export function CanvasResultItem({
 
         const dpr = window.devicePixelRatio || 1;
 
-        // Set canvas size with DPR
         canvas.width = canvasSize * dpr;
         canvas.height = canvasSize * dpr;
         canvas.style.width = `${canvasSize}px`;
@@ -208,7 +154,6 @@ export function CanvasResultItem({
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }, [canvasSize]);
 
-    // Main render loop
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas || !item) return;
@@ -225,30 +170,23 @@ export function CanvasResultItem({
         const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 600;
 
         const render = (timestamp) => {
-            // Mobile throttling: 30fps to save battery (but keep 60fps for special items)
             frameCount++;
             if (isMobileDevice && !isSpecialType && frameCount % 2 !== 0) {
                 animationRef.current = requestAnimationFrame(render);
                 return;
             }
 
-            // Ensure correct transform (in case sizing effect ran)
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
             if (animate) {
-                // Use actual delta time for frame-rate independence
                 const dt = (timestamp - lastTimestamp) / 1000;
                 lastTimestamp = timestamp;
                 timeRef.current += dt;
             }
             const time = timeRef.current;
 
-            // Clear
             ctx.clearRect(0, 0, canvasSize, canvasSize);
 
-            // ============================================
-            // 1. OUTER GLOW RING (pulsing)
-            // ============================================
             if (isSpecialType) {
                 const pulsePhase = (time % 1.5) / 1.5;
                 const pulse = Math.sin(pulsePhase * Math.PI * 2) * 0.5 + 0.5;
@@ -256,17 +194,12 @@ export function CanvasResultItem({
 
                 let glowColor;
                 if (isInsane) {
-                    // Travels the slick. Was a gold->cream pulse, which is now
-                    // legendary's colour.
                     glowColor = sampleHolo((time % 2.4) / 2.4);
                 } else if (isMythic) {
                     glowColor = sampleRamp(COLORS.mythicCycle, (time % 1.5) / 1.5);
                 } else if (isSpecial) {
-                    // Legendary — steady gold, no cycle.
                     glowColor = hexToRgb(COLORS.insane);
                 } else if (isRelic) {
-                    // The same slow breathe exotic and rare use, toward a lit step
-                    // of its own green rather than toward another tier's hue.
                     const relicPhase = (time % 2.25) / 2.25;
                     const relicPulse = Math.sin(relicPhase * Math.PI * 2) * 0.5 + 0.5;
                     glowColor = lerpColor(COLORS.relic, '#7FE8A8', relicPulse);
@@ -287,7 +220,6 @@ export function CanvasResultItem({
                     const eventPulse = Math.sin(eventPhase * Math.PI * 2) * 0.5 + 0.5;
                     glowColor = lerpColor(COLORS.gold, '#FFFF66', eventPulse);
                 } else if (isLuckyCommon) {
-                    // Lucky spin common items use green
                     const luckyPhase = (time % 2.25) / 2.25;
                     const luckyPulse = Math.sin(luckyPhase * Math.PI * 2) * 0.5 + 0.5;
                     glowColor = lerpColor(COLORS.green, '#88FF88', luckyPulse);
@@ -295,7 +227,6 @@ export function CanvasResultItem({
                     glowColor = hexToRgb(COLORS.gold);
                 }
 
-                // Draw pulsing glow ring
                 const ringGradient = ctx.createRadialGradient(
                     centerX, centerY, size * 0.3,
                     centerX, centerY, ringSize * 0.7
@@ -308,17 +239,13 @@ export function CanvasResultItem({
                 ctx.fillRect(0, 0, canvasSize, canvasSize);
             }
 
-            // ============================================
-            // 2. INNER GLOW (matching strip style)
-            // ============================================
             if (isSpecialType) {
                 let glowColor1, glowColor2, intensity;
 
                 if (isInsane) {
                     const phase = (time % 2.4) / 2.4;
                     intensity = 0.85 + Math.sin(phase * Math.PI * 4) * 0.15;
-                    // Two points a third of a cycle apart, so the bloom is never
-                    // one flat hue — same treatment as the strip.
+                    // Two points a third of a cycle apart, so the bloom is never one flat hue.
                     glowColor1 = sampleHolo(phase);
                     glowColor2 = sampleHolo(phase + 0.33);
                 } else if (isMythic) {
@@ -327,7 +254,6 @@ export function CanvasResultItem({
                     glowColor1 = sampleRamp(COLORS.mythicCycle, phase);
                     glowColor2 = sampleRamp(COLORS.mythicCycle, phase + 0.33);
                 } else if (isSpecial) {
-                    // Legendary — steady gold.
                     intensity = 0.8;
                     glowColor1 = hexToRgb(COLORS.insane);
                     glowColor2 = hexToRgb(COLORS.insane);
@@ -362,7 +288,6 @@ export function CanvasResultItem({
                     glowColor1 = lerpColor(COLORS.gold, '#FFFF66', pulse);
                     glowColor2 = hexToRgb(COLORS.gold);
                 } else if (isLuckyCommon) {
-                    // Lucky spin common items use green
                     const phase = (time % 2.25) / 2.25;
                     const pulse = Math.sin(phase * Math.PI * 2) * 0.5 + 0.5;
                     intensity = 0.5 + pulse * 0.3;
@@ -374,7 +299,6 @@ export function CanvasResultItem({
                     glowColor2 = hexToRgb(COLORS.gold);
                 }
 
-                // Inner glow gradient
                 const innerGlow = ctx.createRadialGradient(
                     centerX, centerY, 0,
                     centerX, centerY, size * 0.7
@@ -388,9 +312,6 @@ export function CanvasResultItem({
                 ctx.fillRect(GLOW_PADDING - 15, GLOW_PADDING - 15, size + 30, size + 30);
             }
 
-            // ============================================
-            // 3. ITEM BOX BACKGROUND
-            // ============================================
             const boxX = GLOW_PADDING;
             const boxY = GLOW_PADDING;
             const radius = 12;
@@ -398,7 +319,6 @@ export function CanvasResultItem({
             ctx.beginPath();
             drawRoundedRectPath(ctx, boxX, boxY, size, size, radius);
 
-            // Background gradient
             const bgGradient = ctx.createLinearGradient(boxX, boxY, boxX + size, boxY + size);
             if (isInsane) {
                 bgGradient.addColorStop(0, `${COLORS.insaneHolo[0]}44`);
@@ -409,7 +329,6 @@ export function CanvasResultItem({
                 bgGradient.addColorStop(0.5, `${COLORS.mythicCycle[1]}33`);
                 bgGradient.addColorStop(1, `${COLORS.mythicCycle[2]}33`);
             } else if (isSpecial) {
-                // Legendary — gold, one hue, two alphas.
                 bgGradient.addColorStop(0, `${COLORS.insane}33`);
                 bgGradient.addColorStop(1, `${COLORS.insane}22`);
             } else if (isRelic) {
@@ -425,7 +344,6 @@ export function CanvasResultItem({
                 bgGradient.addColorStop(0, `${COLORS.recursion}33`);
                 bgGradient.addColorStop(1, `${COLORS.recursionDark}33`);
             } else if (isLuckyCommon) {
-                // Lucky spin common items use green background
                 bgGradient.addColorStop(0, `${COLORS.green}33`);
                 bgGradient.addColorStop(1, `${COLORS.green}22`);
             } else {
@@ -436,19 +354,10 @@ export function CanvasResultItem({
             ctx.fillStyle = bgGradient;
             ctx.fill();
 
-            // ============================================
-            // 4. BORDER (animated color)
-            // ============================================
-            // borderColor is what gets stroked and may be a CanvasGradient.
-            // borderGlowColor is always a flat colour string, because shadowColor
-            // rejects a gradient — assigning one is a silent no-op that leaves the
-            // previous shadow colour in place.
+            // borderColor may be a CanvasGradient; borderGlowColor must stay a flat string, since a gradient shadowColor is a silent no-op.
             let borderColor, borderGlowColor;
             if (isInsane) {
-                // The whole slick, not a point sampled off it — a single sampled
-                // colour cycles through exotic's magenta, mythic's aqua and
-                // legendary's gold in turn, so the winning card would impersonate
-                // a lesser tier for two thirds of every cycle.
+                // The whole slick, never one sampled point, or the card impersonates a lesser tier two thirds of every cycle.
                 const phase = (time % 2.4) / 2.4;
                 borderColor = createHoloGradient(ctx, boxX, size, phase);
                 const bc = sampleHolo(phase);
@@ -457,7 +366,6 @@ export function CanvasResultItem({
                 const bc = sampleRamp(COLORS.mythicCycle, (time % 1.5) / 1.5);
                 borderColor = `rgb(${bc.r}, ${bc.g}, ${bc.b})`;
             } else if (isSpecial) {
-                // Legendary — flat gold, no cycle.
                 borderColor = COLORS.insane;
             } else if (isRelic) {
                 const phase = (time % 2.25) / 2.25;
@@ -485,7 +393,6 @@ export function CanvasResultItem({
                 const bc = lerpColor(COLORS.gold, '#FFFF66', pulse);
                 borderColor = `rgb(${bc.r}, ${bc.g}, ${bc.b})`;
             } else if (isLuckyCommon) {
-                // Lucky spin common items use green border
                 const phase = (time % 2.25) / 2.25;
                 const pulse = Math.sin(phase * Math.PI * 2) * 0.5 + 0.5;
                 const bc = lerpColor(COLORS.green, '#88FF88', pulse);
@@ -494,15 +401,13 @@ export function CanvasResultItem({
                 borderColor = COLORS.gold;
             }
 
-            // Every branch except insane sets a flat colour, so it doubles as the
-            // glow; insane already supplied its own sampled point above.
+            // Every branch except insane sets a flat colour, so it doubles as the glow.
             borderGlowColor = borderGlowColor || borderColor;
 
             ctx.strokeStyle = borderColor;
             ctx.lineWidth = 3;
             ctx.stroke();
 
-            // Border glow
             if (isSpecialType) {
                 ctx.shadowColor = borderGlowColor;
                 ctx.shadowBlur = 10;
@@ -510,19 +415,13 @@ export function CanvasResultItem({
                 ctx.shadowBlur = 0;
             }
 
-            // ============================================
-            // 5. SHINE SWEEP (diagonal, variable speed)
-            // ============================================
             ctx.save();
             ctx.beginPath();
             drawRoundedRectPath(ctx, boxX, boxY, size, size, radius);
             ctx.clip();
 
-            // Draw 2 sweeps at different phases with variable speed
             for (let i = 0; i < 2; i++) {
-                // Base cycle of 4 seconds, but with speed variation
                 const basePhase = (time / 4 + i * 0.5) % 1;
-                // Add sine-based speed variation - sometimes faster, sometimes slower
                 const speedVar = Math.sin(time * 0.3 + i * 2) * 0.15;
                 const phase = (basePhase + speedVar + 1) % 1;
 
@@ -530,7 +429,7 @@ export function CanvasResultItem({
 
                 ctx.save();
                 ctx.translate(centerX, centerY);
-                ctx.rotate(-0.45); // ~25 degree diagonal
+                ctx.rotate(-0.45);
 
                 const sweepGradient = ctx.createLinearGradient(sweepPos - 20, 0, sweepPos + 20, 0);
                 sweepGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
@@ -546,20 +445,15 @@ export function CanvasResultItem({
 
             ctx.restore();
 
-            // ============================================
-            // 6. ITEM IMAGE
-            // ============================================
             if (imageRef.current || getAtlasSprite(item)) {
                 const imgSize = size * 0.7;
                 const imgX = centerX - imgSize / 2;
                 const imgY = centerY - imgSize / 2;
 
-                // Image smoothing based on type
                 const useSmooth = isInsane || isSpecial || isRare || isMythic || item?.username || isEvent || isRecursionType;
                 ctx.imageSmoothingEnabled = useSmooth;
                 ctx.imageSmoothingQuality = useSmooth ? 'high' : 'low';
 
-                // Drop shadow
                 if (isSpecialType) {
                     ctx.shadowColor = borderGlowColor;
                     ctx.shadowBlur = 8;

@@ -1,64 +1,17 @@
 /*
- * ══════════════════════════════════════════════════════════════════════════
- * THE ARRIVAL — the theatre
- * ══════════════════════════════════════════════════════════════════════════
- *
- * The event used to be two objects: a station in the reel band and a 440px card
- * of numbers stacked above it. The owner's note was that it "shifts the strip
- * down and shows the lucky spin distribution above… it would be better if the
- * whole scenery is one epic animation". This file is the answer to that. There
- * is one composition now, and everything that happens happens inside it.
- *
- * ── THE SEQUENCE ─────────────────────────────────────────────────────────────
- *
- *   The reel shutters closed, slot by slot, exactly where the reel is.
- *   The page goes dark around it — the house lights, before the curtain.
- *   The band OPENS: the same rectangle grows out into a wide frame over the
- *     column, and the train is already coming in as it does.
- *   Three shots: the arrival, the payout, the departure.
- *   The frame collapses back onto the band, the page comes back, the shutters
- *     roll up, and the reel is where it always was.
- *
- * ── WHAT ACTUALLY MOVES, AND WHAT ONLY LOOKS LIKE IT ─────────────────────────
- *
- * Nothing on the page moves. Not one pixel of layout changes for the whole
- * eighteen seconds — which was the complaint, and it is the constraint the rest
- * of this file is built around.
- *
- * The frame is a FIXED element, sitting at its final size from the first frame,
- * revealed through an animated `clip-path` that starts as the reel mount's own
- * rectangle. So "the band growing" is a clip opening, not a box resizing: no
- * reflow, no scrollbar, and — the reason that matters most here — no `setSize`
- * on a WebGL renderer sixty times a second for a second and a bit while a
- * locomotive is arriving. The scene renders at its final resolution throughout
- * and simply has more of itself shown.
- *
- * The veils are the other half of the same trick. They are two plain bars above
- * and below the frame rather than one scrim with a hole in it, because a hole in
- * a scrim is a `clip-path` with an even-odd fill that has to be rebuilt every
- * frame, and two heights are two numbers. While the frame is still the band,
- * they cover everything except the band — which is why the shutter closing is
- * the one part of this that is NOT dimmed. You watch your own wheel shut down at
- * full brightness, and the room goes dark around it.
- *
- * ── IT DOES NOT TAKE THE PAGE, ONLY THE PICTURE ──────────────────────────────
- *
- * `pointer-events: none` throughout, including the veils. The arrival owns the
- * screen visually for fifteen seconds and it fires about twice a day; blocking
- * chat, the nav and the collection book for that long because we are showing an
- * animation would be the site holding the player still. Spinning is already
- * refused for the duration in WheelSpinner, which is the one interaction that
- * genuinely cannot happen here, and it is refused there for its own reasons.
- *
- * ── AND WHY IT IS A PORTAL ───────────────────────────────────────────────────
- *
- * The reel mount is `overflow: hidden` and sits inside a grid cell with its own
- * stacking context. A frame that has to cover the column cannot be a child of a
- * box that clips at 170px. What stays behind in the mount is the shutter and a
- * probe div whose only job is to have the mount's rectangle, measured every
- * frame so a scroll, a resize or a topbar changing height moves the frame's
- * origin with it.
- */
+* THE ARRIVAL - the theatre: one composition in which the whole event plays (shutters close, the page
+* darkens, the band opens into a wide frame, three shots, then it collapses back).
+*
+* Nothing on the page moves: the frame is a FIXED element at its final size, revealed through an
+* animated `clip-path` that starts as the reel mount's rectangle, so there is no reflow and no `setSize`
+* on the WebGL renderer. The veils are two bars above and below the frame rather than a scrim with a hole.
+*
+* `pointer-events: none` throughout: it owns the screen visually, not the page. WheelSpinner refuses
+* spinning for the duration on its own.
+*
+* It is a portal because the reel mount is `overflow: hidden` inside its own stacking context; what stays
+* behind is the shutter and a probe div whose rectangle is measured every frame.
+*/
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -75,42 +28,15 @@ import {
     sortManifest,
 } from './arrivalTimeline.js';
 
-/*
- * three.js is fetched WHEN A TRAIN ARRIVES, not when the page loads.
- *
- * Statically imported it added 132KB gzipped to the wheel chunk — 140KB to
- * 272KB, very nearly doubling the heaviest route on a site PRODUCT.md describes
- * as "a phone beside a running game". Arrivals fire roughly twice a day, so
- * almost every visit was paying for a locomotive it would never see.
- *
- * The shutter is what buys the time: the reel spends 1.3 seconds closing before
- * the train is due, and the chunk is requested the instant this component mounts
- * — which is the same instant the arrival broadcast lands. On a slow connection
- * the platform simply stands empty a moment longer, which is a train running
- * late rather than a broken animation.
- */
-// The lazy component lives in arrivalScene.js, beside the prefetch the
-// selection wheel calls — one file names the chunk, so both name the same one.
-// See the note there.
+// three.js is fetched when a train arrives, not at page load: statically imported it nearly doubled the wheel
+// chunk (140KB to 272KB gzipped) for an event that fires about twice a day. The 1.3s shutter buys the time.
+// The lazy component lives in arrivalScene.js beside the prefetch the selection wheel calls, so both name one chunk.
 
 /**
- * The train, and only the train, is allowed to fail.
- *
- * Suspense covers the chunk being SLOW; it does nothing whatever about the
- * chunk not arriving. A rejected `import()` — the deploy that replaced the
- * hashed file under a tab that had been open since the last one, or the phone
- * that left the tunnel with the request half-served — throws during render, and
- * with no boundary anywhere above it that unmounts the entire wheel to a white
- * page. Trading a locomotive for the site is a bad trade at any odds.
- *
- * So the scene is fenced off on its own. Losing it leaves the shutter, the
- * motes, the veils and — the part that actually matters — ArrivalBoard, which
- * is where the manifest and the payout are. The event degrades to a lit, empty
- * platform, which is a train that did not turn up rather than a broken site.
- *
- * `null` and not a placeholder: the frame is a scene or it is nothing, and a
- * spinner sitting where a train should be reads as still loading, forever.
- */
+* Only the train may fail. A rejected `import()` (a deploy replacing the hashed file under an open tab) throws
+* during render and would unmount the whole wheel; fenced off, the event degrades to ArrivalBoard on a lit,
+* empty platform. `null`, not a placeholder: a spinner reads as loading forever.
+*/
 class TrainBoundary extends React.Component {
     constructor(props) {
         super(props);
@@ -131,21 +57,11 @@ class TrainBoundary extends React.Component {
 }
 
 const clamp01 = t => Math.max(0, Math.min(1, t));
-/*
- * The iris opens fast and settles; it closes on the mirror of that. Same pairing
- * as the shutter's blades and for the same reason — a curtain is PULLED open and
- * arrives slowing, and drops shut.
- */
+// The iris opens fast and settles and closes on the mirror of that, like the shutter's blades.
 const easeOpen = t => 1 - Math.pow(1 - t, 3.4);
 const easeShut = t => t * t;
 
-/**
- * The frame the whole event plays in, in viewport pixels.
- *
- * Centred on the band the player was already looking at rather than on the
- * viewport, and then clamped into it. The band is where their eye is; a frame
- * that opened around some other point would make them find it again.
- */
+/** The frame the whole event plays in, in viewport pixels: centred on the band, then clamped into the viewport. */
 function cinemaRect(band) {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
@@ -177,111 +93,38 @@ export function ArrivalTheatre() {
     const emitRef = useRef(null);
     const rowElsRef = useRef([]);
 
-    /*
-     * One sort, three consumers: the board renders these rows, the scene gives
-     * wagon `i` row `i`'s crate, and the overlay flies row `i`'s spins from that
-     * wagon's crate to that row. They cannot disagree, because there is one
-     * array.
-     */
+    // One sort, three consumers (board rows, the scene's wagon `i` crate, the overlay's spin flights): one array so they cannot disagree.
     const rows = useMemo(() => (arrival?.manifest ? sortManifest(arrival.manifest) : []), [arrival]);
 
-    /*
-     * ── THE SOUND ────────────────────────────────────────────────────────────
-     *
-     * Read through refs, and the effect below depends on the committed arrival epoch.
-     *
-     * `useSound`'s callbacks are rebuilt whenever any setting changes, and a
-     * volume slider moved during an arrival would otherwise re-run this effect:
-     * the cleanup stops the take and the body starts it again from zero, which
-     * is a train that restarts because somebody turned it down.
-     *
-     * Seeded at construction and refreshed in a bare effect after every render
-     * — not assigned in the render body, which is a write during render — so
-     * the mount's own call already has the callbacks and a timer that fires ten
-     * seconds later still reaches the current ones. Same device, and the same
-     * ordering constraint, as `playSfxRef` in WheelSpinner.
-     */
+    // Sound callbacks go through refs and the effect depends on the committed arrival epoch: `useSound`'s callbacks are
+    // rebuilt on every settings change, and a volume change mid-arrival would restart the take. Seeded at construction
+    // and refreshed in a bare effect (not assigned in render), as `playSfxRef` in WheelSpinner.
     const soundRef = useRef({ startArrivalSoundtrack, stopArrivalSoundtrack, playArrivalCrate, stopArrivalCrates });
     useEffect(() => {
         soundRef.current = { startArrivalSoundtrack, stopArrivalSoundtrack, playArrivalCrate, stopArrivalCrates };
     });
 
-    /*
-     * The bed, and the crates coming down on top of it.
-     *
-     * ── WHY THE CRATES ARE ON TIMERS AND NOT ON THE SCENE ────────────────────
-     *
-     * The obvious place is ArrivalTrain3D: it already has a one-shot `landed`
-     * flag per crate, fired on the frame the box touches the paving. But the
-     * scene is a lazy chunk behind an error boundary that is explicitly allowed
-     * to fail, and it renders in an effect that knows nothing about React
-     * context. Hanging the audio off it means a slow chunk delays the sound and
-     * a failed one deletes it, and the board — which is the part that survives
-     * a failed train — would pay out in silence.
-     *
-     * So they read the timeline instead, which is the same clock the scene's
-     * arcs are drawn from: `crateCueAt(i, n)` whatever is or is not on screen.
-     * Two clocks reading one table cannot drift — the note at the top of
-     * arrivalTimeline.js, applied to the fifth consumer of it.
-     *
-     * `crateCueAt` and NOT the landing beat. The takes are the whole arc, hit
-     * included, so they start as the crate is released; see the note on
-     * `CRATE_IMPACT_OFFSET_S`. Cueing them on the landing put every impact six
-     * tenths of a second behind its own crate.
-     *
-     * `n` is the PLAYER count and the loop stops at `MAX_CRATES`, matching the
-     * scene exactly: the cadence is per player, the consist is capped, and rows
-     * past the cap have no crate to make a noise.
-     */
+    // Crates are cued off the timeline, not the scene: the scene is a lazy chunk allowed to fail, and a failed one
+    // would delete the sound. `crateCueAt(i, n)` is the same table the scene draws from. It is NOT the landing beat:
+    // the takes are the whole arc, so they start at release (see `CRATE_IMPACT_OFFSET_S`). `n` is the PLAYER count
+    // and the loop stops at `MAX_CRATES`, matching the scene.
     useEffect(() => {
         if (!arrival || epoch == null || rows.length === 0) return undefined;
 
-        /*
-         * The bed, against the event's own epoch.
-         *
-         * Handed over as a FUNCTION rather than started at zero, because the
-         * first arrival of a session has to fetch the file before it can play a
-         * note of it. Read at call time that is 0.0 and the take begins three
-         * quarters of a second after the shutter; read when the audio is
-         * actually ready, it is 0.75 and the take joins the picture where the
-         * picture is. `joinTake` in SoundContext owns the mechanism.
-         *
-         * `performance.now()` and not `serverNow()`: an arrival is a portal that
-         * opens when you are shown it, so the picture is the authority. THE
-         * PARLOUR is the opposite case and uses the server clock for exactly
-         * that reason.
-         */
+        // The bed gets a function, not zero: the first arrival must fetch the file, and the take should join the picture
+        // where it is (`joinTake` in SoundContext). `performance.now()`, not `serverNow()`: an arrival is a portal, so the
+        // picture is the authority (THE PARLOUR is the opposite case).
         soundRef.current?.startArrivalSoundtrack?.(
             () => (performance.now() - epoch) / 1000,
         );
 
-        /*
-         * Under reduced motion every crate is already down on the first frame,
-         * so a stagger has nothing to be staggered against and the four takes
-         * would arrive as one chord. The bed stays — it is the event's voice and
-         * a motion preference is not a sound preference — and the impacts go.
-         */
-        /*
-         * ── THE CUE SHEET IS HANDED OVER, NOT SLEPT ON ───────────────────────
-         *
-         * Every impact is offered to the sound layer at once, each carrying how
-         * far from now it belongs. Given decoded samples that becomes four
-         * `start(currentTime + t)` calls on the audio thread, which keeps them
-         * whatever the main thread is doing — and what the main thread is doing
-         * during these two seconds is starting a 3D scene, which is exactly why
-         * the impacts used to be late on the first arrival of a session.
-         *
-         * A timer is now the FALLBACK rather than the mechanism, taken only for
-         * the cues the sound layer refused: no Web Audio, a context still
-         * waiting on a gesture, or a decode that has not finished. That is the
-         * same shape as before, so nothing gets worse where the samples are
-         * unavailable — it just stops being the normal path.
-         */
+        // Under reduced motion every crate is already down, so the impacts go; the bed stays (motion is not a sound preference).
+        // The cue sheet is handed to the sound layer at once, each cue with its offset, so the audio thread keeps them
+        // while the main thread starts the 3D scene. A timer is only the fallback for cues the sound layer refused
+        // (no Web Audio, a context awaiting a gesture, an unfinished decode).
         const timers = [];
         if (!prefersReducedMotion()) {
-            // Against the epoch rather than against "now". They are the same
-            // instant to within a frame today, and would silently stop being so
-            // the moment anything is added above this effect.
+            // Measured against the epoch, not "now", so adding anything above this effect cannot skew it.
             const since = () => (performance.now() - epoch) / 1000;
             for (let i = 0; i < Math.min(rows.length, MAX_CRATES); i++) {
                 const at = Math.max(0, crateCueAt(i, rows.length) - since());
@@ -297,9 +140,7 @@ export function ArrivalTheatre() {
 
         return () => {
             timers.forEach(clearTimeout);
-            // The audio thread holds any impact that has not sounded yet, and a
-            // theatre that closes early has to take those back — a cleared timer
-            // no longer covers them.
+            // The audio thread holds impacts that have not sounded; a theatre closing early has to take them back.
             soundRef.current?.stopArrivalCrates?.();
             soundRef.current?.stopArrivalSoundtrack?.();
         };
@@ -318,13 +159,7 @@ export function ArrivalTheatre() {
         let raf = 0;
 
         const paint = (t) => {
-            /*
-             * The band is re-measured every frame rather than captured on mount.
-             * The page underneath is live for the whole event — the activity
-             * ticker grows, the topbar can change height, and the player can
-             * scroll, which they are welcome to do — and a frame anchored to a
-             * rectangle that has moved is a frame that opens out of nowhere.
-             */
+            // Re-measured every frame: the page is live (ticker grows, topbar changes height, the player scrolls).
             const band = probe.getBoundingClientRect();
             const cinema = cinemaRect(band);
 
@@ -337,31 +172,12 @@ export function ArrivalTheatre() {
             const top = band.top + (cinema.top - band.top) * iris;
             const bottom = band.bottom + (cinema.bottom - band.bottom) * iris;
 
-            /*
-             * The frame IS the cinema rectangle, at full size, from the first
-             * frame — written here rather than in the stylesheet because it is
-             * derived from the band and the viewport together.
-             *
-             * That it is the final rectangle and not the visible one is the
-             * whole design: the scene renders at the shape it will be seen at,
-             * so the lens that frames the locomotive is solved once for a 2.5:1
-             * picture instead of being re-solved every frame of the opening for
-             * a rectangle that is on its way somewhere. Written every frame and
-             * almost always to the same two values, so the ResizeObserver in the
-             * renderer only fires when the page underneath actually moves.
-             */
+            // The frame is the cinema rectangle at full size from the first frame, so the lens is solved once for a 2.5:1
+            // picture. Written every frame to almost always the same values, so the renderer's ResizeObserver only fires on real moves.
             frame.style.top = `${cinema.top}px`;
             frame.style.height = `${cinema.height}px`;
 
-            /*
-             * Clamped at zero because the clip is expressed relative to the
-             * frame's own box: if the reel band ever sits ABOVE the frame — a
-             * very short viewport, where the clamp in `cinemaRect` has pushed
-             * the frame down past the band — a negative inset would stop
-             * clipping altogether and the frame would simply appear. Clamped, it
-             * degrades to opening from slightly too large, which is a softer
-             * failure than a jump cut.
-             */
+            // Clamped at zero: if the band sits above the frame (very short viewport) a negative inset would stop clipping altogether.
             const clipTop = Math.max(0, top - cinema.top);
             const clipBot = Math.max(0, cinema.bottom - bottom);
             frame.style.clipPath = `inset(${clipTop}px 0 ${clipBot}px 0)`;
@@ -377,13 +193,7 @@ export function ArrivalTheatre() {
             topVeil.style.opacity = String(veil);
             botVeil.style.opacity = String(veil);
 
-            /*
-             * The frame's own fade at the end is on top of the scene's. The
-             * station dims itself — lamps down, glows down, canvas out — and the
-             * frame takes the board and the spin overlay with it a fraction
-             * later, so the last thing on screen is the platform going dark
-             * rather than a board hanging over nothing.
-             */
+            // The frame's own fade is on top of the scene's, a fraction later, so the last thing seen is the platform going dark.
             frame.style.opacity = motionOff ? '1' : String(
                 t < T_LIFT ? 1 : 1 - clamp01((t - T_LIFT - 0.1) / (SCENE_FADE_S - 0.1))
             );
@@ -419,17 +229,7 @@ export function ArrivalTheatre() {
             </div>
 
             {createPortal(
-                /*
-                 * NOT aria-hidden. It was, once, and that silenced the whole
-                 * event for anyone using a screen reader: ArrivalBoard carries
-                 * the role="status" live region that announces the payout, and
-                 * an aria-hidden ancestor removes a live region from the
-                 * accessibility tree no matter what the descendant declares.
-                 * The decorative layers each hide themselves instead — the
-                 * shutter, the motes and the 3D scene all set their own
-                 * aria-hidden, and the veils below do the same — which leaves
-                 * the board as the one thing here that is meant to be heard.
-                 */
+                /* NOT aria-hidden: an aria-hidden ancestor silences ArrivalBoard's role="status" live region. The decorative layers hide themselves. */
                 <div className="fib-arrival-theatre">
                     <div ref={topVeilRef} className="fib-arrival-veil is-top" aria-hidden="true" />
                     <div ref={botVeilRef} className="fib-arrival-veil is-bottom" aria-hidden="true" />

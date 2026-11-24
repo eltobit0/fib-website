@@ -1,32 +1,10 @@
 /*
- * ══════════════════════════════════════════════════════════════════════════
- * THE ARRIVAL — the reel closing
- * ══════════════════════════════════════════════════════════════════════════
- *
- * Canvas 2D, mounted inside the reel mount, and the only part of this event
- * that belongs to the reel's own geometry.
- *
- * For the first beat this layer is transparent except for the blades, so the
- * player watches their OWN wheel get closed down slot by slot rather than cut
- * to a picture of one. After that it is the dark band the theatre opens out of,
- * and at the very end it lifts and the reel — which never stopped rendering
- * underneath — is simply revealed.
- *
- * ── WHY THIS IS NOT DRAWN IN THE 3D SCENE ────────────────────────────────────
- *
- * The blades belong to a flat 120px slot pitch and the station belongs to a
- * world with perspective in it. Drawing the shutter inside the scene would put
- * the reel's slots into world space and give them vanishing points, which is
- * exactly what they must not have: they are the wheel the player was looking at
- * a moment ago, at the size it was.
- *
- * It also stays HERE, in the reel mount, while everything else in this event
- * moved into a fixed frame over the page. The shutter is the one layer whose
- * whole job is to be exactly where the reel is.
- *
- * DESIGN.md §8 calls the reel "a main transit line arriving at its stop". The
- * band is the line; the theatre next door is the arrival.
- */
+* THE ARRIVAL - the reel closing. Canvas 2D inside the reel mount, the one part of this event on the reel's own
+* geometry: the player watches their own wheel shut slot by slot, then it is the dark band the theatre opens out of,
+* and at the end it lifts to reveal the reel (which never stopped rendering underneath).
+*
+* It is not drawn in the 3D scene because the blades belong to a flat 120px slot pitch and must not get vanishing points.
+*/
 
 import React, { useEffect, useRef } from 'react';
 import { rail } from '../config/constants';
@@ -40,16 +18,7 @@ const SLOT_PITCH = 120;
 const DUST = '159,176,212';
 
 const clamp01 = t => Math.max(0, Math.min(1, t));
-/*
- * The blades FALL on an accelerating curve and RISE on a decelerating one,
- * which is not a stylistic pairing — it is the difference between a thing
- * being dropped and a thing being pulled.
- *
- * The first version used easeOutExpo for the close, so every blade arrived
- * already slowing and set itself down like a lid. Gravity has no such
- * courtesy. easeInQuad is gravity, and it is what makes the landing read as
- * an impact worth throwing dust off.
- */
+// Blades FALL on an accelerating curve (easeInQuad, gravity) and RISE on a decelerating one: dropped versus pulled.
 const easeInQuad  = t => t * t;
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 
@@ -57,14 +26,9 @@ const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 const hash = i => { const s = Math.sin(i * 127.1) * 43758.5453; return s - Math.floor(s); };
 
 /**
- * A burst of dust at (cx, y), aged `age` seconds out of `dur`.
- *
- * `dir` is -1 for a blade landing (the cloud rolls outward and up off the
- * floor) and +1 for one lifting (grit falls out of the mechanism). Drawn from
- * the clock rather than from a particle array on purpose: the shutter's whole
- * state is a function of `t`, so a resize, a dropped frame or a tab coming
- * back from the background all recover exactly instead of restarting mid-puff.
- */
+* A burst of dust at (cx, y), aged `age` of `dur`; `dir` is -1 for a landing blade, +1 for a lifting one.
+* Drawn from the clock, not a particle array, so resize, dropped frames and background tabs recover exactly.
+*/
 function puff(ctx, cx, y, age, dur, dir, seed, alpha = 1) {
     if (age <= 0 || age >= dur) return;
     const p = age / dur;
@@ -123,24 +87,15 @@ export function ArrivalShutter() {
         ro.observe(wrap);
 
         const frame = (now) => {
-            // Clamped at the source: a rAF timestamp can precede the
-            // performance.now() captured just before it was scheduled, and every
-            // value derived from a negative elapsed goes with it.
+            // Clamped at the source: a rAF timestamp can precede the performance.now() captured before it was scheduled.
             const t = motionOff ? T_SHUTTER : Math.max(0, (now - start) / 1000);
 
             ctx.clearRect(0, 0, W, H);
 
             const slots = Math.ceil(W / SLOT_PITCH) + 1;
 
-            /*
-             * Both runs are stagger-then-travel, sized as fractions of their
-             * phase so the whole cascade finishes on time at any viewport width.
-             *
-             * The close gives most of its budget to the STAGGER (0.68) and only
-             * a third to each blade's fall, so the blades land as a row of
-             * separate events rather than a single curtain — which is the point:
-             * you should be able to count them.
-             */
+            // Stagger-then-travel as fractions of the phase. The close gives most of its budget to the stagger (0.68) so
+            // the blades land as separate, countable events.
             const CLOSE_STAGGER = T_SHUTTER * 0.68;
             const CLOSE_FALL    = T_SHUTTER * 0.32;
             const OPEN_SPAN     = Math.max(0.1, T_LIFT_END - T_SHUTTER_LIFT);
@@ -154,11 +109,7 @@ export function ArrivalShutter() {
                 if (cp <= 0) continue;
                 const closed = easeInQuad(cp);
 
-                /*
-                 * The last blade to land is the first to lift, so the opening
-                 * unwinds the closing instead of replaying it. Running both
-                 * left-to-right made the end look like a second shutdown.
-                 */
+                // The last blade to land lifts first, so the opening unwinds the closing instead of replaying it.
                 const openLead = ((slots - 1 - i) / slots) * OPEN_STAGGER;
                 const openAge = motionOff ? -1 : t - (T_SHUTTER_LIFT + openLead);
                 const opened = easeOutCubic(clamp01(openAge / OPEN_RISE));
@@ -169,17 +120,11 @@ export function ArrivalShutter() {
                     const blade = ctx.createLinearGradient(0, 0, 0, h);
                     blade.addColorStop(0, '#0a0d18');
                     blade.addColorStop(1, '#05060a');
-                    // A pixel of overlap. At `SLOT_PITCH - 1` each blade left a
-                    // hairline gap, and the lit reel behind showed through every
-                    // one of them — a row of bright vertical seams across a band
-                    // that is supposed to be shut.
+                    // A pixel of overlap: at `SLOT_PITCH - 1` the lit reel showed through as bright seams.
                     ctx.fillStyle = blade;
                     ctx.fillRect(x, 0, SLOT_PITCH + 1, h);
 
-                    // The leading edge catches the light on the way down, flares
-                    // white-hot for a moment on impact, then settles to a
-                    // rail-light seam. The flare is the only part of the slam
-                    // that is visible after the blade has stopped moving.
+                    // The leading edge flares white-hot on impact, then settles to a rail-light seam.
                     const sinceLand = t - (closeLead + CLOSE_FALL);
                     const flare = clamp01(1 - sinceLand / 0.22);
                     const lifting = openAge > 0;

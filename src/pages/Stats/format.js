@@ -1,13 +1,4 @@
-/**
- * Presentation helpers.
- *
- * `data.js` already owns the canonical formatters (they match what the service
- * returns), so this file re-exports those and adds only what the layout needs
- * on top. Nothing here reimplements a formatter that already exists there.
- *
- * Note the unit convention inherited from the service: `winRate` and `skipRate`
- * are percentages on a 0–100 scale, NOT fractions.
- */
+/* `winRate` and `skipRate` are 0-100 percentages, not fractions. */
 
 export {
   formatNumber as num,
@@ -27,25 +18,11 @@ export {
   itemSearchText,
 } from './data.js';
 
-/**
- * Grouped, never abbreviated: "12,438", not "12.4K".
- *
- * `num` shortens anything over ten thousand, which is right in a table cell and
- * wrong for the numbers this product is actually about. "12,438 items found"
- * reads as an achievement; "12.4K items found" reads as a metric. Use this
- * wherever the number IS the statement.
- */
+/* Grouped, never abbreviated: `num` shortens past ten thousand, which is wrong where the number is the statement. */
 export const full = (n) =>
   Number.isFinite(n) ? Math.round(n).toLocaleString('en-US') : '—';
 
-/**
- * Absolute date and time: "20 Jul, 21:14".
- *
- * `date` is itself relative for anything inside a week ("Today", "2 days
- * ago"), so pairing it with `timeAgo` printed the same phrase twice in the
- * match feed. Rows need one relative phrase for scanning and one absolute
- * stamp for pinning it down, and this is the absolute one.
- */
+/* Absolute: `date` is relative inside a week, so pairing it with `timeAgo` would repeat the phrase. */
 export function stamp(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
@@ -60,7 +37,6 @@ export const pct = (n, places = 0) =>
 export const dec = (n, places = 1) =>
   Number.isFinite(n) ? n.toLocaleString('en-US', { minimumFractionDigits: places, maximumFractionDigits: places }) : '—';
 
-/** Long spans on the profile: 157h 41m reads better than 9461m. */
 export function hours(seconds) {
   if (!Number.isFinite(seconds)) return '—';
   const s = Math.round(seconds);
@@ -68,14 +44,7 @@ export function hours(seconds) {
   return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
 }
 
-/**
- * The same span, spelled out: "15 minutes 17 seconds".
- *
- * `duration` renders "15m 17s", which is right on screen and wrong in an
- * accessible name — a screen reader pronounces it "fifteen m seventeen s". The
- * two forms are kept separate rather than compromised into one that is poor at
- * both jobs.
- */
+/* Spelled out for accessible names: a screen reader reads "15m 17s" as "fifteen m seventeen s". */
 export function durationWords(seconds) {
   if (!Number.isFinite(seconds)) return '—';
   const total = Math.max(0, Math.round(seconds));
@@ -83,8 +52,6 @@ export function durationWords(seconds) {
   const s = total % 60;
   const parts = [];
   if (m > 0) parts.push(`${m} minute${m === 1 ? '' : 's'}`);
-  // A bare "15 minutes" is the honest reading of an exact minute; the seconds
-  // only join it when there are any, or when there is no minute to carry it.
   if (s > 0 || m === 0) parts.push(`${s} second${s === 1 ? '' : 's'}`);
   return parts.join(' ');
 }
@@ -98,7 +65,6 @@ export const signed = (n) =>
 
 export const deltaDir = (n) => (!Number.isFinite(n) || n === 0 ? 'flat' : n > 0 ? 'up' : 'down');
 
-/** Movement vs last week. Never a bare arrow — the number carries the meaning. */
 export function movement(n) {
   if (!Number.isFinite(n) || n === 0) return { dir: 'flat', label: 'no change', text: '—' };
   return n > 0
@@ -110,4 +76,4 @@ export function movement(n) {
 export const truncate = (s, max = 16) =>
   String(s ?? '').length > max ? `${String(s).slice(0, max - 1)}…` : String(s ?? '');
 
-export const ordinal = (n) => ['1st', '2nd', '3rd'][n - 1] ?? `${n}th`;
+export const ordinal = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;

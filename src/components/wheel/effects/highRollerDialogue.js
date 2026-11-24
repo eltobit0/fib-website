@@ -1,10 +1,5 @@
-// Only public hand information is used. Jimbo never knows the hole card.
-//
-// Every situation has a few lines, and which one he says is picked from the table's
-// open time (`seed`) - so every client in the room hears the same line, it does not
-// change under the player as the component re-renders, and the next table sounds
-// different. It used to be one line per situation, which the regulars would have
-// heard word for word every time they busted.
+// Only public hand information is used; Jimbo never knows the hole card.
+// Lines are picked from the table's open time (`seed`), so every client in the room hears the same one.
 
 // The welcome, while he shuffles.
 const WELCOMES = [

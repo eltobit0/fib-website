@@ -1,47 +1,13 @@
 /*
- * ══════════════════════════════════════════════════════════════════════════
- * THE PARLOUR — the machine in the corner
- * ══════════════════════════════════════════════════════════════════════════
- *
- * A roulette wheel, three quarters of it off the top-left corner of the screen,
- * turning for as long as the table is open. It is the room's one piece of
- * furniture and the only object in this event that looks like what the event is
- * called.
- *
- * ── IT IS THE MACHINE, NOT A SECOND READOUT ──────────────────────────────────
- *
- * DESIGN.md §9b's hardest rule about this event is that it must not have a
- * second geometry: the reel IS the wheel, unrolled, and anything else on screen
- * that could be read as "the result" is something that can disagree with the
- * result. That rule is why this wheel carries **no numbers and no ball**.
- *
- * Both were built and both were cut, for the same reason rather than for a
- * visual one. Numbered pockets invite you to read the one under the top of the
- * screen; a ball settles into a pocket, and a ball resting in green while the
- * band says red is exactly the bug that shipped here once and read as a near
- * miss. Twelve coloured wedges and a brass cross say "this is a roulette wheel
- * and it is running" completely, and say nothing that can be wrong.
- *
- * What it does say is the BEAT. It drifts while bets are open, takes up the
- * croupier's pause as a wind, runs on `spinPhase` — the reel's own easing,
- * imported rather than restated — and coasts to rest as the band lands. The
- * room and the reel are one machine at that moment, which is the whole point of
- * putting it there.
- *
- * ── WHY IT IS A CANVAS, WHERE THE REST OF THE ROOM IS CSS ────────────────────
- *
- * ParlourAtmosphere's header argues, correctly, that gradients and slow washes
- * belong in CSS because the compositor does them for free. A rigid body turning
- * about its own centre with brass frets, twelve wedges and a lit rim is not
- * that: as a stack of DOM it would be forty-odd elements inside a rotating
- * container, re-rasterised at every angle.
- *
- * As a canvas it is cheaper than either, because **the rotor is drawn once**.
- * Every frame is a clear, a rotate, one `drawImage` of a pre-rendered bitmap,
- * and the stationary bowl painted over it — no arcs, no gradients, no text per
- * frame. That is also what makes the motion blur affordable: three draws of the
- * same bitmap at three angles, which no DOM version could do at all.
- */
+* THE PARLOUR - the machine in the corner: a roulette wheel, three quarters off the top-left corner.
+*
+* It carries NO numbers and NO ball (DESIGN.md §9b): the reel IS the wheel, and anything that could be
+* read as the result can disagree with it. It says only the beat: drifts while bets are open, winds at
+* the croupier's pause, runs on `spinPhase` (the reel's own easing, imported), coasts to rest on landing.
+*
+* A canvas because the rotor is drawn once: each frame is a clear, a rotate, one `drawImage` of the
+* pre-rendered bitmap and the stationary bowl, which also makes the three-draw motion blur affordable.
+*/
 
 import React, { memo, useEffect, useRef } from 'react';
 import { prefersCalm } from '../../../config/power.js';
@@ -62,45 +28,22 @@ const WIND_UP = 0.6;
 /** Whole revolutions in the run. Five and a bit, so it never lands square. */
 const SPIN_TURNS = 5.28;
 
-/**
- * The rotor's angle at time `t`.
- *
- * Idle, wind and run are three terms of one sum rather than three branches, so
- * the angle is continuous by construction — a piecewise version has to hand its
- * own end state to the next piece, and gets it slightly wrong at every seam.
- */
+/** The rotor's angle at `t`. Idle, wind and run are terms of one sum so the angle is continuous by construction. */
 function rotorAngle(t) {
     const wind = WIND_UP * Math.pow(clamp01((Math.min(t, T_SPIN) - T_CALL) / (T_SPIN - T_CALL)), 2);
     return t * IDLE_W + wind + SPIN_TURNS * TAU * spinPhase(t);
 }
 
 /**
- * The rim's pockets: twenty-four, alternating, with two greens opposite.
- *
- * Not imported from the server's wheel, and deliberately NOT twelve. This is
- * scenery, and the strongest guarantee that it cannot be read as a second
- * opinion about the result is that it is visibly a DIFFERENT wheel — nobody
- * counts twenty-four pockets against the strip's twelve, whereas twelve
- * invites exactly that. It says "a roulette wheel is running" and nothing else,
- * which is the whole of its job.
- *
- * Twelve was built first and looked wrong for an unrelated reason: only a
- * quarter of the wheel is on screen, so twelve pockets put three enormous 30°
- * wedges in the corner and the rim read as a pie chart. A real wheel's pockets
- * are narrow, and narrowness is most of what the eye recognises.
- */
+* The rim's pockets: twenty-four, with two greens opposite. Deliberately not the server's twelve, so it is
+* visibly a different wheel and cannot be read as a second opinion about the result; narrow pockets also
+* avoid the pie-chart look of 30 degree wedges when only a quarter is on screen.
+*/
 const WEDGES = Array.from({ length: 24 }, (_, i) => (
     i === 0 || i === 12 ? 'green' : (i % 2 ? 'black' : 'red')
 ));
 
-/**
- * The rotor, drawn once into an offscreen bitmap.
- *
- * Everything that turns lives here: the pocket ring, its brass frets, the cone
- * and the turret cross. The bowl the rotor sits in does not turn and is painted
- * over this every frame, which is also why the pocket ring's outer edge does
- * not need to be tidy — the bowl covers it.
- */
+/** The rotor, drawn once offscreen: pocket ring, frets, cone and turret cross. The bowl is painted over its outer edge every frame. */
 function renderRotor(R, dpr) {
     const S = Math.round(2 * R * dpr);
     const c = document.createElement('canvas');
@@ -134,9 +77,7 @@ function renderRotor(R, dpr) {
         g.closePath();
         g.fill();
 
-        // The fret between this pocket and the next: a lit face and a dark one,
-        // which is the whole reason the ring reads as machined rather than
-        // printed. Two thin quads either side of the radius.
+        // A lit face and a dark one make the ring read as machined: two thin quads either side of the radius.
         for (const [lean, tone] of [[-1, `${BRASS}D9`], [1, 'rgba(0,0,0,0.72)']]) {
             const w = 0.0075 * lean;
             g.fillStyle = tone;
@@ -176,9 +117,7 @@ function renderRotor(R, dpr) {
     g.stroke();
 
     /* ── the turret and its cross ────────────────────────────────────────── */
-    // The handle a croupier actually spins the wheel by. Four arms, tapered,
-    // with a lit top edge — the one shape on the rotor you can track by eye,
-    // and therefore the thing that makes the rotation legible at all.
+    // The croupier's handle: the one shape you can track by eye, which makes the rotation legible.
     for (let i = 0; i < 4; i++) {
         g.save();
         g.rotate((i / 4) * TAU);
@@ -214,10 +153,7 @@ function renderRotor(R, dpr) {
     return c;
 }
 
-/* Desktop only — ParlourAtmosphere does not mount this on the shaft, and its
-   comment there says why. There is deliberately no phone branch in here: a
-   sizing rule for a viewport the component is never rendered at is a rule
-   nobody can check. */
+/* Desktop only: ParlourAtmosphere does not mount this on the shaft, so there is no phone branch. */
 function ParlourWheel({ openedAt }) {
     const canvasRef = useRef(null);
 
@@ -245,16 +181,7 @@ function ParlourWheel({ openedAt }) {
             canvas.height = Math.round(S * dpr);
             canvas.style.width = `${S}px`;
             canvas.style.height = `${S}px`;
-            /*
-             * The wheel's centre sits just outside the corner, so a QUARTER of
-             * it is on screen: the pocket ring, the frets and two arms of the
-             * cross, which between them say roulette wheel completely.
-             *
-             * The first pass put the centre a third of a radius further out and
-             * the result was a brass arc and a sliver of green — an object you
-             * had to already know was there. The corner is a small budget and
-             * spending it on rim rather than on pockets buys nothing.
-             */
+            // The centre sits just outside the corner so a QUARTER is on screen: pocket ring, frets and two arms say roulette completely.
             canvas.style.left = `${-0.43 * R}px`;
             canvas.style.top = `${90 - 0.10 * R}px`;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -268,9 +195,7 @@ function ParlourWheel({ openedAt }) {
             ctx.clearRect(0, 0, S, S);
 
             const angle = calm ? rotorAngle(T_TURN) : rotorAngle(t);
-            // Differentiated rather than measured, for the reason the reel's
-            // strip differentiates its own offset: a tab returning from the
-            // background must not read one enormous frame as speed.
+            // Differentiated, not measured: a tab returning from the background must not read one huge frame as speed.
             const w = calm ? 0 : Math.abs(rotorAngle(t + 0.02) - rotorAngle(t - 0.02)) / 0.04;
             const smear = clamp01((w - 1.4) / 14);
 
@@ -324,15 +249,7 @@ function ParlourWheel({ openedAt }) {
             ctx.closePath();
             ctx.fill();
 
-            /*
-             * The lamp, which is the reason this reads as an object.
-             *
-             * The room's light hangs over the middle of the page — down and to
-             * the right of this corner — so the highlight belongs on the lower
-             * right of the wheel and must NOT turn with it. Drawn last and
-             * clipped to the wheel, it is the one thing separating "a lit brass
-             * machine" from "a spinning sticker".
-             */
+            // The lamp highlight sits lower right and must NOT turn with the wheel; drawn last and clipped to it.
             ctx.globalCompositeOperation = 'lighter';
             const lamp = ctx.createRadialGradient(R * 0.42, R * 0.46, 0, R * 0.42, R * 0.46, R * 1.15);
             lamp.addColorStop(0, 'rgba(255, 224, 150, 0.20)');
@@ -358,9 +275,7 @@ function ParlourWheel({ openedAt }) {
             ctx.restore();
         };
 
-        /* The server's clock, as everything in this event is — see the
-           timeline's header. A page loaded mid-event finds the wheel where it
-           should be rather than starting it over from the drift. */
+        /* The server's clock, so a page loaded mid-event finds the wheel where it should be. */
         const clock = () => (openedRef.current ? (serverNow() - openedRef.current) / 1000 : 0);
 
         if (calm) {
@@ -376,9 +291,7 @@ function ParlourWheel({ openedAt }) {
         const frame = () => {
             const t = clock();
             draw(Math.max(0, t));
-            // Park rather than run out the tab's lifetime: the room is removed
-            // shortly after T_END anyway, and a loop that outlives its event is
-            // the ambient cost §10 exists to stop.
+            // Park rather than run out the tab's lifetime; a loop that outlives its event is the ambient cost §10 exists to stop.
             if (t > T_END + 1) { parked = true; return; }
             raf = requestAnimationFrame(frame);
         };
@@ -388,24 +301,8 @@ function ParlourWheel({ openedAt }) {
     }, []);
 
     return (
-        /*
-         * The wrapper exists for the mask, and the mask exists for one measured
-         * problem: the wheel's brass rim reaches the top-left corner of the
-         * viewport, which is where the Back control, the page title and the
-         * LIVE drops rail live. Lit brass behind a small grey label took "Back"
-         * to roughly 2:1 — the room lighting the things in it, and then
-         * lighting one of them badly.
-         *
-         * ── IT WAS MEASURED AGAINST THE WRONG ELEMENT ONCE ───────────────────
-         *
-         * The first fade ended at 74px, which cleared the nav and stopped
-         * exactly where the drops rail begins. The rail's pills are dark panels
-         * and survive on their own, but they have GAPS, and the leftmost
-         * username was visibly broken up by the rim behind it. The fade now
-         * runs to the rail's own bottom edge, so every element in that column
-         * is clear of the brass and the wheel starts where the page's furniture
-         * ends. Below it the room is the room again.
-         */
+        /* The wrapper exists for the mask: the brass rim reaches the top-left corner, where the Back control, page title and
+        LIVE drops rail live, and took "Back" to ~2:1. The fade runs to the rail's bottom edge, not just the nav. */
         <div
             aria-hidden="true"
             style={{

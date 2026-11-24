@@ -1,12 +1,7 @@
-// ============================================
-// Client-side utility functions
-// ============================================
-
 import { IMAGE_BASE_URL, CUSTOM_IMAGE_BASE_URL, MYTHIC_ITEMS, INSANE_ITEMS, EXOTIC_ITEMS, RELIC_ITEMS, TEAM_MEMBERS, COLORS } from '../config/constants.js';
 import { getRarityColor } from './rarityHelpers.jsx';
 import { serverNow } from './serverClock.js';
 
-// Format chance as a readable percentage (strips trailing zeros)
 export function formatChance(chance) {
     if (!chance || chance === 0) return '0';
 
@@ -18,43 +13,21 @@ export function formatChance(chance) {
     } else if (percent >= 0.1) {
         formatted = percent.toFixed(2);
     } else if (percent >= 0.01) {
-        // Show 3 decimals for values like 0.072%
         formatted = percent.toFixed(3);
     } else {
-        // For very small percentages like 0.001%, show up to 4 decimal places
         formatted = percent.toFixed(4);
     }
 
-    // Strip trailing zeros (0.0020 -> 0.002, 1.0 -> 1)
     return formatted.replace(/\.?0+$/, '');
 }
 
-/**
- * A timestamp as the wheel backend sends it, as a Date — or null if unparseable.
- *
- * SQLite returns UTC timestamps with no 'Z' suffix, and a bare "2026-08-16
- * 12:00:00" is parsed as *local* time by every browser, so every relative time on
- * the site would be wrong by the viewer's UTC offset. Suffixing it is the fix, and
- * the check has to tolerate the values that already carry a zone: a trailing 'Z',
- * a '+hh:mm', or a '-hh:mm' — the last one searched from index 10 so the date's own
- * hyphens do not count as one.
- *
- * Extracted so there is exactly one copy of that rule. It was inline in
- * formatTimeAgo, and the second caller that needed a different *wording* of the
- * same instant would otherwise have copied the parsing along with it.
- */
+// SQLite timestamps are UTC with no zone; browsers read a bare one as local time. Values already zoned are left alone.
 export function parseServerDate(dateString) {
     if (!dateString) return null;
 
     let dateStr = dateString;
     if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
-        // SQLite writes `YYYY-MM-DD HH:MM:SS` with a space. Appending `Z` to that
-        // gives `2026-08-20 12:34:56Z`, which is NOT the Date Time String Format
-        // the spec requires a parser to accept — it separates date and time with
-        // `T`. Anything else is implementation-defined: V8 shrugs and parses it,
-        // stricter engines return Invalid Date, and the whole feed then renders
-        // its ages as null. Normalising the separator costs nothing and makes the
-        // string one every engine is obliged to read.
+        // `T`, not a space: `YYYY-MM-DD HH:MM:SSZ` is implementation-defined and some engines return Invalid Date.
         dateStr = dateStr.replace(' ', 'T') + 'Z';
     }
 
@@ -62,52 +35,8 @@ export function parseServerDate(dateString) {
     return isNaN(date.getTime()) ? null : date;
 }
 
-/**
- * How long to hold a live drop back before showing it, in ms.
- *
- * The server resolves a spin the moment the request lands and broadcasts it over
- * SSE straight away, but the client animates the reel for ~4s afterwards. So every
- * surface that renders a live drop is holding the answer to a question the reel has
- * not finished asking, and anything that renders it immediately is a spoiler: the
- * ticker was showing you your own item while your wheel was still turning.
- *
- * Measured from the drop's own `created_at` rather than from arrival, which is what
- * makes it correct for the cases that are not a simple local spin — a drop from
- * another player that reaches you late, a tab that was backgrounded, a reconnect
- * that replays recent events. An item that is already older than the reveal window
- * has no animation left to wait for and shows at once.
- *
- * This rule existed three times before it existed once: the toast had it inline,
- * the celebration has its own per-user variant, and First Blood hardcodes 5000. The
- * feed had no copy at all, which is why it was the surface that leaked.
- *
- * `now` is the *server's* clock, not the browser's. `created_at` is stamped by the
- * server, so subtracting a local Date.now() from it measures the two machines'
- * disagreement as much as the drop's age — and a visitor whose clock ran a few
- * seconds fast had every drop arrive already older than the window, so this
- * returned 0 and the ticker spoiled his own spin. See utils/serverClock.js.
- *
- * ── THE VALUE, AND WHAT IS LEFT OF THE MARGIN ───────────────────────────────
- *
- * 4200, down from 4500: the reel animates for `SPIN_DURATION` (4000, served by
- * the backend's /api/config), so the reveal used to trail the wheel stopping by
- * half a second and that read as a beat too long. The owner asked for 300ms of it
- * back.
- *
- * What the remaining 200ms buys, and it is the whole safety margin: the reveal
- * fires at `created_at + 4200`, while a player's reel lands at roughly
- * `created_at + RTT/2 + 4000` — `created_at` is stamped server-side mid-request,
- * so the response still has to travel back before the animation can start. The
- * two meet at a round trip of about 400ms. Below that the feed prints after the
- * wheel stops, as intended; above it the drop appears as the reel is still
- * settling, which is the original bug returning for slow connections rather than
- * for wrong clocks. At 4500 that threshold was a full second.
- *
- * So this is now latency-sensitive in a way it was not, and the lever to reach
- * for if it ever needs undoing is `SPIN_DURATION` rather than this: shortening
- * the animation shortens the wait AND keeps the cushion, where shortening this
- * only spends it.
- */
+// Measured on the server's clock from `created_at`, so a drop never shows before the reel (SPIN_DURATION 4000) lands.
+// The 200ms cushion covers ~400ms RTT; to shorten the wait, shorten SPIN_DURATION rather than this.
 export const SPIN_REVEAL_MS = 4200;
 
 export function spinRevealDelay(dateString, now = serverNow()) {
@@ -118,76 +47,23 @@ export function spinRevealDelay(dateString, now = serverNow()) {
     return Math.max(0, SPIN_REVEAL_MS - age);
 }
 
-/**
- * How old a drop is, on the server's clock, in ms.
- *
- * The same subtraction `spinRevealDelay` makes, exposed on its own because the
- * celebration needs the age itself and not just the wait — it has to decide
- * whether a pull is worth a full-screen takeover at all, which is a different
- * question from when to show it.
- *
- * Unparseable dates come back as 0 — "just happened" — because the alternative
- * is `NaN` propagating into a comparison that then silently answers false, and
- * between showing a celebration that should not have fired and swallowing one
- * that should, showing it is the kinder failure.
- */
+// Unparseable dates count as 0 ("just happened"): NaN would silently fail every comparison.
 export function pullAge(dateString, now = serverNow()) {
     const date = parseServerDate(dateString);
     if (!date) return 0;
     return Math.max(0, now - date.getTime());
 }
 
-/**
- * The extra beat the mythic/insane takeover sits behind the reveal, in ms.
- *
- * The celebration is the loudest thing on the page and it should land just after
- * the feed has printed the drop, not with it — the same reasoning as First
- * Blood's announce beat, one tier up. Small, because the two are plainly the same
- * moment and a long gap reads as a second, unrelated event.
- */
 export const CELEBRATION_BEAT_MS = 300;
 
-/**
- * Past this age, a mythic/insane pull gets no celebration at all.
- *
- * Not a timing rule — a relevance one. `newItems` is fed from two places: the SSE
- * stream, where a drop is seconds old, and `fetchActivity`'s catch-up branch,
- * which fires on mount, on every tab refocus and on every SSE reconnect and hands
- * over everything that landed while the client was away. A full-screen takeover
- * for a pull from twenty minutes ago is not a celebration, it is a jump scare:
- * nothing on screen caused it, the reel is idle, and the drop is already sitting
- * in the ticker and on the board where it belongs.
- *
- * This is what the old code's `Math.max(2000, …)` floor was doing by accident and
- * in the wrong direction — it guaranteed that a stale catch-up pull celebrated,
- * two seconds after you tabbed back in.
- *
- * Generous enough to cover the cases that ARE news: a brief tab-out, a reconnect
- * blip, a slow initial render. Anything beyond it happened while nobody was
- * watching, and the page has other places that say so.
- */
+// Catch-up fetches (mount, refocus, SSE reconnect) replay old drops; past this age a pull gets no takeover.
 export const STALE_PULL_GRACE_MS = 60_000;
 
-/**
- * When to fire the celebration for a drop, in ms from now.
- *
- * One clock and one rule, which is the whole point of it living here. Both
- * celebration components computed this themselves and each got it wrong in a
- * different way: the current user's branch measured age with a raw `Date.now()`,
- * so a browser running a second fast fired a second early — straight over a reel
- * that was still turning, which is the one thing the delay exists to prevent —
- * and everyone else's branch measured it against a `serverTime` React snapshot
- * that, because of a field-name mismatch on the wire, had not updated since the
- * page loaded.
- *
- * `spinRevealDelay` already knows when the reel lands, on a clock that has been
- * corrected for skew and latency. The celebration wants that, plus a beat.
- */
+// Must use spinRevealDelay's skew-corrected server clock, never Date.now().
 export function celebrationDelay(dateString) {
     return spinRevealDelay(dateString) + CELEBRATION_BEAT_MS;
 }
 
-// Format time ago string
 export function formatTimeAgo(dateString) {
     const date = parseServerDate(dateString);
     if (!date) return 'Unknown';
@@ -195,7 +71,6 @@ export function formatTimeAgo(dateString) {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
 
-    // Handle negative values (future dates due to clock skew)
     if (seconds < 0) return 'Just now';
 
     if (seconds < 10) return 'Just now';
@@ -211,10 +86,7 @@ export function formatTimeAgo(dateString) {
     }
 }
 
-// Parse an activity_feed timestamp to epoch ms.
-// SQLite hands these back as "YYYY-MM-DD HH:MM:SS" with no zone marker, which Safari
-// refuses outright and other engines read as local time. Normalise to UTC first.
-// Returns 0 for anything unparseable so callers can sort without guarding every entry.
+// SQLite gives "YYYY-MM-DD HH:MM:SS" with no zone (Safari rejects it); normalise to UTC. Returns 0 if unparseable.
 export function parseActivityDate(createdAt) {
     if (!createdAt) return 0;
     const hasZone = createdAt.includes('Z') || createdAt.includes('+');
@@ -222,27 +94,16 @@ export function parseActivityDate(createdAt) {
     return Number.isFinite(time) ? time : 0;
 }
 
-// Get Minecraft head URL from username.
-//
-// minotar, not mc-heads. mc-heads caches a render per URL, and for some accounts
-// it cached the DEFAULT skin under some of those URLs and served it as a 200, so
-// rzem and threeseconds turned up as Steve with nothing failing that a fallback
-// could catch. The stats module moved to mineatar for the same reason, but
-// mineatar keys on uuid only and answers a name with a 400, while every head here
-// is known by name. minotar's `helm/` is the same renderer (a name and its uuid
-// come back byte-identical to mineatar's face), takes names, allows any origin
-// for the canvases, and 404s an unknown name so onError fallbacks still fire.
+// minotar, not mc-heads (cached default skins as 200s) or mineatar (uuid only); it takes names and 404s unknown ones.
 export function getMinecraftHeadUrl(username) {
     return `https://minotar.net/helm/${username}/64`;
 }
 
-// Get Discord avatar URL
 export function getDiscordAvatarUrl(discordId, avatarHash, size = 64) {
     if (avatarHash) {
         const format = avatarHash.startsWith('a_') ? 'gif' : 'png';
         return `https://cdn.discordapp.com/avatars/${discordId}/${avatarHash}.${format}?size=${size}`;
     }
-    // Default avatar based on discriminator
     try {
         if (!discordId || !/^\d+$/.test(String(discordId))) {
             return `https://cdn.discordapp.com/embed/avatars/0.png`;
@@ -254,7 +115,6 @@ export function getDiscordAvatarUrl(discordId, avatarHash, size = 64) {
     }
 }
 
-// Sanitize strings for display
 export function sanitizeString(str) {
     if (!str) return '';
     return String(str)
@@ -263,24 +123,11 @@ export function sanitizeString(str) {
         .slice(0, 100);
 }
 
-// Validate ID format
 export function isValidId(id) {
     return typeof id === 'number' && Number.isInteger(id) && id > 0;
 }
 
-// ============================================
-// Item Type Detection Functions
-// ============================================
-
-// Insane color constant.
-//
-// This was "bright gold, distinct from all other rarities" and is neither any
-// more: #FFD700 now belongs to LEGENDARY, and insane has no flat colour at all —
-// it renders as the iridescent slick (see .fib-holo in index.css). What remains
-// here is the platinum fallback for the handful of places that can only take one
-// hex. Prefer getRarityColor('insane') / getRarityStops('insane') from
-// utils/rarityHelpers.jsx; this export is kept only so existing importers do not
-// silently pick up legendary's gold.
+// Platinum fallback only: insane has no flat colour. Prefer getRarityColor/getRarityStops from utils/rarityHelpers.jsx.
 export const INSANE_COLOR = '#F2ECFF';
 
 export function isInsaneItem(item) {
@@ -291,15 +138,11 @@ export function isSpecialItem(item) {
     return item?.isSpecial || item?.type === 'legendary' || item?.texture?.startsWith('special_');
 }
 
-// Exotic sits between legendary and rare. Note the prefix is `exotic_`, matching
-// the tier name — `special_` means legendary here for historical reasons and that
-// mismatch is not worth repeating.
+// Prefix is `exotic_`; legendary's prefix is `special_`.
 export function isExoticItem(item) {
     return item?.isExotic || item?.type === 'exotic' || item?.texture?.startsWith('exotic_');
 }
 
-// Relic is the wheel's own tier: the server's structures. Its prefix is `relic_`,
-// matching the tier name like exotic's does, and unlike legendary's `special_`.
 export function isRelicItem(item) {
     return item?.isRelic || item?.type === 'relic' || item?.texture?.startsWith('relic_');
 }
@@ -320,42 +163,24 @@ export function isRecursionItem(item) {
     return item?.isRecursion || item?.type === 'recursion' || item?.texture === 'recursion';
 }
 
-// ============================================
-// Item Display Helpers
-// ============================================
-
-// Get image URL for an item (works with both full item objects and history entries)
 export function getItemImageUrl(item) {
     if (!item) return `${IMAGE_BASE_URL}/barrier.png`;
 
-    // Handle different data formats (history, collection, activity feed)
     const texture = item.texture || item.item_texture;
     const type = item.type || item.item_type || item.item_rarity;
     const username = item.username || (texture?.includes('_') ? texture.split('_').slice(1).join('_') : null);
 
-    // Exotic items are the plugin's custom items, drawn from the vendored pack
-    // textures in public/fib-custom. Checked before everything else because their
-    // textures are whole names rather than `<tier>_<username>`, and the username
-    // split above would otherwise hand "wheel_of_fortune" to the player-head
-    // branch further down and render a Minecraft head for a nether star.
+    // Before the username split below, which would render a player head for a whole-name texture.
     if (type === 'exotic' || texture?.startsWith('exotic_')) {
         if (item.imageUrl) return item.imageUrl;
-        // The API's own spelling. A spin result arrives camelCased because spin.js
-        // maps it, but a row straight off /api/items keeps the column name
-        // `image_url` — and the backend is the authoritative roster, so an exotic
-        // item it knows about and EXOTIC_ITEMS does not would have fallen all the
-        // way through to the barrier despite carrying a perfectly good URL.
+        // Raw /api/items rows keep `image_url`; the backend is the authoritative roster.
         if (item.image_url) return item.image_url;
         const exotic = EXOTIC_ITEMS?.find(e => e.texture === texture);
         if (exotic?.imageUrl) return exotic.imageUrl;
         return `${IMAGE_BASE_URL}/barrier.png`;
     }
 
-    // Relic items are structure renders under public/fib-relics, and they need the
-    // same early exit as the exotics directly above for the same reason: their
-    // textures are whole names (`relic_trial_chambers`), so the `<tier>_<username>`
-    // split would hand "trial_chambers" to the player-head branch and try to fetch
-    // a Minecraft skin for a building.
+    // Same early exit as exotics: whole-name textures would otherwise hit the player-head branch.
     if (type === 'relic' || texture?.startsWith('relic_')) {
         if (item.imageUrl) return item.imageUrl;
         if (item.image_url) return item.image_url;
@@ -364,32 +189,25 @@ export function getItemImageUrl(item) {
         return `${IMAGE_BASE_URL}/barrier.png`;
     }
 
-    // Insane items have custom image URLs
     if (type === 'insane' || texture?.startsWith('insane_')) {
         if (item.imageUrl) return item.imageUrl;
-        // Try to find matching insane item
         const insane = INSANE_ITEMS?.find(i => i.texture === texture);
         if (insane?.imageUrl) return insane.imageUrl;
-        // Fallback for known insane items
         if (texture === 'insane_cavendish') {
             return `${CUSTOM_IMAGE_BASE_URL}/cavendish.png`;
         }
     }
 
-    // Mythic items have custom image URLs
     if (type === 'mythic' || texture?.startsWith('mythic_')) {
         if (item.imageUrl) return item.imageUrl;
-        // Try to find matching mythic item
         const mythic = MYTHIC_ITEMS?.find(m => m.texture === texture);
         if (mythic?.imageUrl) return mythic.imageUrl;
-        // Fallback for known mythics
         if (texture === 'mythic_jimbo') return '/jimbo.png';
         if (texture === 'mythic_gros_michel') {
             return `${CUSTOM_IMAGE_BASE_URL}/gros_michel.png`;
         }
     }
 
-    // Check TEAM_MEMBERS for items with custom imageUrls (like ChromaRGBDirt, Wandering Trader)
     if (type === 'legendary' || texture?.startsWith('special_')) {
         const memberName = item.name || (texture?.includes('_') ? texture.split('_').slice(1).join('_') : null);
         if (memberName) {
@@ -401,15 +219,10 @@ export function getItemImageUrl(item) {
         }
     }
 
-    // Direct texture checks for special items with local images
-    // These items don't have usernames and use custom images in /public
-    // Check all possible texture name variations
     if (texture === 'wandering_trader' || texture === 'special_wandering_trader' || texture === 'legendary_wandering_trader') {
         return '/wandering_trader.png';
     }
-    // Its own head, not a tinted copy drawn at runtime: the recolour is baked into
-    // the PNG (scripts/repixel-special-trader.py) so the canvas strip and the DOM
-    // grid cannot disagree about what purple means.
+    // The recolour is baked into the PNG (scripts/repixel-special-trader.py) so canvas and DOM agree.
     if (texture === 'special_trader' || texture === 'mythic_special_trader') {
         return '/special_trader.png';
     }
@@ -423,21 +236,17 @@ export function getItemImageUrl(item) {
         return `${CUSTOM_IMAGE_BASE_URL}/wheel.png`;
     }
 
-    // Check if item has image_url field from database (overrides default construction)
     if (item.image_url) {
         return item.image_url;
     }
 
-    // Player heads (legendaries and rares with usernames)
     if (item.username) {
         return getMinecraftHeadUrl(item.username);
     }
 
-    // Try to extract username from texture for special/rare/mythic items
     if ((type === 'legendary' || type === 'rare' || type === 'mythic' || texture?.startsWith('special_') || texture?.startsWith('rare_') || texture?.startsWith('mythic_')) && texture?.includes('_')) {
         const extractedUsername = texture.split('_').slice(1).join('_');
         if (extractedUsername && !['cavendish', 'jimbo', 'gros_michel'].includes(extractedUsername.toLowerCase())) {
-            // Check if this is a TEAM_MEMBER with no username (uses custom imageUrl instead of player head)
             const member = TEAM_MEMBERS?.find(m =>
                 m.name?.toLowerCase() === extractedUsername.toLowerCase() && m.username === null
             );
@@ -447,17 +256,14 @@ export function getItemImageUrl(item) {
         }
     }
 
-    // Event items use event texture
     if (type === 'event' || texture?.startsWith('event_')) {
         return '/event.png';
     }
 
-    // Recursion items use wheel texture
     if (type === 'recursion' || texture === 'recursion') {
         return `${CUSTOM_IMAGE_BASE_URL}/wheel.png`;
     }
 
-    // Regular items
     if (texture) {
         return `${IMAGE_BASE_URL}/${texture}.png`;
     }
@@ -465,17 +271,7 @@ export function getItemImageUrl(item) {
     return `${IMAGE_BASE_URL}/barrier.png`;
 }
 
-/**
- * The rarity key for an item, resolved from the predicates above.
- *
- * Order matters and is rarest-first: an item can satisfy more than one predicate
- * (a legendary team member also carries `type` on some payloads), and the first
- * match wins so a pull is never demoted. `recursion` is not a rarity tier — it is
- * a lucky-spin mode — so it is not returned here; ask isRecursionItem directly.
- *
- * @param {object} item
- * @returns {string} a key of RARITY in utils/rarityHelpers.jsx
- */
+// Rarest-first: an item can match several predicates and must never be demoted. Recursion is a spin mode, not a tier.
 export function getItemRarity(item) {
     if (isInsaneItem(item)) return 'insane';
     if (isMythicItem(item)) return 'mythic';
@@ -487,11 +283,7 @@ export function getItemRarity(item) {
     return 'common';
 }
 
-// Get color for item based on rarity.
-//
-// This used to carry its own copy of the rarity→colour table. It now delegates,
-// so the ladder is defined once. Recursion keeps its special case because it is
-// a spin mode rather than a tier and has no entry in RARITY.
+// Recursion is special-cased because it is a spin mode with no RARITY entry.
 export function getItemColor(item) {
     if (isRecursionItem(item)) return COLORS.recursion;
     return getRarityColor(getItemRarity(item));

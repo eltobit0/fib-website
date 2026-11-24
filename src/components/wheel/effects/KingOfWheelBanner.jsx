@@ -1,9 +1,4 @@
 import { KotwArenaHeader } from './KotwArena.jsx';
-// ============================================
-// KingOfWheelBanner.jsx
-// ============================================
-// King of the Wheel event banner with competition leaderboard
-// Features: live leaderboard, point tracking, winner celebration
 
 import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { API_BASE_URL } from '../../../config/constants.js';
@@ -16,10 +11,6 @@ import { useSound } from '../../../context/SoundContext.jsx';
 import { Crown, Trophy, Medal, Star, Timer, X, Swords, Sparkles, TrendingUp, Info } from 'lucide-react';
 import { countdownInterval, visibleInterval } from '../../../config/power.js';
 
-// ============================================
-// CONSTANTS
-// ============================================
-
 // Crimson Obsidian theme (aggressive/competitive)
 const KOTW_BG = '#1E293B';        // Cool Slate Grey
 const KOTW_BG_DARK = '#0F172A';   // Dark Graphite (depth)
@@ -29,17 +20,10 @@ const KOTW_GOLD = '#F59E0B';      // Gold for 1st place
 const KOTW_SILVER = '#94A3B8';    // Silver for 2nd
 const KOTW_BRONZE = '#D97706';    // Bronze for 3rd
 
-// How long after the clock expires the banner waits for the result stream before
-// falling back to hiding itself. Hiding at 0:00 exactly races the end broadcasts -
-// this banner used to fade out at expiry and slide back in when the winner
-// announcement arrived, and the unguarded check below would still do that today.
-// The result stream gets RESULT_GRACE_MS to land; only a genuinely silent stream
-// sees it go.
+// Grace after the clock expires before hiding: hiding at 0:00 races the end broadcasts, and this banner used to fade out
+// at expiry and slide back in when the winner arrived. RESULT_GRACE_MS lets the result land.
 const RESULT_GRACE_MS = 3000;
 
-// ============================================
-// Floating Crown Decorations
-// ============================================
 function FloatingCrowns({ isMobile }) {
     const decorations = [
         { Icon: Crown, left: '6%', size: 0.9, delay: 0, color: KOTW_PRIMARY },
@@ -97,9 +81,6 @@ function FloatingCrowns({ isMobile }) {
     );
 }
 
-// ============================================
-// Mini Leaderboard Display
-// ============================================
 function MiniLeaderboard({ leaderboard, currentUserId, isMobile }) {
     if (!leaderboard || leaderboard.length === 0) {
         return (
@@ -184,9 +165,6 @@ function MiniLeaderboard({ leaderboard, currentUserId, isMobile }) {
 
 const rankColors = [KOTW_GOLD, KOTW_SILVER, KOTW_BRONZE];
 
-// ============================================
-// User Stats Display
-// ============================================
 function UserStatsDisplay({ stats, isMobile }) {
     if (!stats || stats.points === 0) return null;
 
@@ -228,9 +206,6 @@ function UserStatsDisplay({ stats, isMobile }) {
     );
 }
 
-// ============================================
-// Winner Celebration Overlay
-// ============================================
 function WinnerCelebration({ winner, onClose, isMobile }) {
     if (!winner) return null;
 
@@ -351,13 +326,7 @@ function WinnerCelebration({ winner, onClose, isMobile }) {
                             </p>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            {/* `wheel-positive`, the same green as the "Lucky Spins
-                                Awarded!" line further down this same screen. It was
-                                #50fa7b — a second green for the identical datum, and
-                                the only use of that value anywhere in the app. Not
-                                COLORS.green either: that is #55FF55, the
-                                Minecraft-derived green, which would be a third answer
-                                to the one question. */}
+                            {/* `wheel-positive`, the same green as the "Lucky Spins Awarded!" line below; not COLORS.green (#55FF55), which would be a third green. */}
                             <p style={{
                                 fontSize: isMobile ? '32px' : '48px',
                                 fontWeight: 900,
@@ -424,9 +393,6 @@ function WinnerCelebration({ winner, onClose, isMobile }) {
     );
 }
 
-// ============================================
-// Main Banner Component
-// ============================================
 function KingOfWheelBanner({
                                isMobile = false,
                                isAdmin = false,
@@ -461,11 +427,8 @@ function KingOfWheelBanner({
     const isActive = isKotw && globalEventStatus?.active;
     const isPending = isKotw && globalEventStatus?.pending;
 
-    // The window between the competition ending server-side and the winner being shown.
-    // The result is held back so it cannot land mid-spin, and the banner deliberately
-    // does not change during it: the running layout stays as it was, with the clock
-    // frozen, and then flips straight to the winner. Declared here rather than beside
-    // shouldShowBanner because the active-timer effect needs it too.
+    // Between the competition ending and the winner being shown: the result is held back so it cannot land mid-spin, so
+    // the running layout stays with the clock frozen. Declared here because the active-timer effect needs it too.
     const isSettling = kotwWinnerPending && !showWinnerInBanner;
     const showLiveLayout = isActive || isSettling;
 
@@ -524,15 +487,8 @@ function KingOfWheelBanner({
         }
     }, [globalEventStatus?.activatesAt]);
 
-    // Start/stop KOTW soundtrack when event starts/ends.
-    //
-    // The stop waits out the settle window and the winner display, the same way
-    // showLiveLayout above keeps the banner's running layout through them. `isActive`
-    // goes false on the end broadcast, which is seconds before the winner is shown
-    // because the reveal waits for the local wheel to land — so stopping on it alone
-    // cut the music while the banner was still counting and the player's own reel was
-    // still turning, announcing the result ahead of the announcement. Same bug First
-    // Blood had; the freeze is only convincing if the audio joins it.
+    // The stop waits out the settle window and the winner display, like showLiveLayout: `isActive` goes false seconds
+    // before the winner is shown, and stopping on it alone announced the result early (same bug First Blood had).
     const holdSoundtrack = isSettling || showWinnerInBanner;
 
     useEffect(() => {
@@ -691,14 +647,8 @@ function KingOfWheelBanner({
     const countdownSecs = Math.ceil(countdownTime / 1000);
     const isCriticalTime = remainingTime > 0 && remainingTime < 60000;
 
-    // Don't render if not visible. When it drops out, fade rather than pop: the
-    // winner block dissolves and the handoff to the next occupant of this slot
-    // reads as a scene change. `isClosing` is derived — the moment shouldShowBanner
-    // drops this render still paints with `slideDown` halted and opacity falling;
-    // a timeout then retires it. A fresh event inside the fade snaps it back:
-    // isGone is a latch, so without the reset below every later event of the
-    // session would be suppressed until a reload (render-phase correction, same
-    // pattern as the EventSelectionWheel's).
+    // When it drops out, fade rather than pop. `isClosing` is derived: once shouldShowBanner drops, this render paints with
+    // `slideDown` halted while a timeout retires it. A fresh event inside the fade snaps back (isGone is a latch; render-phase correction).
     const [isGone, setIsGone] = useState(true);
     const isClosing = !shouldShowBanner && !isGone;
     if (shouldShowBanner && isGone) setIsGone(false);
@@ -729,14 +679,7 @@ function KingOfWheelBanner({
             {/* Banner - only render when should show */}
             {(shouldShowBanner || isClosing) && (
                 <div style={{
-                    // `inline` is what moved this out of the viewport's top
-                    // edge and into the page. It used to be `position: fixed;
-                    // top: 0`, which on a HUD with a permanent topbar covered it
-                    // for the whole event, and made two simultaneous events
-                    // overlap each other. In flow it sits in the gap between the
-                    // live ticker and the reel, which is space the layout already
-                    // had spare — so the banner keeps every detail it ever had
-                    // instead of being reduced to fit somewhere it did not belong.
+                    // `inline` puts the banner in the gap between the live ticker and the reel; `position: fixed; top: 0` was covered by the topbar and overlapped simultaneous events.
                     ...(inline
                         ? { position: 'relative' }
                         : { position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100 }),
@@ -1001,38 +944,12 @@ function KingOfWheelBanner({
                                             <span style={{ color: KOTW_PRIMARY, opacity: 0.5 }}>|</span>
                                             <span>Rare <strong style={{ color: getRarityInk('rare') }}>~150pt</strong></span>
                                             <span style={{ color: KOTW_PRIMARY, opacity: 0.5 }}>|</span>
-                                            {/* Exotic, which this legend shipped without.
-                                                KOTW does not score off a tier table — it pays
-                                                1,000,000 / weight — and every exotic is seeded
-                                                at a uniform 5,500 (seed.js), so 1e6/5500 = 182.
-                                                Between rare and legendary, which is also where
-                                                its supply sits: the Community Goal table reaches
-                                                the same ordering from the same weights.
-
-                                                Its colour is imported rather than written as a
-                                                sixth hex. `Ink`, not `color`, because this is
-                                                text and exotic's #AA00AA is 2.73:1.
-
-                                                The reconciliation this note asked for happened
-                                                on 2026-08-20: rare, legendary and mythic were
-                                                literals here (#EF4444, #A855F7, #06B6D4) and now
-                                                import the same way. Legendary was the loud one —
-                                                it rendered purple against a ladder where
-                                                legendary is gold, which is the exact defect the
-                                                comment at the top of rarityHelpers.jsx describes.
-                                                Common and Insane still take KOTW_TEXT and
-                                                KOTW_GOLD; those are mode chrome rather than
-                                                wrong tier hues, so they were left deliberately —
-                                                but they are the last two rows here not reading
-                                                from RARITY. */}
+                                            {/* Exotic: KOTW pays 1,000,000 / weight and every exotic is seeded at 5,500 (seed.js), so 182, between rare and
+                                            legendary. Colour is imported, `Ink` because this is text. Common and Insane still take KOTW_TEXT and KOTW_GOLD
+                                            (mode chrome), the last two rows not reading from RARITY. */}
                                             <span>Exotic <strong style={{ color: getRarityInk('exotic') }}>~180pt</strong></span>
                                             <span style={{ color: KOTW_PRIMARY, opacity: 0.5 }}>|</span>
-                                            {/* Relic, on the same 1,000,000 / weight rule. The six
-                                                are seeded 2,600-3,800, so 1e6/w lands between 263
-                                                and 385 — above exotic's flat 182 and below the
-                                                legendary band, which is where its supply sits.
-                                                This label has now tracked the band twice; if it
-                                                stops matching seed.js, seed.js is right. */}
+                                            {/* Relic, same 1,000,000 / weight rule: seeded 2,600-3,800 gives 263-385. If this stops matching seed.js, seed.js is right. */}
                                             <span>Relic <strong style={{ color: getRarityInk('relic') }}>~300pt</strong></span>
                                             <span style={{ color: KOTW_PRIMARY, opacity: 0.5 }}>|</span>
                                             {/* Legendary is 1,000-2,500, so 400-1,000pt. */}

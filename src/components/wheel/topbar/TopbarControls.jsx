@@ -4,31 +4,7 @@ import { COLORS, SPACE } from '../config/constants';
 import { PrestigeRing } from '../spin/StageFlanks.jsx';
 import { prestigeIcon, prestigeInk, prestigeLabel } from '../../../utils/prestigeHelpers.js';
 
-/**
- * The topbar's shared control vocabulary.
- *
- * The redesign folded three separate clusters into one row — the floating nav
- * grid that used to live under the stage, the leaderboard, and the user chip —
- * and each arrived wearing the styling it had wherever it came from. The result
- * was one strip of buttons speaking three dialects at once:
- *
- *   - nav:   44x44, radius 12, gradient fill, hover lifted the button 2px and
- *            threw a 24px shadow
- *   - user:  ~38px circles, transparent, hover tinted the background only
- *   - sound: 36x36, radius 8, permanently filled, no hover at all
- *
- * Sitting apart on different parts of the page that was survivable. Shoulder to
- * shoulder in a 56px row it is not: hovering the nav group made one button jump
- * out of the row while its neighbours stayed put, which is the "hover looks
- * broken" symptom — the lift was never wrong on its own, it was wrong next to
- * buttons that don't have it, in a row with no vertical room to absorb it.
- *
- * So there is one control here and everything in the topbar uses it. Hover is a
- * background tint and a colour step; nothing moves, and nothing casts a shadow
- * into a 56px row. `tone` carries the two states that genuinely differ in
- * meaning rather than in decoration: `attention` (the mobile Live button, the
- * bell with unread items) and `danger` (logout).
- */
+// The topbar's shared control vocabulary: one button for everything in the row. Hover is a background tint and a colour step; nothing moves or casts a shadow into a 56px row (a lifted button next to still ones read as broken hover). `tone` carries the two states that differ in meaning: `attention` (mobile Live, unread bell) and `danger` (logout).
 
 const TONES = {
     // Everything that is just a way in to something else.
@@ -38,9 +14,7 @@ const TONES = {
     // Something is running right now — music playing. Distinct from `attention`
     // because it is not asking for anything.
     active: { idle: COLORS.accent, hover: COLORS.accent, wash: `${COLORS.accent}22` },
-    // Something is off in a way you would want to notice — sound muted. Coloured
-    // at rest, unlike `danger`, because the point is to be readable without a
-    // pointer anywhere near it.
+    // Something to notice, such as muted sound: coloured at rest, unlike `danger`, so it reads without a pointer.
     muted: { idle: COLORS.red, hover: COLORS.red, wash: `${COLORS.red}22` },
     // Destructive on click, unremarkable until then: logout.
     danger: { idle: COLORS.textMuted, hover: COLORS.red, wash: `${COLORS.red}22` },
@@ -54,10 +28,7 @@ export function TopbarIconButton({
     label,
     tone = 'default',
     badge = null,
-    // 'center' hangs the tooltip under the middle of the button; 'end' pins its
-    // right edge to the button's. The last control on the row sits ~43px from the
-    // viewport edge, so anything wider than ~86px centred under it would hang off
-    // the page — see TopbarTooltip.
+    // 'center' hangs the tooltip under the button's middle; 'end' pins its right edge to the button's. The last control sits ~43px from the viewport edge, so a centred tooltip wider than ~86px would hang off the page (see TopbarTooltip).
     align = 'center',
     children,
 }) {
@@ -104,17 +75,7 @@ export function TopbarIconButton({
     );
 }
 
-/**
- * Tooltips hang below, because in the topbar there is nothing above them but the
- * edge of the viewport.
- *
- * The arrow used to be pinned to `bottom: -5px` with its right and bottom borders
- * lit — geometry for a tooltip sitting *above* its button. Moved below the button
- * and left unchanged, it drew a notch on the far side of the bubble pointing at
- * empty page, so every nav tooltip looked like it belonged to something further
- * down. Same for the entry animation, which rose 5px into place: correct coming
- * up from under a button, backwards coming down from one.
- */
+// Tooltips hang below (nothing is above them but the viewport edge); the arrow and entry animation are geometry for coming down from a button, not up.
 function TopbarTooltip({ label, align = 'center' }) {
     const end = align === 'end';
 
@@ -138,9 +99,7 @@ function TopbarTooltip({ label, align = 'center' }) {
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
                 zIndex: 10,
-                // Two keyframes rather than one, because the centred variant has
-                // to keep its `translateX(-50%)` for the whole animation and the
-                // end-aligned one must not have it at all.
+                // Two keyframes: the centred variant must keep its `translateX(-50%)` throughout and the end-aligned one must not have it.
                 animation: `${end ? 'tooltipDropEnd' : 'tooltipDrop'} 0.18s ease-out`,
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
             }}
@@ -164,36 +123,7 @@ function TopbarTooltip({ label, align = 'center' }) {
     );
 }
 
-/**
- * The identity control: who you are, and the way in to your own board.
- *
- * ── WHY IT WAS REDESIGNED ────────────────────────────────────────────────────
- *
- * It was a 999px capsule with a 1px border, sitting in a row of 10px-radius
- * buttons that have no border at all. The file's own opening note describes the
- * problem it was left in the middle of: the topbar used to speak three dialects,
- * they were folded into one, and this was the one control that kept its own. Two
- * roundnesses touching is what made the end of the bar read as assembled rather
- * than designed, and shrinking the capsule to fit only the identity treated the
- * symptom.
- *
- * So it is a `TopbarIconButton` that happens to be wide: same 38px height, same
- * 10px radius, same transparent-to-wash hover, same tooltip. What makes it the
- * identity rather than another icon is what is *inside* it.
- *
- * ── AND WHAT IS INSIDE IT ────────────────────────────────────────────────────
- *
- * The prestige ring, which is the point of the change. A ring around a player's
- * face means their prestige level everywhere else on this site, and the one face
- * that never wore one was the player's own, in the corner of every page. A
- * player who has prestiged now sees it on themselves — and at the top level it
- * takes the whole slick, like every insane surface.
- *
- * The level's own numeral rides beside the name when there is one, in the
- * level's tier ink, which is the same badge the collection board and the player
- * board wear. Nothing here invents a colour: `prestigeHelpers` maps a level to a
- * rarity and the ladder supplies the rest.
- */
+// The identity control: who you are and the way in to your own board, a wide `TopbarIconButton` (same height, radius and hover as its neighbours). It wears the prestige ring (the player's own face never did) and the level's mark in its tier ink; `prestigeHelpers` maps a level to a rarity and the ladder supplies the rest.
 export function TopbarUserChip({ avatarUrl, name, approved, pending, standing, onClick }) {
     const [hovered, setHovered] = useState(false);
     const [focused, setFocused] = useState(false);
@@ -218,11 +148,7 @@ export function TopbarUserChip({ avatarUrl, name, approved, pending, standing, o
                     alignItems: 'center',
                     gap: `${SPACE.sm}px`,
                     height: `${TOPBAR_CONTROL_SIZE}px`,
-                    // 4px + a 28px avatar + 4px is the 36px core; the ring, when
-                    // there is one, spends its 2px inside that gap rather than
-                    // growing the control — so a prestiged player's chip is
-                    // exactly as tall as everyone else's and the row does not
-                    // move when someone earns a level.
+                    // 4px + a 28px avatar + 4px is the 36px core; the ring spends its 2px inside that gap, so the chip is the same height for everyone and the row does not move when someone earns a level.
                     padding: `0 ${SPACE.md}px 0 ${level ? 3 : 5}px`,
                     background: active ? palette.wash : 'transparent',
                     border: '1px solid transparent',
@@ -263,11 +189,7 @@ export function TopbarUserChip({ avatarUrl, name, approved, pending, standing, o
                     {name}
                 </span>
 
-                {/* The level's mark, in its tier's ink, and nothing else.
-                    A topbar row has no room to spell it out and the numeral that
-                    used to sit beside the mark was carrying the same single bit
-                    — the level determines the icon. The tooltip below names it,
-                    and the two surfaces with room say it on screen. */}
+                {/* The level's mark in its tier's ink, and nothing else: the numeral carried the same one bit (the level picks the icon). The tooltip names it. */}
                 {level > 0 && (
                     <span
                         aria-hidden="true"
@@ -288,33 +210,13 @@ export function TopbarUserChip({ avatarUrl, name, approved, pending, standing, o
                 {pending && <Clock size={15} color={COLORS.gold} style={{ flexShrink: 0 }} />}
             </button>
 
-            {/*
-              * The tooltip names the ACTION, always, and never the status.
-              *
-              * It read "Rare Prestige" for a prestiged player, which is the one
-              * thing a tooltip on a button must not do: every other tooltip in
-              * this row answers "what happens if I click this", and this one
-              * answered "what are you" instead. A player hovering their own name
-              * to find the way into their profile got told their rank.
-              *
-              * The level has three other homes on this control — the ring, the
-              * mark, and the accessible name above — so nothing is lost by
-              * keeping it out of the one slot that belongs to the verb.
-              */}
+            {/* The tooltip names the ACTION, never the status: every tooltip in this row answers "what happens if I click this". The level has three other homes on this control (ring, mark, accessible name). */}
             {active && <TopbarTooltip label="Your profile" align="center" />}
         </div>
     );
 }
 
-/**
- * A hairline between two groups of controls.
- *
- * The right-hand end of the topbar carries three unrelated things — where you can
- * go, where you stand, and who you are — and with a uniform gap between every
- * control they read as one undifferentiated run of twelve buttons. The dividers
- * are what make it three groups; they are doing the work the old separate panels
- * used to do by simply being in different places.
- */
+// A hairline between two groups of controls: it is what makes the right-hand end read as three groups rather than a run of twelve buttons.
 export function TopbarDivider() {
     return (
         <div

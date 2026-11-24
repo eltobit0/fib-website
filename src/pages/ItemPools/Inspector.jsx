@@ -34,8 +34,6 @@ export default function Inspector(props) {
     );
 }
 
-/* ── One item ───────────────────────────────────────────────────────────────── */
-
 function ItemView({ material, byMaterial, changes, pool, categoryOf, editing, onEdit }) {
     const orig = byMaterial.get(material);
     const change = changes.pool[material];
@@ -170,8 +168,6 @@ function ItemHead({ eff, name, material, status, staged, category }) {
     );
 }
 
-/* ── Several items ──────────────────────────────────────────────────────────── */
-
 function BulkView({ selection, byMaterial, changes, onClear }) {
     const [draft, setDraft] = useState({ state: 'EARLY', tags: [] });
     const inPool = selection.filter((m) => byMaterial.has(m));
@@ -243,8 +239,6 @@ function BulkView({ selection, byMaterial, changes, onClear }) {
         </article>
     );
 }
-
-/* ── The overview ───────────────────────────────────────────────────────────── */
 
 /* Mirrors the plugin's PoolExclusions: HARD lets in Nether (and Extreme with EXTREME), END lets in End. */
 const STAGE_NOTES = {
@@ -341,8 +335,6 @@ function Overview({ pool, missing, onFilter, categoryOf, categoriesReady }) {
         </div>
     );
 }
-
-/* ── History ────────────────────────────────────────────────────────────────── */
 
 function ago(date) {
     const d = (Date.now() - new Date(date)) / 86400000;

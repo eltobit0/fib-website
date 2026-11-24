@@ -15,8 +15,6 @@ export const REPOS = {
     info: { repo: PLUGIN_REPO, path: DESCRIPTIONS_PATH, label: 'Descriptions', base: DEFAULT_BRANCH },
 };
 
-/* ── The token ───────────────────────────────────────────────────────────────── */
-
 const TOKEN_KEY = 'fib_github_token';
 const EXPIRY_KEY = 'fib_github_token_expiry';
 const USER_KEY = 'fib_github_user';
@@ -51,8 +49,6 @@ export function clearAuth() {
     memory = { token: null, user: null };
     try { [TOKEN_KEY, EXPIRY_KEY, USER_KEY].forEach((k) => localStorage.removeItem(k)); } catch { /* nothing stored */ }
 }
-
-/* ── Calls ───────────────────────────────────────────────────────────────────── */
 
 async function gh(token, path, init = {}) {
     const res = await fetch(`${API}${path}`, {

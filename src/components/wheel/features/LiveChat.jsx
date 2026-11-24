@@ -4,22 +4,7 @@ import { COLORS } from '../config/constants';
 import { visibleInterval } from '../../../config/power.js';
 import { MessageCircle, Send, X, Minimize2, Maximize2, Trash2, Users, ChevronDown, Reply, AtSign, Move, RotateCcw } from 'lucide-react';
 
-// ============================================
-// Live Chat Component - With @Mentions
-// ============================================
-/**
- * `openSignal` / `onUnreadChange` / `hideLauncher` exist for the phone's bottom
- * bar, which carries Chat as one of its four destinations.
- *
- * The chat owns its own state and its own fixed launcher, and on a phone that
- * launcher is a problem twice over: it sits at `bottom: 20px` on `z-index: 900`,
- * so it floats on top of the bottom bar, and it is a second, competing entry
- * point to a view the bar already lists. Rather than lift this component's state
- * out — it is 1,800 lines and the state is deeply woven through them — the page
- * bumps `openSignal` to open it and reads `onUnreadChange` for the bar's badge.
- * A counter rather than a boolean, so re-opening after the player closes it works
- * without the parent having to track and reset a flag.
- */
+// `openSignal` / `onUnreadChange` / `hideLauncher` serve the phone's bottom bar, which carries Chat. The state is too woven through these 1,800 lines to lift, so the page bumps `openSignal` (a counter, so re-opening works without the parent resetting a flag) and reads `onUnreadChange` for the badge.
 export function LiveChat({ user, isAdmin = false, openSignal = 0, onUnreadChange, hideLauncher = false }) {
     // Check if user can chat (must have approved username OR be admin)
     const canChat = user && (isAdmin || user.usernameApproved || user.username_approved);
@@ -42,11 +27,7 @@ export function LiveChat({ user, isAdmin = false, openSignal = 0, onUnreadChange
     const [error, setError] = useState('');
     const [unreadCount, setUnreadCount] = useState(0);
 
-    // Published upward so the bottom bar can badge its Chat tab. The count still
-    // lives here and is still cleared here — this only mirrors it out. It has to
-    // sit below the declaration rather than beside the other outside-facing
-    // effect above: hooks are not hoisted, and reading `unreadCount` before this
-    // line threw on mount.
+    // Published upward for the bottom bar's Chat badge. It sits below the `unreadCount` declaration: hooks are not hoisted and reading it earlier threw on mount.
     useEffect(() => {
         onUnreadChange?.(unreadCount);
     }, [unreadCount, onUnreadChange]);
@@ -459,22 +440,7 @@ export function LiveChat({ user, isAdmin = false, openSignal = 0, onUnreadChange
             };
             sendHeartbeat();
 
-            // ── Presence, and what it costs when nobody is looking ───────────
-            //
-            // Two unconditional timers: a POST every 60s to stay listed as
-            // online, and a GET every 30s to redraw a list of avatars. Neither
-            // checked whether the tab was visible, so a phone in a pocket kept
-            // announcing its presence and re-fetching a roster nobody could see
-            // — 120 requests an hour to keep a green dot lit for a player who
-            // had left. `visibleInterval` gates both on visibility, and
-            // `stretch` slows them in saver mode (see config/power.js for the
-            // multiplier and why it is the small half of the saving next to the
-            // visibility gate).
-            //
-            // The heartbeat stopping while hidden is not a bug in the presence
-            // model — it is the presence model working. A tab in the background
-            // is not somebody who is here, and the server's own timeout is what
-            // should decide that, not a timer that lies on the player's behalf.
+            // Presence timers (a POST every 60s, a GET every 30s) are gated on visibility via `visibleInterval`, and stretched in saver mode (config/power.js). The heartbeat stopping while hidden is the presence model working: the server's own timeout decides who is here.
             const stopHeartbeat = visibleInterval(sendHeartbeat, 60000, { stretch: true });
             const stopOnlineRefresh = visibleInterval(fetchOnlineUsers, 30000, { stretch: true });
 
@@ -1057,14 +1023,7 @@ export function LiveChat({ user, isAdmin = false, openSignal = 0, onUnreadChange
                 .mention-item:hover, .mention-item.selected { background: rgba(88, 101, 242, 0.2); }
             `}</style>
 
-            {/* Chat Button.
-
-                Hidden on a phone (`hideLauncher`), where the bottom bar carries
-                Chat as one of its four destinations. Two entry points to one view
-                is the duplication this page keeps having to undo — the topbar's
-                Trophy button and the leaderboard pill went the same way — and this
-                one also collided physically: the launcher is `position: fixed;
-                bottom: 20px` on `z-index: 900`, so it floated on top of the bar. */}
+            {/* Chat button, hidden on a phone (`hideLauncher`): the bottom bar carries Chat, and the launcher (`position: fixed; bottom: 20px`, z-index 900) floated over it. */}
             {!isOpen && !hideLauncher && (
                 <button
                     onClick={() => { trackActivity(); setIsOpen(true); }}

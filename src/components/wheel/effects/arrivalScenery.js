@@ -81,11 +81,8 @@ export function buildArrivalScenery(scene, materials, track) {
 
     // An illuminated arched clerestory gives the station height and depth.
     const arch = track(new TorusGeometry(1.38, 0.065, 6, 24, Math.PI));
-    // 1.775 tall, not 1.85: the springing line is y=4.1 and that is where the
-    // arch's own pane starts, so a taller rectangle laps 0.075 over it in the
-    // same z plane. Both take the glazing map on their own UVs, so the overlap
-    // samples the gradient twice at different heights and z-fights. The sill
-    // stays at 2.325 and the centre drops to meet the arch exactly.
+    // 1.775 tall, not 1.85: the arch's own pane starts at the springing line y=4.1, and a taller rectangle laps over it
+    // in the same z plane and z-fights on the shared glazing map. The sill stays at 2.325.
     const pane = track(new PlaneGeometry(2.54, 1.775));
     const archPane = track(new CircleGeometry(1.30, 24, 0, Math.PI));
     const wall = mesh(box, masonry, 0, 3.7, -7.9);

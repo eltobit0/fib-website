@@ -1,46 +1,11 @@
-/*
- * ══════════════════════════════════════════════════════════════════════════
- * Synthesised SFX
- * ══════════════════════════════════════════════════════════════════════════
- *
- * A handful of short sounds built out of oscillators and filtered noise rather
- * than shipped as files. Everything here is a few hundred bytes of code against
- * the ~26 MB of mp3 already in `public/sounds`, and `SoundContext`'s header
- * explains at length why that number is worth caring about — .wav to mp3 saved
- * 42 MB and the Cloudflare cache miss on every one of them.
- *
- * ── WHY SYNTHESISED, AND NOT A SAMPLE PACK ───────────────────────────────────
- *
- * Mostly for one sound. THE PARLOUR's wheel ticks as each fret passes the pin,
- * and that tick has to SLOW WITH THE WHEEL — it is the whole sound of a
- * roulette, and a loop cannot do it because it would drift out of phase with
- * the thing on screen within a second. `CanvasRouletteStrip` already knows the
- * ring's speed exactly (it differentiates the offset, which is a closed-form
- * function of `t`), so a tick fired once per pocket crossing is locked to the
- * picture by construction. Nothing sampled gets that for free.
- *
- * The rest follow because they may as well: a chip is a click and a thud, a
- * bell is two partials, and none of them wants a licence, a download or a byte
- * of cache.
- *
- * ── THE CONTEXT LIVES NEXT DOOR ──────────────────────────────────────────────
- *
- * It used to be declared here, together with the compressor every voice goes
- * through. It moved to `audioBus.js` when THE ARRIVAL's crates needed the same
- * context — two clients is the second-use test — and the reasoning for the
- * compressor, and for the context being lazy, moved with it.
- *
- * `master` is still this module's own input: the voices below carry no gain of
- * their own, so `playSynth` sets the bus's gain per call. That is exactly why
- * samples connect somewhere else; see audioBus.js.
- */
+// Synthesised rather than sampled mainly for the parlour tick, which must slow with the wheel; a loop would drift out of phase.
+// The context and compressor live in audioBus.js; `master` is this module's input and playSynth sets its gain per call.
 
 import { audioBus } from './audioBus.js';
 
 let master = null;
 let noiseBuffer = null;
 
-/** The context, with `master` refreshed from the bus. Null where unavailable. */
 function audio() {
     const b = audioBus();
     if (!b) return null;
@@ -48,7 +13,6 @@ function audio() {
     return b.ctx;
 }
 
-/** One second of white noise, made once and re-used by every noisy voice. */
 function noise(c) {
     if (!noiseBuffer) {
         noiseBuffer = c.createBuffer(1, c.sampleRate, c.sampleRate);
@@ -61,7 +25,6 @@ function noise(c) {
     return src;
 }
 
-/** A gain node carrying one percussive envelope, connected to the master. */
 function envelope(c, at, peak, attack, decay) {
     const g = c.createGain();
     g.gain.setValueAtTime(0.0001, at);
@@ -95,32 +58,12 @@ function noiseHit(c, at, { freq, q = 1, peak = 0.4, attack = 0.001, decay = 0.04
     src.stop(at + attack + decay + 0.02);
 }
 
-/* ── the voices ─────────────────────────────────────────────────────────────
- *
- * Each takes the context and a start time so a voice can schedule several
- * events without drifting — `ctx.currentTime` read twice in one function is
- * two different numbers.
- */
+// Each voice takes a start time: `ctx.currentTime` read twice is two different numbers.
 const VOICES = {
-    /**
-     * A fret passing the pin. `speed` is the ring's travel in px/s, and both the
-     * brightness and the level ride on it: a wheel barely turning gives a dull
-     * distant knock, a wheel at full pelt gives a bright hard click. That is the
-     * one property this sound has to have — it is the reason it is synthesised.
-     */
+    // Brightness and level ride on `speed` (px/s): the reason this sound is synthesised.
     parlour_tick(c, at, { speed = 0 } = {}) {
         const drive = Math.max(0, Math.min(1, speed / 3000));
-        /*
-         * Level rises and then eases back, rather than climbing with speed.
-         *
-         * Measured over a real spin the ring crosses about 39 frets in the
-         * first second after release, 15 in the next, 3 in the one after that.
-         * At the top of that the individual ticks are no longer individual, and
-         * pinning them at full level turns the release into a buzz. Loudest
-         * where you can still count them, easing off into the rattle — which is
-         * also what a ball does. The brightness keeps climbing throughout, so
-         * fast still reads as fast.
-         */
+        // Level peaks then eases back: at full speed the ticks blur and full level becomes a buzz.
         noiseHit(c, at, {
             freq: 1500 + drive * 2600,
             q: 1.6 + drive * 1.4,
@@ -130,14 +73,12 @@ const VOICES = {
         });
     },
 
-    /** A chip going down on felt: a soft click over a small dull thud. */
     parlour_chip(c, at) {
         noiseHit(c, at, { freq: 1250, q: 1.1, peak: 0.30, attack: 0.001, decay: 0.035 });
         tone(c, at, 190, 0.22, 0.002, 0.075);
         tone(c, at + 0.012, 320, 0.10, 0.002, 0.05, 'triangle');
     },
 
-    /** "No more bets." A firm double knock on the rim. */
     parlour_call(c, at) {
         for (const off of [0, 0.11]) {
             noiseHit(c, at + off, { freq: 700, q: 0.9, peak: 0.26, attack: 0.001, decay: 0.05 });
@@ -145,11 +86,6 @@ const VOICES = {
         }
     },
 
-    /**
-     * The winning pocket lighting. A brass bell — three partials at slightly
-     * inharmonic ratios, the upper ones decaying first, which is the difference
-     * between a bell and an organ.
-     */
     parlour_reveal(c, at) {
         tone(c, at, 784, 0.30, 0.004, 1.30);
         tone(c, at, 1568, 0.16, 0.003, 0.70);
@@ -157,11 +93,6 @@ const VOICES = {
         noiseHit(c, at, { freq: 5200, q: 0.8, peak: 0.10, attack: 0.001, decay: 0.05 });
     },
 
-    /**
-     * An event beginning. A short rising swell with a noise riser under it —
-     * deliberately not a fanfare, because four different events share it and it
-     * has to sit under each of their own banners rather than announce itself.
-     */
     event_start(c, at) {
         const osc = c.createOscillator();
         osc.type = 'triangle';
@@ -185,22 +116,12 @@ const VOICES = {
         src.stop(at + 0.42);
     },
 
-    /**
-     * HIGH ROLLER: a card leaving the deck and landing on felt. A short
-     * high-passed swish for the slide, then a soft low tap as it lands - felt
-     * swallows the click a card would make on wood, so the tap is mostly thud.
-     */
     hr_card(c, at) {
         noiseHit(c, at, { freq: 5200, q: 0.7, peak: 0.12, attack: 0.012, decay: 0.09, type: 'highpass' });
         noiseHit(c, at + 0.10, { freq: 900, q: 0.8, peak: 0.16, attack: 0.001, decay: 0.03 });
         tone(c, at + 0.10, 150, 0.12, 0.002, 0.05);
     },
 
-    /**
-     * One riffle of the shuffle: two half-decks' worth of corners slapping past
-     * each other - a burst of tiny ticks that speeds up and thins out - and the
-     * soft bridge as the halves square back into one deck.
-     */
     hr_shuffle(c, at) {
         let t = at;
         for (let i = 0; i < 18; i++) {
@@ -210,18 +131,11 @@ const VOICES = {
         noiseHit(c, t + 0.05, { freq: 900, q: 0.7, peak: 0.12, attack: 0.004, decay: 0.08 });
     },
 
-    /** The hole card turning over: a crisp paper snap, brighter than a deal. */
     hr_flip(c, at) {
         noiseHit(c, at, { freq: 3200, q: 1.4, peak: 0.24, attack: 0.001, decay: 0.022 });
         noiseHit(c, at + 0.035, { freq: 1800, q: 1.0, peak: 0.12, attack: 0.001, decay: 0.03 });
     },
 
-    /**
-     * Over 21. A falling minor third on a muted, sagging pitch with a dull thud
-     * under it - a groan rather than a buzzer, because the table's losses are
-     * house money and nobody should feel punished, only that it went wrong.
-     * Heard as the busting card lands, which is the moment the bust is shown.
-     */
     hr_bust(c, at) {
         noiseHit(c, at, { freq: 420, q: 0.7, peak: 0.20, attack: 0.002, decay: 0.07, type: 'lowpass' });
         [[262, 0], [220, 0.14]].forEach(([f, off]) => {
@@ -236,10 +150,6 @@ const VOICES = {
         });
     },
 
-    /**
-     * A natural. The win's rise, a fifth higher and carried into a held bell -
-     * the table's one fanfare, so it is allowed to be one.
-     */
     hr_blackjack(c, at) {
         const notes = [784, 988, 1175, 1568];
         notes.forEach((f, i) => {
@@ -253,7 +163,6 @@ const VOICES = {
         tone(c, bell, 2637, 0.10, 0.004, 0.9);
     },
 
-    /** Somebody won. A three-note rise, bright and over quickly. */
     event_win(c, at) {
         const notes = [784, 988, 1319];
         notes.forEach((f, i) => {
@@ -265,17 +174,8 @@ const VOICES = {
     },
 };
 
-/** The names this module can play. Used by SoundContext to route unknown keys. */
 export const SYNTH_SOUNDS = Object.keys(VOICES);
 
-/**
- * Play one synthesised sound.
- *
- * @param {string} name   one of SYNTH_SOUNDS
- * @param {number} volume 0..1, already multiplied out of the user's settings
- * @param {object} [opts] passed to the voice (the tick reads `speed`)
- * @returns {boolean} whether anything was scheduled
- */
 export function playSynth(name, volume = 1, opts) {
     const voice = VOICES[name];
     if (!voice || volume <= 0) return false;

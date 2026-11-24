@@ -1,9 +1,3 @@
-// ============================================
-// Recursion Banner Component - ENHANCED
-// ============================================
-// Displays a top banner when RECURSION event is active
-// Features: Matrix code rain, glitch effects, progress bar
-// Shows for entire event duration for all users
 
 import React, { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { WHEEL_TEXTURE_URL } from '../../../config/constants.js';
@@ -17,10 +11,6 @@ import { Zap, Sparkles, X, Terminal, Cpu } from 'lucide-react';
 // Matrix characters for code rain
 const MATRIX_CHARS = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF';
 
-// ============================================
-// Lightweight CSS-based Matrix Rain
-// CSS animations are GPU-accelerated, much faster than Canvas fillText
-// ============================================
 const MatrixColumn = memo(function MatrixColumn({ index, speed, opacity }) {
     const chars = useRef(
         Array.from({ length: 8 + Math.floor(Math.random() * 8) }, () =>
@@ -139,12 +129,7 @@ export function RecursionOverlay({ inline = false }) {
     const [remainingTime, setRemainingTime] = useState(0);
     const [initialTime, setInitialTime] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
-    // One breakpoint for the surface, from the one module that answers the
-    // question. This file kept a private `innerWidth < 600` and a resize
-    // listener — the fourth copy of exactly the bug THE SHAFT pass was written
-    // to end, and it was missed because the banner was mounted outside the
-    // page's layout rather than in it. Every viewport from 600 to 899 was
-    // getting this banner's desktop geometry on a phone-shaped screen.
+    // One breakpoint for the surface, from the one module that answers it; a private `innerWidth < 600` gave 600-899 desktop geometry on a phone-shaped screen.
     const { isPhone: isMobile } = useWheelViewport();
     const hasPlayedSoundRef = useRef(false);
     const wasActiveRef = useRef(false);
@@ -403,29 +388,10 @@ export function RecursionOverlay({ inline = false }) {
             {/* Matrix Rain + CRT Scanlines + Edge Glow - All Canvas-based */}
             {hasSpins && <MatrixRainBackground hasSpins={hasSpins} isVisible={isVisible} />}
 
-            {/* The banner.
-
-                `inline` places it in the banner slot above the reel, which is
-                where Gold Rush, King of the Wheel, First Blood and the Community
-                Goal have all lived since the day they were moved out of
-                `position: fixed; top: 0`. This one was not moved with them — it
-                is mounted from a different place in WheelPage, outside the row
-                the other four share — so it kept pinning itself over the HUD's
-                topbar for the whole event and stacking on top of any global event
-                already running. That is what "behaves not like the event banners"
-                is: not the styling, the placement and the stacking.
-
-                The screen-wide matrix rain above stays fixed either way, exactly
-                as Gold Rush keeps its screen-edge glow fixed: that is ambient
-                light across the surface rather than a bar, and it is the part of
-                recursion that reads best in the HUD.
-
-                The entrance also changes with the slot. Sliding down from
-                `translateY(-100%)` is what a bar pinned to the top edge does; in
-                the banner row it would slide out of the ticker above it. It fades
-                and settles instead, on the surface's own decelerator — and that
-                overshoot curve was a §8 violation besides, since overshoots are
-                permitted on the spin control and nowhere else. */}
+            {/* `inline` places the banner in the slot above the reel like the other event banners; this one is mounted elsewhere in
+            WheelPage, so it used to pin over the topbar and stack on running events. The screen-wide rain stays fixed (ambient light).
+            The entrance fades and settles on the surface's decelerator; sliding from `translateY(-100%)` would exit the ticker above,
+            and overshoot is permitted on the spin control alone (§8). */}
             <div style={{
                 ...(inline
                     ? { position: 'relative' }
@@ -434,10 +400,7 @@ export function RecursionOverlay({ inline = false }) {
                 transform: isVisible ? 'translateY(0)' : 'translateY(-8px)',
                 transition: 'opacity 0.32s ease-in, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
             }}>
-                {/* The progress bar sits on whichever edge meets the reel: the
-                    bottom one when the banner is attached to the band, the top
-                    one when it is pinned to the viewport. Same rule the other
-                    four follow. */}
+                {/* The progress bar sits on the edge that meets the reel: bottom when attached to the band, top when pinned to the viewport. */}
                 <div style={{
                     position: 'absolute',
                     ...(inline ? { bottom: 0 } : { top: 0 }),

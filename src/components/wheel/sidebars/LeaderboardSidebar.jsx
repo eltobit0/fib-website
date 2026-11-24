@@ -36,15 +36,7 @@ const KOTW_GOLD = '#F59E0B';      // Gold for 1st place
 const KOTW_SILVER = '#94A3B8';    // Silver for 2nd
 const KOTW_BRONZE = '#D97706';    // Bronze for 3rd
 
-/*
- * One number format, forced to en-US.
- *
- * `toLocaleString()` with no locale follows the browser, so this board printed
- * "331.955" on a German machine while the collection board — which passes
- * 'en-US' explicitly — printed "331,955" two panels away. PRODUCT.md commits the
- * site to English with no localisation planned, so the separator is a constant,
- * not a preference.
- */
+// Number format forced to en-US (the site is English-only), matching the collection board.
 const fmtNum = n => (typeof n === 'number' && isFinite(n) ? n : Number(n) || 0).toLocaleString('en-US');
 
 // Helper to get Discord avatar URL
@@ -64,41 +56,15 @@ function getDiscordAvatarUrl(discordId, avatarHash, size = 64) {
     }
 }
 
-/**
- * The full leaderboard, as a board.
- *
- * There used to be two leaderboards: this one and features/Leaderboard.jsx, which
- * the nav button opened. They had drifted apart in both directions — this panel
- * grew the whole King of the Wheel mode (live KOTW standings, your points and
- * rank, the countdown) which the modal never had, while the modal had the global
- * totals strip which this never had. Neither was a superset, so "open the full
- * leaderboard" showed you *fewer* features than the panel beside it.
- *
- * It was once two: a 380px rail and a modal, sharing one component through an
- * global totals and swaps the expand button for a close button. Everything else —
- * the KOTW mode, the rank badges, the tabs, the profile drill-in — is shared,
- * which is the point: there is no longer a version of this that lags behind.
- */
+// The full leaderboard, as a board: one component serves the rail and the modal (the modal only adds the global totals and a close button), so no version lags the other.
 export function LeaderboardSidebar({ onClose }) {
     const [leaderboard, setLeaderboard] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [activeTab, setActiveTab] = useState('collection');
-    /*
-     * Which window the board ranks over: 'all' is the career board this component
-     * has always shown, and the other three are the calendar periods served by
-     * /api/leaderboard/period.
-     *
-     * Two lenses rather than one combined list of eight, because they are two
-     * independent questions — "ranked by what" and "over what window" — and a
-     * single row of buttons would have needed every pairing spelled out. It also
-     * keeps the measure you are reading when you change window, which is what a
-     * player switching from Spins all-time to Spins this week expects.
-     */
+    // Which window the board ranks over: 'all' is the career board, the others are the calendar periods from /api/leaderboard/period. Two lenses (measure and window), so changing the window keeps the measure.
     const [period, setPeriod] = useState('all');
-    // What the server says the window is. Only its `label` is printed, and only
-    // the server can say it: the client would otherwise have to reimplement the
-    // Monday arithmetic, in a second timezone, to name a window it did not bound.
+    // The server names the window: the client would otherwise reimplement the Monday arithmetic in a second timezone.
     const [periodMeta, setPeriodMeta] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
     const [showKotwMode, setShowKotwMode] = useState(false);
@@ -166,9 +132,7 @@ export function LeaderboardSidebar({ onClose }) {
         };
 
         updateTimer();
-        // Visibility-gated: an event clock in a hidden tab is a re-render a
-        // second producing a number nobody can read. It catches up on the way
-        // back in, so the timer is right before it is looked at.
+        // Visibility-gated: a hidden tab would re-render every second for nobody; it catches up on return.
         const stop = visibleInterval(updateTimer, 1000);
         return () => {
             stop();
@@ -176,10 +140,7 @@ export function LeaderboardSidebar({ onClose }) {
         };
     }, [isKotwActive, showKotwMode, globalEventStatus?.expiresAt, globalEventStatus?.activatesAt, globalEventStatus?.pending]);
 
-    // Global totals, ported from the modal this replaced. Only fetched in modal
-    // mode: the 380px panel has nowhere to put a six-column strip, and firing the
-    // request for a view that will not render it is a wasted round trip on a page
-    // that already preloads an entire item atlas.
+    // Global totals, modal mode only: the 380px panel has no room for the six-column strip.
     const [globalStats, setGlobalStats] = useState(null);
     useEffect(() => {
         fetch(`${API_BASE_URL}/api/stats/global`)
@@ -190,28 +151,8 @@ export function LeaderboardSidebar({ onClose }) {
 
     const isPeriod = period !== 'all';
 
-    /*
-     * The newest request wins, whatever order the responses arrive in.
-     *
-     * Every load is stamped, and a response whose stamp is no longer the newest
-     * writes nothing. Without it the board renders whichever request happened to
-     * finish last: flick from Items to Spins to Events and a slow first response
-     * can land on top of a fast third, leaving rows ranked one way under a lens
-     * naming another.
-     *
-     * The two lenses made that worse than a stale number. They select between two
-     * endpoints with two different row SHAPES — the career board has
-     * `total_spins` and prestige columns, the period board has `spins` and tier
-     * counts for the window — so a late career response arriving while the board
-     * is in period mode is read through the period accessors, and every cell
-     * resolves undefined. The grid keeps its period width because that comes from
-     * state rather than from the data, so the result is a full board of dots
-     * rather than anything that looks like a failure.
-     *
-     * A stamp rather than an AbortController because this also has to settle the
-     * refresh timer overlapping a lens change, where nothing was aborted and both
-     * requests are legitimately in flight.
-     */
+    // The newest request wins: every load is stamped and a stale response writes nothing. The lenses select endpoints with different row SHAPES (career `total_spins` vs period `spins`), so a late response read through the wrong accessors renders a board of dots.
+    // A stamp, not an AbortController: a refresh timer can overlap a lens change with both requests legitimately in flight.
     const requestIdRef = useRef(0);
 
     const loadLeaderboard = useCallback(async () => {
@@ -232,9 +173,7 @@ export function LeaderboardSidebar({ onClose }) {
             if (superseded()) return;
             console.error('Failed to load leaderboard:', e);
         } finally {
-            // A superseded request must not clear the spinner either: the load
-            // that replaced it is still running, and the board it will fill is
-            // still the wrong one until it does.
+            // A superseded request must not clear the spinner: the replacing load is still running.
             if (!superseded()) setLoading(false);
         }
     }, [activeTab, period]);
@@ -259,33 +198,13 @@ export function LeaderboardSidebar({ onClose }) {
         spins: { label: 'Spins', icon: <TrendingUp size={12} />, color: COLORS.text },
         duplicates: { label: 'Dupes', icon: <Layers size={12} />, color: COLORS.accent },
         events: { label: 'Events', icon: <Zap size={12} />, color: COLORS.orange },
-        // Green because green is ALREADY what a lucky spin looks like here — the
-        // spinner paints every lucky state with it (luckySpinning, luckyResult,
-        // both triple variants, isLuckyMode). Picking a fresh colour for the lens
-        // would have forked the identity the way the rarity colours were forked
-        // before rarityHelpers pulled them back into one table.
-        //
-        // It is also the only tone left that separates: `collection` and
-        // `duplicates` are gold and accent, which are the same oklch value.
+        // Green because it is already what a lucky spin looks like here (the spinner paints every lucky state with it); a fresh colour would fork that identity. It is also the only tone that separates from `collection` and `duplicates` (the same oklch value).
         lucky: { label: 'Lucky', icon: <Clover size={12} />, color: COLORS.green },
-        // Period-only. A career board already ranks specials — by tier, in the
-        // collection column — but inside a window "how many specials did you pull
-        // this week" is the question, and the collection cannot answer it: it
-        // counts distinct items owned, and a second mythic in one week is two
-        // specials and one item.
+        // Period-only: inside a window "how many specials this week" is the question, and the collection column (distinct items owned) cannot answer it.
         specials: { label: 'Specials', icon: <Sparkles size={12} />, color: DECK.amber },
     };
 
-    /*
-     * Which measures each window can rank by.
-     *
-     * Not the same list, because two of them are career facts with no meaning
-     * inside a week: `collection` counts distinct items OWNED, and `duplicates`
-     * is derived from that same collection — neither is a thing that happened
-     * during the period. `specials` is the reverse, a count of pulls that only a
-     * window makes sense of. The three that appear in both lists — spins, lucky,
-     * events — are the same measure asked over a different span.
-     */
+    // Measures each window can rank by: `collection` and `duplicates` are career facts with no meaning in a week, `specials` only makes sense over a window; spins, lucky and events are shared.
     const SORTS_BY_WINDOW = {
         all: ['collection', 'spins', 'duplicates', 'events', 'lucky'],
         period: ['spins', 'lucky', 'events', 'specials'],
@@ -293,16 +212,7 @@ export function LeaderboardSidebar({ onClose }) {
 
     const availableSorts = SORTS_BY_WINDOW[isPeriod ? 'period' : 'all'];
 
-    /*
-     * Changing window keeps the measure where it can be kept.
-     *
-     * Switching to a period while ranked by Items would otherwise have to pick
-     * something, and resetting to the first tab every time is the version that
-     * loses your place. Collection and duplicates both map to Specials — they are
-     * the "what have you pulled" lenses — and Specials maps back to Collection on
-     * the way out. Spins, lucky and events survive the trip untouched, which is
-     * the case that matters: the board you were reading, over a different span.
-     */
+    // Changing window keeps the measure where it can: collection and duplicates map to Specials and back; spins, lucky and events survive untouched.
     const changePeriod = (next) => {
         const nextSorts = SORTS_BY_WINDOW[next === 'all' ? 'all' : 'period'];
         if (!nextSorts.includes(activeTab)) {
@@ -314,10 +224,7 @@ export function LeaderboardSidebar({ onClose }) {
     const getValueForTab = (entry) => {
         let value;
         if (isPeriod) {
-            // The period payload names its own columns, and deliberately does not
-            // reuse the career names: `spins` here is spins in the window, not
-            // users.total_spins, and a shared key would make that confusion
-            // invisible at the point it is read.
+            // The period payload names its own columns, deliberately not reusing the career names: `spins` here is spins in the window, not users.total_spins.
             switch (activeTab) {
                 case 'lucky': value = entry.lucky_spins; break;
                 case 'events': value = entry.events; break;
@@ -355,33 +262,14 @@ export function LeaderboardSidebar({ onClose }) {
         const rankColors = [KOTW_GOLD, KOTW_SILVER, KOTW_BRONZE];
         const RankIcons = [Crown, Trophy, Medal];
 
-        /*
-         * Ordered by the points each row will print. The freeze for a spin that
-         * has not landed yet used to be a ternary on the points cell alone, so
-         * the row moved up the list while the number stayed put — and this copy
-         * fell back to 0 where the reel board's fell back to the server value,
-         * which is the drift that put both in one function. See
-         * utils/kotwStandings.js.
-         */
+        // Ordered by the points each row will print, including the freeze for a spin that has not landed (see utils/kotwStandings.js).
         const standings = kotwStandings(kotwLeaderboard, {
             userId: user?.id,
             pending: kotwSpinPending,
             confirmedPoints: kotwUserStats?.points,
         });
 
-        /*
-         * The "Your score" panel reads out of the same standings as the list
-         * below it, so the two cannot disagree.
-         *
-         * `kotwUserStats.rank` is the server's, stamped when this client last
-         * fetched or last finished a spin — and it goes stale the moment
-         * somebody ELSE scores, because nothing refreshes it until your next
-         * spin. So the header could say #2 above a list that had you fourth. Not
-         * what was reported, but the same contradiction, and free to fix here.
-         *
-         * Falls back to the stats object when this player is not on the board at
-         * all — the top ten is all the broadcast carries.
-         */
+        // The "Your score" panel reads the same standings as the list so they cannot disagree: `kotwUserStats.rank` goes stale when someone else scores. Falls back to the stats object when this player is not in the broadcast's top ten.
         const myStanding = user ? standings.find(e => e.userId === user.id) : null;
         const myPoints = myStanding?.points ?? kotwUserStats?.points ?? 0;
         const myRank = myStanding?.rank ?? kotwUserStats?.rank ?? null;
@@ -648,9 +536,7 @@ export function LeaderboardSidebar({ onClose }) {
                                                 color: index < 3 ? rankColor : KOTW_TEXT,
                                                 fontFamily: 'monospace',
                                             }}>
-                                                {/* Already the value to show, and
-                                                    the value this row was placed
-                                                    on. See kotwStandings. */}
+                                                {/* Already the value to show, and the value this row was placed on (see kotwStandings). */}
                                                 {entry.points}
                                             </div>
                                             <div style={{
@@ -736,28 +622,8 @@ export function LeaderboardSidebar({ onClose }) {
         );
     };
 
-    /*
-     * ── THE BOARD ───────────────────────────────────────────────────────────
-     *
-     * A leaderboard is a departure board with the sort turned round: a concourse
-     * ranks by time, this ranks by whichever measure the lens is on. So it is the
-     * collection board's register, verbatim — the deck's material, ruled rows, no
-     * boxes and no radius, values on split-flap drums — and almost nothing here
-     * had to be invented for it.
-     *
-     * ── WHAT THE OLD TABLE GOT WRONG, AND IT WAS NOT ONLY THE LOOK ──────────
-     *
-     * It showed ITEMS, SPINS and DUPES as three permanent columns *above a row of
-     * filters that select between exactly those measures*. Sorting by Spins gave
-     * you a Spins column twice — once as the highlighted metric, once as its own
-     * column — and players said so. A filter and a column are two answers to the
-     * same question, and the filter is the one that was asked.
-     *
-     * So there is one measure column and the lens names it. What replaces the
-     * width the other two were filling is a share-of-leader meter, which is the
-     * thing a ranking actually wants and a number in a column cannot give: how
-     * far ahead first place is.
-     */
+    // THE BOARD: the collection board's register with the sort turned round (deck material, ruled rows, no boxes, split-flap drums).
+    // One measure column named by the lens, plus a share-of-leader meter: the old permanent ITEMS/SPINS/DUPES columns duplicated the filter that selects between them.
     const metricTone = {
         collection: DECK.amber,
         spins: DECK.ink,
@@ -767,27 +633,8 @@ export function LeaderboardSidebar({ onClose }) {
         specials: DECK.amber,
     }[activeTab] || DECK.amber;
 
-    /*
-     * "In prestige" answers whichever metric the lens is on.
-     *
-     * Items and duplicates come from the run's own rows. Spins and events are the
-     * player's career total minus the baseline recorded when the run opened, and
-     * that baseline is why those two work at all — spins cannot be counted from
-     * spin_history (event and recursion spins never write a row), and events have
-     * no timestamped record anywhere, so without it they would have to be guessed.
-     *
-     * Duplicates used to be a baseline subtraction too and it was wrong, not
-     * imprecise: prestige requires a COMPLETE collection, so every pull during a
-     * run is a duplicate for the main collection and the subtraction just returned
-     * the run's spin count (1002 dupes in 1012 spins, as reported). The server now
-     * counts duplicates against the PRESTIGE collection — a second copy this run —
-     * and hands them over ready-made.
-     *
-     * Returns null for "nothing to say": not prestiging, or a run that started
-     * before the baselines were recorded. Null prints as a dot, never as a zero —
-     * a zero here would be a measurement, and there isn't one. Items and duplicates
-     * are always measurable, so they are the two that never go null.
-     */
+    // "In prestige" answers whichever metric the lens is on. Items and duplicates come from the run's own rows (duplicates are counted server-side against the PRESTIGE collection; a baseline subtraction just returned the spin count). Spins and events are the career total minus the baseline recorded when the run opened.
+    // Returns null for "nothing to say" (not prestiging, or a run older than the baselines): null prints as a dot, never a zero.
     const prestigeValueFor = (entry) => {
         if (!(entry.prestige_active_level > 0)) return null;
 
@@ -799,11 +646,7 @@ export function LeaderboardSidebar({ onClose }) {
             case 'spins': return since(entry.total_spins, entry.prestige_spins_at_start);
             case 'duplicates': return entry.prestige_duplicates ?? null;
             case 'events': return since(entry.event_triggers, entry.prestige_events_at_start);
-            // No `since` and no baseline: a lucky spin writes a timestamped
-            // spin_history row, so the server counts them from the run's own
-            // start time. That puts Lucky with items and duplicates as a metric
-            // that is always measurable, rather than with spins and events,
-            // which go null on a run older than the baseline columns.
+            // No `since` or baseline: a lucky spin writes a timestamped spin_history row, so the server counts them from the run's start; Lucky is always measurable.
             case 'lucky': return entry.prestige_lucky_spins ?? null;
             default: return entry.prestige_items ?? null;
         }
@@ -811,46 +654,11 @@ export function LeaderboardSidebar({ onClose }) {
 
     const rows = leaderboard.slice(0, 100);
 
-    /*
-     * RANK | avatar | PLAYER | measure | share | prestige | collection
-     *
-     * The phone carries the first four and stops. It began with the collection
-     * marks too and the name column resolved to **zero pixels**: five tier marks
-     * are 130px of fixed width, and on a 390px screen — inset by the modal's own
-     * padding twice over — the fixed columns wanted more than the row had, so the
-     * one flexible column absorbed the whole shortfall and every player on the
-     * board went nameless.
-     *
-     * Dropping the marks rather than shrinking them is the honest trade: a
-     * ranking whose rows have no names is not a smaller ranking, it is a broken
-     * one, and per-tier counts at 10px were the least legible thing on the phone
-     * anyway. They are still on the desktop board and in every player's profile.
-     */
-    /*
-     * The collection column is a LENGTH, not `auto`, and it is derived from the
-     * marks that fill it.
-     *
-     * With `auto` the header and the rows share one template and size that column
-     * to two different contents — the word "Collection" up top, five tier marks
-     * below — so the flexible name column absorbed the difference and every column
-     * after it drifted, measured at 70px and 112px. One template only lines up
-     * when every track resolves the same on both.
-     */
+    // RANK | avatar | PLAYER | measure | share | prestige | collection. The phone stops after the first four: the fixed-width tier marks (130px) once left the flexible name column at zero pixels on a 390px screen.
+    // The collection column is a LENGTH derived from its marks, not `auto`: header and rows share one template, and `auto` sizes it to two different contents so later columns drift.
     const markTiers = RARITY_KEYS.filter(k => GLOBAL_TOTAL_FIELD[k]);
 
-    /*
-     * The strip under the title, when a period is on.
-     *
-     * It cannot be `globalStats`: those are the server's all-time totals, and
-     * 331,955 spins printed above a board of this week's is a number that answers
-     * a question nobody asked and invites the reader to compare it with the rows.
-     *
-     * So the period strip is summed from the rows themselves, and it is labelled
-     * "on this board" rather than "spins" for the reason that it IS the board and
-     * not the server: the endpoint returns the top 100, so a window with more
-     * than a hundred active players has a tail this does not count. Naming the
-     * scope is cheaper and more honest than a second endpoint for four numbers.
-     */
+    // Period strip: summed from the rows and labelled "on this board", not `globalStats` (all-time totals beside a week's board). The endpoint returns the top 100, so a busier window has an uncounted tail.
     const boardTotals = !isPeriod ? null : leaderboard.reduce((acc, e) => {
         acc.players += 1;
         acc.spins += e.spins || 0;
@@ -862,22 +670,7 @@ export function LeaderboardSidebar({ onClose }) {
     const MARK_W = 38;
     const marksWidth = markTiers.length * MARK_W;
 
-    /*
-     * The period board is a different register, not the career one with columns
-     * blanked out.
-     *
-     * Prestige is the obvious casualty — a run is a career-long thing and "items
-     * in prestige this week" is not a number anybody wants — but the real change
-     * is that the period board shows ALL FOUR measures at once rather than the
-     * one the lens names. There are only four, they are all small numbers, and a
-     * window is read across as much as down: "who spun the most" and "who got
-     * luckiest doing it" are the same glance. So the lens here only decides the
-     * ORDER and which column is tinted.
-     *
-     * The tier marks carry over unchanged and mean the window's pulls rather than
-     * the collection — same rendering, same ink, and they add up to the Specials
-     * column beside them.
-     */
+    // The period board is a different register: it shows ALL FOUR measures at once, and the lens only decides the ORDER and which column is tinted. Tier marks mean the window's pulls and add up to the Specials column.
     const boardColumns = isPeriod
         ? (isPhone
             ? '30px 24px minmax(0, 1fr) 76px'
@@ -886,10 +679,7 @@ export function LeaderboardSidebar({ onClose }) {
             ? '30px 24px minmax(0, 1fr) 76px'
             : `46px 30px minmax(0, 1fr) 96px 132px 68px ${marksWidth}px`);
 
-    /* The period board's numeric columns, in the order they are printed. The
-     * header and the rows both walk this, so a column cannot be added to one and
-     * forgotten in the other — the drift the sticky-header note above describes,
-     * in its other form. */
+    // The period board's numeric columns, in print order; the header and rows both walk this so a column cannot be added to one and forgotten in the other.
     const PERIOD_COLUMNS = [
         { id: 'spins', label: 'Spins', field: 'spins' },
         { id: 'lucky', label: 'Lucky', field: 'lucky_spins' },
@@ -920,9 +710,7 @@ export function LeaderboardSidebar({ onClose }) {
                     overflow: 'hidden',
                 }}
             >
-                {/* KOTW keeps its own world. It is a spin mode with its own
-                    identity, documented separately, and it overlays this board
-                    rather than restyling it. */}
+                {/* KOTW keeps its own world: a spin mode with its own identity that overlays this board rather than restyling it. */}
                 {showKotwMode && isKotwActive && renderKotwLeaderboard()}
 
                 {/* ── THE HEAD ────────────────────────────────────────────── */}
@@ -943,10 +731,7 @@ export function LeaderboardSidebar({ onClose }) {
                             />
                             <BoardLabel tone={DECK.inkMid}>
                                 {leaderboard.length} {leaderboard.length === 1 ? 'player' : 'players'}
-                                {/* In a period this counts who has SPUN in the
-                                    window, not who is registered — the server
-                                    leaves an idle player off the board entirely
-                                    rather than ranking a page of zeroes. */}
+                                {/* In a period this counts who has SPUN in the window; the server leaves idle players off the board. */}
                                 {isPeriod && periodMeta ? ` · ${periodMeta.label.toLowerCase()}` : ''}
                             </BoardLabel>
                         </div>
@@ -979,9 +764,7 @@ export function LeaderboardSidebar({ onClose }) {
                         </div>
                     </div>
 
-                    {/* The server's own totals, as the board's second register.
-                        Not a vanity banner: a player's 1,559 means nothing until
-                        you know the field pulled 331,955 spins to get there. */}
+                    {/* The server's own totals, as the board's second register. */}
                     {(isPeriod ? boardTotals : globalStats) && (
                         <div style={{
                             display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
@@ -989,9 +772,7 @@ export function LeaderboardSidebar({ onClose }) {
                             margin: isPhone ? '14px 0 10px' : '20px 0 10px',
                         }}>
                             <div style={{ display: 'flex' }}>
-                                {/* No Players tile in a period: the chip beside
-                                    the title already counts the board, and this
-                                    strip's job here is what the window produced. */}
+                                {/* No Players tile in a period: the chip beside the title already counts the board. */}
                                 {(isPeriod ? [
                                     { label: 'Spins', value: fmtNum(boardTotals.spins) },
                                     { label: 'Lucky', value: fmtNum(boardTotals.lucky_spins) },
@@ -1013,11 +794,7 @@ export function LeaderboardSidebar({ onClose }) {
                                 ))}
                             </div>
 
-                            {/* Every special ever pulled on the server, by tier —
-                                or, in a period, every special this board pulled
-                                inside the window. Tier ink, no chips — the
-                                ladder's colours are the only labelling this
-                                needs. */}
+                            {/* Every special ever pulled on the server by tier, or in a period every special pulled inside the window. Tier ink, no chips. */}
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 18px' }}>
                                 {markTiers.map(key => (
                                     <span key={key} style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
@@ -1031,9 +808,7 @@ export function LeaderboardSidebar({ onClose }) {
                         </div>
                     )}
 
-                    {/* The board's baseline. A rule and not a meter: a ranking has
-                        no completion to fill one with, and a bar that measures
-                        nothing is the worst thing on a board of real numbers. */}
+                    {/* The board's baseline: a rule, not a meter, since a ranking has no completion to fill one with. */}
                     <div style={{ height: '2px', background: 'rgba(0,0,0,0.45)', boxShadow: `inset 0 1px 0 ${rail(0.10)}` }} />
                 </div>
 
@@ -1052,10 +827,7 @@ export function LeaderboardSidebar({ onClose }) {
                         tone={metricTone}
                     />
 
-                    {/* The second lens: over what window. Career first, because
-                        it is the board this page has always opened on and the one
-                        a player's collection lives in — the periods are what has
-                        happened lately, not what the board is. */}
+                    {/* The second lens: over what window. Career first, as the board this page opens on. */}
                     <BoardLabel>Over</BoardLabel>
                     <Segmented
                         value={period}
@@ -1071,10 +843,7 @@ export function LeaderboardSidebar({ onClose }) {
                     />
 
                     <div style={{ flex: '1 1 auto' }} />
-                    {/* Which window, in the server's words and the server's
-                        clock. The dates are the whole reason this prints at all:
-                        the boards reset, so a thin Monday board has to be able to
-                        say that it has just started rather than look broken. */}
+                    {/* The server's own label and clock: boards reset, so a thin Monday board must be able to say it has just started. */}
                     {isPeriod && periodMeta && (
                         <BoardLabel tone={DECK.inkMid}>
                             {periodMeta.label} · since {periodMeta.since} UTC
@@ -1087,20 +856,7 @@ export function LeaderboardSidebar({ onClose }) {
                     )}
                 </div>
 
-                {/* ── THE REGISTER ──────────────────────────────────────────
-                    The column headings live INSIDE the scroller, and that is not a
-                    tidiness preference. Outside it, the scrollbar narrows the rows
-                    by its own width and not the header, so the flexible name
-                    column resolves wider up there and every column after it is
-                    thrown out — measured here at 12px of drift before it was moved.
-                    Sharing the scroll box means sharing whatever the scrollbar
-                    takes, on whatever platform, present or not.
-
-                    Sticky, because a header on a hundred-row table that scrolls
-                    away is a header that stops working exactly when it is needed.
-                    It bleeds to the scroller's edges with a negative margin while
-                    keeping the rows' padding, so its ground spans the full width
-                    and its grid still lines up with theirs. */}
+                {/* The column headings live INSIDE the scroller: outside it the scrollbar narrows the rows but not the header, so every column after the flexible name column drifts (12px measured). Sticky; it bleeds to the scroller's edges with a negative margin while keeping the rows' padding. */}
                 <div
                     className="fib-board-scroll"
                     style={{
@@ -1125,10 +881,7 @@ export function LeaderboardSidebar({ onClose }) {
                         <BoardLabel>Player</BoardLabel>
                         {isPeriod ? (
                             isPhone ? (
-                                // The phone keeps one column, and it is the one
-                                // the board is ranked by — four numeric columns
-                                // on a 390px screen is the shortfall that left
-                                // every player nameless before.
+                                // The phone keeps one column, the one the board is ranked by: four numeric columns on 390px left every player nameless.
                                 <BoardLabel tone={metricTone} style={{ textAlign: 'right' }}>
                                     {sortOptions[activeTab].label}
                                 </BoardLabel>
@@ -1170,11 +923,7 @@ export function LeaderboardSidebar({ onClose }) {
                         </div>
                     ) : rows.length === 0 ? (
                         <div style={{ padding: '28px 0', textAlign: 'center' }}>
-                            {/* An empty period board is the NORMAL state for the
-                                first hours of a window, so it says which window
-                                is empty. "No players on the board yet" under a
-                                board that reset forty minutes ago reads as a
-                                server that lost everybody. */}
+                            {/* An empty period board is the NORMAL state early in a window, so it says which window is empty. */}
                             <BoardLabel tone={DECK.inkMid}>
                                 {isPeriod && periodMeta
                                     ? `Nobody has spun since ${periodMeta.since} — first spin takes the lead`
@@ -1187,32 +936,16 @@ export function LeaderboardSidebar({ onClose }) {
                         const value = getValueForTab(entry);
                         const standing = prestigeStanding(entry);
                         const level = standing.level;
-                        // One value for the label and the drums. They had the
-                        // fallback in different places, so a null username was
-                        // announced as "null, rank 4" while the row read "Unknown".
+                        // One value for the label and the drums: a null username was announced as "null, rank 4" while the row read "Unknown".
                         const name = entry.custom_username || 'Unknown';
                         const prestigeValue = prestigeValueFor(entry);
-                        /*
-                         * What the row says out loud, and it has to match what
-                         * the row shows: aria-label REPLACES a button's inner
-                         * content, so whatever this leaves out is not announced
-                         * at all, however plainly it is printed.
-                         *
-                         * The desktop period row prints four measures and was
-                         * announcing one, because the label was written when
-                         * there was only ever one column to name. Everywhere
-                         * else — phone, and every career row — one measure is
-                         * genuinely all there is, so those keep the short form.
-                         */
+                        // What the row says out loud must match what it shows: aria-label REPLACES a button's inner content. The desktop period row prints four measures and announces them; phone and career rows keep the short form.
                         const measureSpeech = (isPeriod && !isPhone)
                             ? PERIOD_COLUMNS
                                 .map(col => `${fmtNum(entry[col.field] ?? 0)} ${col.label.toLowerCase()}`)
                                 .join(', ')
                             : `${fmtNum(value)} ${sortOptions[activeTab].label.toLowerCase()}`;
-                        // The medal metals, which DESIGN.md SS8 sanctions for
-                        // placings and nothing else. Beyond third the numeral is
-                        // ordinary ink: a board where every rank is decorated has
-                        // no podium.
+                        // Medal metals, which DESIGN.md §8 sanctions for placings only; beyond third the numeral is ordinary ink.
                         const rankTone = rank === 1 ? KOTW_GOLD
                             : rank === 2 ? KOTW_SILVER
                             : rank === 3 ? KOTW_BRONZE
@@ -1229,9 +962,7 @@ export function LeaderboardSidebar({ onClose }) {
                                     alignItems: 'center', gap: '0 12px',
                                     width: '100%', padding: isPhone ? '9px 0' : '11px 0',
                                     border: 'none', textAlign: 'left', font: 'inherit',
-                                    // Your own row wears the board's selected state:
-                                    // station amber, the one colour that means "the
-                                    // board is telling you something".
+                                    // Your own row wears the board's selected state: station amber.
                                     '--fib-row-wash': `${DECK.amber}12`,
                                     '--fib-row-tone': DECK.amber,
                                 }}
@@ -1245,9 +976,7 @@ export function LeaderboardSidebar({ onClose }) {
                                     delay={40 + Math.min(idx, 12) * 22}
                                 />
 
-                                {/* The avatar, ringed by prestige. Same treatment
-                                    as the stage's standings, so a player wears the
-                                    same mark wherever they appear. */}
+                                {/* The avatar, ringed by prestige, as in the stage's standings. */}
                                 <PrestigeRing standing={standing}>
                                     <img
                                         src={getDiscordAvatarUrl(entry.discord_id, entry.discord_avatar)}
@@ -1270,12 +999,7 @@ export function LeaderboardSidebar({ onClose }) {
                                 />
 
                                 {isPeriod && !isPhone ? (
-                                    /* All four measures, the ranked one tinted.
-                                       A zero is a dot for the reason the tier
-                                       marks are: in a ruled column a bare 0 and a
-                                       missing value look identical, and in a
-                                       window most players have a genuine zero in
-                                       at least one of these. */
+                                    // All four measures, the ranked one tinted. A zero is a dot: in a ruled column a bare 0 and a missing value look identical.
                                     PERIOD_COLUMNS.map(col => {
                                         const n = entry[col.field] ?? 0;
                                         const ranked = col.id === activeTab;
@@ -1305,24 +1029,9 @@ export function LeaderboardSidebar({ onClose }) {
                                     />
                                 )}
 
-                                {/* Share of the leader. This is what the removed
-                                    Spins and Dupes columns were really being asked
-                                    to do — say how far ahead first place is — and a
-                                    second number in a third column never could. */}
-                                {/* How far this player's current prestige run has
-                                    got.
-                                    A share-of-leader meter lived here first. It was
-                                    honest but it was a bar restating the column
-                                    beside it, and the owner wanted the one number a
-                                    ranking of prestigers actually wants: how many
-                                    items they have collected the second time round.
-                                    Blank for the overwhelming majority who are not
-                                    prestiging — a dot, because an empty cell in a
-                                    ruled column reads as a missing value. */}
-                                {/* Career columns only. "Items in prestige" and a
-                                    prestige level are both career-long facts, and
-                                    a window has nothing to say about either — the
-                                    ring on the avatar still carries the standing. */}
+                                {/* Share of the leader: how far ahead first place is. */}
+                                {/* The player's current prestige run: items collected the second time round. A dot for the majority who are not prestiging, since an empty cell reads as missing. */}
+                                {/* Career columns only: items-in-prestige and prestige level are career-long facts a window has nothing to say about. */}
                                 {!isPeriod && !isPhone && (
                                     prestigeValue !== null ? (
                                         <FlapText
@@ -1347,25 +1056,10 @@ export function LeaderboardSidebar({ onClose }) {
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: '4px',
                                                     color: isIridescentPrestige(level) && standing.earned ? undefined : prestigeInk(level),
-                                                    // Full strength in both states. This
-                                                    // cell was dimmed to 0.5 for a run in
-                                                    // progress, which muted an ink chosen
-                                                    // to clear AA at full — and the ring on
-                                                    // the same row already says whether the
-                                                    // level is won. Two markers for one
-                                                    // fact, one of them costing legibility.
+                                                    // Full strength in both states: dimming muted an ink chosen to clear AA, and the avatar ring already says whether the level is won.
                                                 }}
                                             >
-                                                {/* The mark alone. This column is
-                                                    62px and cannot spell the
-                                                    level out, and the Roman
-                                                    numeral it used to carry was
-                                                    the same one bit the mark
-                                                    already holds — the level
-                                                    picks the icon. The name is
-                                                    the cell's accessible name
-                                                    and its tooltip; the surfaces
-                                                    with room say it on screen. */}
+                                                {/* The mark alone: this column is 62px and cannot spell the level out. The name is the cell's accessible name and tooltip. */}
                                                 {prestigeIcon(level, 13)}
                                                 <span className="fib-sr-only">
                                                     {prestigeLabel(level)}
@@ -1373,26 +1067,13 @@ export function LeaderboardSidebar({ onClose }) {
                                                 </span>
                                             </span>
                                         ) : (
-                                            // A dot, not a blank: an empty cell in a
-                                            // ruled column reads as a missing value
-                                            // where the truth is "none".
+                                            // A dot, not a blank: an empty cell in a ruled column reads as a missing value.
                                             <BoardLabel tone={DECK.inkDim}>·</BoardLabel>
                                         )}
                                     </span>
                                 )}
 
-                                {/* The collection, by tier. Icon and count in the
-                                    tier's ink — the ladder's colours are the whole
-                                    label, so the boxed chips this replaced were a
-                                    border around information that already had one.
-
-                                    Both boards fill this from `<tier>_count`, and
-                                    the two counts are NOT the same measurement:
-                                    career-wide it is distinct items owned, in a
-                                    window it is pulls — a second mythic counts
-                                    there and not here. Same column, same key,
-                                    different question, so only the tooltip can
-                                    tell them apart. */}
+                                {/* The collection by tier: icon and count in the tier's ink, no chips. `<tier>_count` is NOT the same measurement on both boards: distinct items owned career-wide, pulls in a window (a second mythic counts only there), so only the tooltip can tell them apart. */}
                                 {!isPhone && <span style={{
                                     display: 'grid',
                                     gridTemplateColumns: `repeat(${markTiers.length}, ${MARK_W}px)`,
