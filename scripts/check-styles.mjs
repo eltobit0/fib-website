@@ -1,22 +1,6 @@
 /**
- * Structural checks on the stats stylesheet.
- *
- * `styles.js` holds ~1,200 lines of CSS inside a JS template literal, which
- * means neither the linter nor the bundler validates it. Two failure modes
- * have already shipped from that blind spot, both silent:
- *
- *  1. A backtick inside a CSS comment (`accent-color`) terminates the template
- *     literal early. This one at least breaks the build loudly.
- *
- *  2. A stray `}` closes a @media block early, and every rule that was meant
- *     to be inside it becomes a top-level rule that applies at ALL viewports.
- *     Nothing errors. The mobile podium layout simply started rendering on
- *     desktop, and the only symptom was "the design changed".
- *
- * The orphan check leans on the file's consistent formatting: top-level rules
- * start at column 0, rules nested in a block are indented. An indented rule
- * found at nesting depth 0 escaped its block.
- *
+ * Structural checks on styles.js, CSS in a JS template literal that neither linter nor bundler validates:
+ * stray backticks (truncate the literal), brace imbalance, and rules orphaned out of @media (an indented rule at depth 0).
  *   node scripts/check-styles.mjs
  */
 
@@ -81,19 +65,7 @@ if (depth !== 0) {
   errors.push(`CSS ends at brace depth ${depth}; a block was left unclosed.`);
 }
 
-/*
- * 3. The blue accent has two steps, and only one of them is legal as text.
- *
- * `--fib-blue` (oklch 0.585) is the FILL: a button background, a meter, a focus
- * ring. Measured against the page it is 4.39:1, which fails WCAG AA for text by
- * a hair — close enough that it looks fine in a screenshot and fails an audit.
- * `--fib-blue-ink` (0.720) is the text step at 7.62:1 and exists for exactly
- * this reason.
- *
- * The distinction is documented in DESIGN.md and was, until this check, enforced
- * by nothing. Only `color:` is flagged; background, border, box-shadow and
- * fill/stroke are all legitimate uses of the darker step.
- */
+// 3. `--fib-blue` (fill) is 4.39:1 and fails AA as text; text must use `--fib-blue-ink`. Only `color:` is flagged.
 const blueText = [];
 stripped.split('\n').forEach((text, i) => {
   const decl = text.match(/(^|[;{]|\s)color\s*:\s*var\(\s*--fib-blue\s*\)/);

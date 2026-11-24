@@ -3,7 +3,6 @@ import { raceEntries, idUuid, idLabel } from './adapter.js';
 import { Faces, RoundItem } from './ui.jsx';
 import { itemTip, roundClock } from './statsKit.js';
 
-/** A whole round laid out: each side's items in the order they came, the winner first. */
 export function RoundLanes({ match, onOpenPlayer }) {
   const rows = useMemo(() => raceEntries(match), [match]);
   const clock = useMemo(() => roundClock(match), [match]);

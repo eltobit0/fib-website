@@ -1,23 +1,5 @@
-// ============================================
-// Changelog — "What's new", the release-note surface
-// ============================================
-//
-// Fires once per release on page load, and is reachable again from the topbar
-// afterwards. The entries live in config/changelog.js; this file only knows how to
-// draw the four block kinds, so a future release writes data and no JSX.
-//
-// ── WHY IT IS ITS OWN MODAL AND NOT A NOTIFICATION ──────────────────────────
-//
-// The bell already carries admin notices, and folding this into it was the obvious
-// move. It does not work: `notifications.content` is a TEXT column, so a notice can
-// say "the odds changed" but cannot draw the ladder, and the whole reason this
-// surface exists is that a rarity change is a picture rather than a paragraph. The
-// bell also needs an account, and /wheel is readable signed out.
-//
-// So the two are different things that look similar, and the topbar's
-// no-two-entry-points rule is satisfied by them having no overlap: the bell is
-// per-user and authored in the admin panel, this is per-release and authored in the
-// repo. Neither can show the other's content.
+// Changelog, "What's new": fires once per release and is reachable from the topbar; entries live in config/changelog.js and this file draws the four block kinds, so a release writes data and no JSX.
+// Its own modal, not a notification: `notifications.content` is TEXT and cannot draw the ladder, and the bell needs an account while /wheel is readable signed out.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Sparkles, Spade, Crosshair, Gift, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -26,41 +8,12 @@ import { CHANGELOG } from '../../../config/changelog.js';
 import { RELIC_ITEMS } from '../../../config/constants.js';
 import { getRarityColor, getRarityIcon, getRarityOnColor } from '../../../utils/rarityHelpers.jsx';
 
-// The items a `tier` block draws, by rarity key. Only relic has a roster here
-// because only relic has one worth showing off; a future tier block for a rarity
-// that is not listed simply renders its heading and body with no grid, which is a
-// degradation rather than a crash.
-// The whole-tier rosters. A `tier` block for one of these draws every item in it
-// without having to list them, which is what the relic entry wanted: the tier WAS
-// the release, so showing all six was showing the release.
-//
-// A block can also carry its own `roster` instead, and that is not the same thing
-// said twice. An entry announcing ONE addition to an existing tier must not draw
-// the tier — six renders under the heading "New in Mythic" says six things are
-// new. The block's own roster is the picture of what actually changed.
+// Whole-tier rosters a `tier` block draws without listing them; a rarity not listed renders heading and body with no grid. A block may carry its own `roster` instead: an entry announcing ONE addition must not draw the whole tier.
 const TIER_ROSTERS = { relic: RELIC_ITEMS };
 
 /* ── Blocks ──────────────────────────────────────────────────────────────── */
 
-/* ── On the two greys ─────────────────────────────────────────────────────────
- *
- * Body text here takes COLORS.neutralInk, never COLORS.textMuted.
- *
- * `textMuted` is #888, which measures 4.81:1 on the modal's own ground and 4.17:1
- * on the inner panels — under AA's 4.5 floor on exactly the surfaces this modal
- * puts small text on. `neutralInk` exists for this: it is the same grey pulled
- * toward the field's blue, documented in config/constants.js as the fix for "#888
- * on a midnight-blue field reads as dead rather than quiet", and it measures
- * 6.55 / 5.67 on the same two grounds.
- *
- * textMuted survives here for chrome only — the version stamp — where nothing is
- * lost if it recedes.
- *
- * Sizes hold an 11px floor for anything a player reads, per DESIGN.md §8: "The
- * ramp's 11px floor holds for anything a player has to read." The first draft set
- * item names and the ladder's footnote at 10px, which is the badge step and not a
- * reading step.
- */
+// Body text takes COLORS.neutralInk, never COLORS.textMuted: #888 is 4.81:1 on the modal's ground and 4.17:1 on inner panels, under AA, while neutralInk measures 6.55 / 5.67. textMuted survives for chrome only (the version stamp). Anything a player reads holds the 11px floor (DESIGN.md §8).
 function SectionHeading({ children }) {
     return (
         <div style={{
@@ -84,9 +37,7 @@ function RationaleBlock({ block }) {
                 <p
                     key={i}
                     style={{
-                        // The one piece of sustained prose in the modal, so it gets
-                        // the body colour and a reading measure rather than the
-                        // recessive grey the labels use.
+                        // The one piece of sustained prose in the modal: body colour and a reading measure.
                         color: COLORS.text,
                         fontSize: '13px',
                         lineHeight: 1.6,
@@ -156,42 +107,11 @@ function TierBlock({ block, isMobile }) {
             {roster.length > 0 && (
                 <div style={{
                     display: 'grid',
-                    // Three across on a phone, six on desktop: the roster is the
-                    // picture, so it stays a grid rather than collapsing to a list.
-                    //
-                    // The count is a CEILING, not the answer. Two things bend it:
-                    //
-                    //   A roster shorter than the ceiling takes its own length. Six
-                    //   columns holding one render puts it in the first sixth of the
-                    //   width, which reads as five missing ones rather than as one
-                    //   item.
-                    //
-                    //   A roster longer than the ceiling balances its rows instead of
-                    //   filling them. Seven relics against six columns is a full row
-                    //   and then a single orphan underneath, which looks like a
-                    //   layout accident; the same seven at four columns is 4 + 3 and
-                    //   looks like a set. `rows` is what the ceiling would give, and
-                    //   the columns are then whatever spreads the roster evenly over
-                    //   that many rows.
-                    //
-                    // At six or fewer this is exactly the old behaviour, which is why
-                    // the relic tier still draws as one row of six until the seventh
-                    // arrives.
+                    // Three across on a phone, six on desktop; the count is a CEILING. A roster shorter than it takes its own length, and a longer one balances its rows (seven at four columns is 4 + 3, not a full row and an orphan).
                     gridTemplateColumns: `repeat(${gridColumns(roster.length, isMobile ? 3 : 6)}, 1fr)`,
                     gap: '8px',
                 }}>
-                    {/* No tile, no radius, no shadow.
-
-                        These were 6px rounded panels with a background and an inset
-                        floor, and they read as exactly the soft generic cards
-                        DESIGN.md's reference world rules out: "almost nothing is
-                        rounded", "there are no cards, so there is no card
-                        elevation", and the Nocturne "has no frames". Six of them in
-                        a row made the section look stamped out rather than built.
-
-                        The renders are cut-out isometric builds on transparency, so
-                        they are already objects — they need a ground, not a box, and
-                        the tier badge directly above already says whose they are. */}
+                    {/* No tile, no radius, no shadow: the renders are cut-out builds that need a ground, not a box (DESIGN.md: no cards, no frames). */}
                     {roster.map(item => (
                         <div key={item.texture} style={{ textAlign: 'center' }}>
                             <img
@@ -224,19 +144,7 @@ function TierBlock({ block, isMobile }) {
 }
 
 function LadderBlock({ block }) {
-    // Bar length is FREQUENCY — how often you see the tier — so the ladder widens
-    // as it gets commoner and Insane is the sliver.
-    //
-    // It was drawn the other way round first, length standing for rarity, and that
-    // was wrong in the way only a screenshot shows: a bar is read as an amount, so
-    // a full-width bar sitting next to the words "1 in 1,000,000" said "lots of
-    // these" about the rarest thing on the wheel. Both encodings are equally
-    // legible on a log scale; only one of them agrees with the number beside it.
-    //
-    // Log-scaled, because the ladder spans 1 in 137 to 1 in 1,000,000 and a linear
-    // bar renders everything above Legendary as a single pixel. The scale runs
-    // between the block's own extremes, so it stays honest if a future entry lists
-    // a different set of tiers.
+    // Bar length is FREQUENCY (how often you see the tier), so the ladder widens as it gets commoner and Insane is the sliver: a bar reads as an amount. Log-scaled (1 in 137 to 1 in 1,000,000) between the block's own extremes.
     const logs = block.rows.map(r => Math.log10(r.oneIn));
     const min = Math.min(...logs);
     const max = Math.max(...logs);
@@ -275,11 +183,7 @@ function LadderBlock({ block }) {
                                 gap: '5px',
                             }}>
                                 {row.label}
-                                {/* The badge is 10px, not 9: DESIGN.md §8 removed the
-                                    9px floor breach on the ticker's LUCKY badge on the
-                                    grounds that a word has to be read and 9px was only
-                                    ever defensible for a pictogram. NEW is a word. 5px
-                                    is `wheel-badge`, the ratified badge corner. */}
+                                {/* The badge is 10px, not 9: a word has to be read (DESIGN.md §8). 5px is `wheel-badge`, the ratified badge corner. */}
                                 {row.isNew && (
                                     <span style={{
                                         background: color,
@@ -388,16 +292,7 @@ function NotesBlock({ block }) {
     );
 }
 
-/*
- * A `feature` block's identity, by key. The data file names a feature and never
- * a colour, for the reason rarities are keyed and not spelled: the identity is
- * owned elsewhere (EVENT_IDENTITY, COLORS.bounty, COLORS.mysteryGilt) and a copy
- * here would be the drift DESIGN.md keeps recording.
- *
- * `gilt` marks the one identity that is a metal and never a flat colour - the
- * mystery box - so its title takes the ramp and its facts' labels the ramp's
- * middle stop.
- */
+// A `feature` block's identity, by key: the data file names a feature, never a colour (owned by EVENT_IDENTITY, COLORS.bounty, COLORS.mysteryGilt). `gilt` marks the mystery box, a metal: its title takes the ramp and its facts' labels the middle stop.
 const FEATURE_IDENTITY = {
     high_roller: { color: EVENT_IDENTITY.high_roller.color, Icon: Spade },
     bounty: { color: COLORS.bounty, Icon: Crosshair },
@@ -478,23 +373,13 @@ const BLOCKS = {
 
 /** A release's date as the header prints it. */
 function formatReleaseDate(date) {
-    // timeZone: 'UTC' because the entry dates in changelog.js are bare 'YYYY-MM-DD'
-    // strings, which Date parses as UTC midnight. Formatting that in the viewer's
-    // own zone moves it BACKWARDS for everyone west of UTC, so a release dated the
-    // 20th announced itself as the 19th across the Americas while reading correctly
-    // in Europe - which is why nobody here would have seen it.
+    // timeZone: 'UTC' because changelog.js dates are bare 'YYYY-MM-DD', which Date parses as UTC midnight; local formatting shows the 19th west of UTC for a release dated the 20th.
     return new Date(date).toLocaleDateString(undefined, {
         day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
     });
 }
 
-/*
- * The older releases, listed under the one being read.
- *
- * Only the newest release pops up, but a release is a record and stays one: the
- * Relic Update's ladder and odds are still the best explanation of the ladder
- * anyone has written. Each row opens its entry in full, in this same modal.
- */
+// The older releases, listed under the one being read; each row opens its entry in full in this modal.
 function EarlierReleases({ current, onSelect }) {
     const others = CHANGELOG.map((entry, index) => ({ entry, index })).filter(({ index }) => index !== current);
     if (others.length === 0) return null;
@@ -622,9 +507,7 @@ export function ChangelogModal({ onClose, isMobile }) {
                             }}>
                                 What&rsquo;s new
                             </span>
-                            {/* The one place textMuted survives: a version stamp is
-                                chrome, nothing is lost if it recedes, and it sits on
-                                the card's own ground where #888 still clears AA. */}
+                            {/* The one place textMuted survives: a version stamp is chrome and sits on the card's ground where #888 clears AA. */}
                             <span style={{
                                 color: COLORS.textMuted,
                                 fontFamily: 'monospace',
@@ -686,9 +569,7 @@ export function ChangelogModal({ onClose, isMobile }) {
                     )}
                     {entry.blocks.map((block, i) => {
                         const Block = BLOCKS[block.kind];
-                        // An unknown kind is skipped rather than thrown: a data file
-                        // one release ahead of this renderer should degrade, not
-                        // white-screen the wheel.
+                        // An unknown kind is skipped, not thrown: a data file one release ahead should degrade, not white-screen the wheel.
                         return Block ? <Block key={`${current}-${i}`} block={block} isMobile={isMobile} /> : null;
                     })}
                     <EarlierReleases current={current} onSelect={selectRelease} />

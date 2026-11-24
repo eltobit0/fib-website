@@ -1,13 +1,8 @@
 /*
- * The daily bounty: the plaque in the banner slot, and the claim's celebration.
- *
- * One vocabulary, shared with the reel's mark in CanvasSpinningStrip: an iron
- * sight around the item (four corners, never a closed frame) in sight white,
- * `--bounty`, set inline from COLORS.bounty so the token stays the one source.
- * The mark is not light - no glow on the corners anywhere - because it is not a
- * tier and must not read as one getting brighter. The celebration is the one
- * place light is spent, and it is spent on the flash, not on the mark.
- */
+* The daily bounty: the plaque in the banner slot and the claim's celebration. One vocabulary with the reel's mark
+* in CanvasSpinningStrip: an iron sight (four corners, never a closed frame) in `--bounty`, set inline from
+* COLORS.bounty. The corners take no glow anywhere, since the mark is not a tier; the celebration spends light on the flash.
+*/
 
 /* ── The sight ───────────────────────────────────────────────────────────── */
 
@@ -40,9 +35,7 @@
 .fib-bounty-sight.is-claimed > i { opacity: 0.35; }
 .fib-bounty-sight.is-claimed img { opacity: 0.55; filter: grayscale(0.4); }
 
-/* Sealed: a bounty whose time has not come. The server has drawn its item and
-   will not say what it is, so the sight holds nothing but the question - the
-   corners at full strength, because this one is still to be hunted. */
+/* Sealed: the item is drawn but not named, so the sight holds only the question, corners at full strength. */
 .fib-bounty-sight.is-sealed > b {
     font-size: 0.42em;
     font-weight: 800;
@@ -51,9 +44,7 @@
     opacity: 0.7;
 }
 
-/* The lock: the corners start wide and close onto the item. Geometry moves
-   exactly once, on arrival, and then holds - the surface's rule that geometry
-   holds still and light breathes. */
+/* The lock: corners start wide and close onto the item once, then hold (geometry holds still, light breathes). */
 @keyframes fibBountyLock {
     0%   { transform: translate(var(--lx), var(--ly)); opacity: 0; }
     60%  { opacity: 1; }
@@ -109,10 +100,7 @@
 
 /* The room's celebration of a claim lives in BountyRoom.css. */
 
-/* ── The mystery box: gilt ───────────────────────────────────────────────────
- * The box's metal, per COLORS.mysteryGilt: always the ramp, never a flat gold,
- * and it drifts, because metal catches moving light. `--gilt-*` are set inline
- * from the token, so there is still one source for the three stops. */
+/* The mystery box's gilt per COLORS.mysteryGilt: always the ramp, drifting; `--gilt-*` are set inline from the token. */
 
 .fib-gilt-text {
     background: linear-gradient(100deg, var(--gilt-pale), var(--gilt-mid) 45%, var(--gilt-deep) 70%, var(--gilt-pale));

@@ -1,47 +1,5 @@
-/*
- * THE EVENT LOG — what the room did, on THE CONCOURSE.
- *
- * Scope: this file. DESIGN.md §9 is the authority; this is the sixth surface on
- * the board and the first one whose subject is the SERVER rather than a player.
- * The collection board, the leaderboard, the player board and the odds board all
- * answer "where do I stand"; this one answers "what have I been missing".
- *
- * ── WHY IT IS ITS OWN BOARD AND NOT A REGISTER ON THE ODDS BOARD ─────────────
- *
- * It was drafted as one — a fourth register under the odds board's "Global
- * events" section, which is where the five are already described. The owner
- * called it as its own board, and the reason it is the better call is the one
- * the odds board's own header states: that surface is a DOCUMENT. Every figure
- * on it is derived from the weight table and is as true tomorrow as today. A log
- * is the opposite kind of thing — it is different every time you open it, it has
- * a live row at the top while an event is running, and it wants a refresh. Two
- * registers with the same shape and opposite lifetimes on one board is how a
- * reader stops knowing which numbers are facts and which are news.
- *
- * ── THE TWO REGISTERS, AND WHY BOTH ──────────────────────────────────────────
- *
- * THE ROTATION is the standing question: which events fire, how often have they,
- * what have they paid. Five rows, one per type, and it is the one place the
- * anti-repeat rule is visible — a type that has not fired in a while shows it in
- * LAST.
- *
- * THE LOG is the recent question: what happened, who won it, what it cost. It is
- * ordered newest first and it is the reason the board exists.
- *
- * They are deliberately not merged. A per-type summary and a per-event list are
- * two different tables that happen to share a vocabulary, and the collection
- * board makes exactly this split between its register and its platform.
- *
- * ── WHAT IS NOT ON IT ────────────────────────────────────────────────────────
- *
- * Any player's lucky spin balance. PAID is what an event COST the server, never
- * what anybody now holds — the same line the arrival's manifest and the
- * community goal's result both draw, and the payload does not carry balances at
- * all so the board could not leak one if it tried.
- *
- * An event that did not happen. THE ARRIVAL declines on an empty platform and
- * never reaches `endEvent()`, so it is never logged. See eventHistory.js.
- */
+// THE EVENT LOG (DESIGN.md §9): what the SERVER did, as its own board rather than a register on the odds board (that one is a document of facts; a log is news with a live row and a refresh). THE ROTATION is the standing question (one row per type, which also shows the anti-repeat rule via LAST); THE LOG is the recent one, newest first. Deliberately not merged.
+// Never shows a player's lucky spin balance: PAID is what an event COST the server, and the payload carries no balances. An event that did not happen is never logged (THE ARRIVAL declines on an empty platform and never reaches `endEvent()`; see eventHistory.js).
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { X, RefreshCw, Radio } from 'lucide-react';
@@ -54,28 +12,12 @@ import { PrestigeRing } from '../spin/StageFlanks.jsx';
 import { prestigeStanding } from '../../../utils/prestigeHelpers.js';
 import { getDiscordAvatarUrl } from '../../../utils/helpers.js';
 
-/*
- * The rotation, in the order the odds board lists it.
- *
- * Hardcoded rather than read from the payload on purpose: this register's job is
- * to show all six INCLUDING the ones that have not fired lately, and a list
- * built from `totals` would silently drop exactly the type a reader is looking
- * for. Gold Rush is not here for the same reason it is not on the odds board —
- * it was retired from the rotation and only an admin can run one. A forced Gold
- * Rush still appears in THE LOG below, where the subject is what happened rather
- * than what can happen.
- */
+// The rotation in the odds board's order, hardcoded on purpose: a list built from `totals` would drop exactly the type that has not fired lately. Gold Rush is not here (retired), but its rows still appear in THE LOG.
 const ROTATION = ['arrival', 'roulette', 'high_roller', 'king_of_wheel', 'first_blood', 'community_goal'];
 
 const fmt = n => (n == null ? '—' : Number(n).toLocaleString('en-US'));
 
-/**
- * How long ago, in the shortest true form.
- *
- * Relative and not a clock, because "recent" is the whole framing of this board
- * and a reader comparing two rows wants the gap, not two timestamps to subtract.
- * Anything past a week becomes a date: "23d ago" is a number nobody converts.
- */
+// How long ago, shortest true form: relative because a reader compares gaps; past a week it becomes a date.
 function ago(ms) {
     if (!ms) return '—';
     const seconds = Math.max(0, (Date.now() - ms) / 1000);
@@ -95,19 +37,10 @@ function fullTime(ms) {
     return new Date(ms).toLocaleString();
 }
 
-/**
- * A player's face and name, or the absence of one.
- *
- * §9's named rule — a ring around a face means prestige, everywhere — and this
- * board is one of the everywheres. `pad={1.5}` because these avatars are 20px:
- * 2px on a small face reads as a coloured disc with a face on it rather than as
- * a frame around one, which is the arithmetic that made `pad` a prop.
- */
+// A player's face and name, or the absence of one. §9: a ring around a face means prestige, everywhere; `pad={1.5}` because these avatars are 20px.
 function Winner({ winner, tone }) {
     if (!winner) {
-        // A dash, never a zero and never a blank. Three of the five events
-        // single nobody out by design, and an empty cell reads as data that
-        // failed to load rather than as a result.
+        // A dash, never a zero or a blank: three of the five events single nobody out by design, and an empty cell reads as a failed load.
         return <BoardLabel tone={DECK.inkMid}>—</BoardLabel>;
     }
 
@@ -146,9 +79,7 @@ export function EventHistoryBoard({ onClose }) {
             setData(await res.json());
             setError(null);
         } catch (e) {
-            // The board says so rather than rendering an empty log, which is a
-            // sentence — "no events yet" — that would be a lie about a server
-            // that has run hundreds.
+            // The board says so rather than rendering "no events yet", which would be a lie about a server that has run hundreds.
             setError(e.message || 'Could not load the log');
         } finally {
             setLoading(false);
@@ -167,13 +98,9 @@ export function EventHistoryBoard({ onClose }) {
     const totals = data?.totals || {};
     const recent = data?.recent || [];
     const milestone = data?.milestone || null;
-    // The window that has not closed yet. Absent on an older server — the board
-    // renders without the register rather than with an empty one, which is the
-    // same rule the log's own empty state follows.
+    // The window that has not closed yet. Absent on an older server: the board renders without the register rather than with an empty one.
     const runUp = data?.runUp || null;
-    // `selecting` is the four-second wheel that decides which event fires. It is
-    // an event state but not an event, and naming it on the board would print a
-    // row for something that has no outcome and may still be a different type.
+    // `selecting` is the four-second wheel that decides which event fires: an event state but not an event, with no outcome yet.
     const live = data?.active?.active && data.active.type && data.active.type !== 'selecting'
         ? data.active
         : null;
@@ -302,9 +229,7 @@ export function EventHistoryBoard({ onClose }) {
                             ))}
                         </div>
 
-                        {/* The next departure. The one live figure in the head,
-                            and the reason the board is worth opening between
-                            events rather than only after one. */}
+                        {/* The next departure: the one live figure in the head. */}
                         {!isPhone && milestone && (
                             <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
                                 <FlapText
@@ -321,9 +246,7 @@ export function EventHistoryBoard({ onClose }) {
                         )}
                     </div>
 
-                    {/* The platform line, filled to how far the server has come
-                        toward the next event. No label: the figure standing above
-                        it is the one it measures. */}
+                    {/* The platform line, filled to how far the server has come toward the next event; the figure above it is its label. */}
                     <BoardMeter
                         value={milestone ? (milestone.progress || 0) / 100 : 0}
                         tone={DECK.amber}
@@ -358,25 +281,7 @@ export function EventHistoryBoard({ onClose }) {
                     )}
 
                     {/* ── THE RUN-UP ──────────────────────────────────────────── */}
-                    {/*
-                     * Who has been spinning since the last event ended — the
-                     * window the meter in the head is measuring.
-                     *
-                     * FIRST register, above the rotation, and that order is the
-                     * point rather than a preference: the meter on the wheel is
-                     * what opens this board, and the question it leaves you with
-                     * is "who is doing this with me". A reader who arrives from
-                     * that click lands on the answer without scrolling past two
-                     * registers about the past.
-                     *
-                     * It is hidden entirely while an event is on air. The window
-                     * it describes closes the moment one fires — the spins during
-                     * an event are offset out of the next one — so a live
-                     * register here would be counting toward a milestone that is
-                     * not currently being counted toward. The rotation and the
-                     * log below are true at all times; this one is only true
-                     * between events, and says nothing when it is not.
-                     */}
+                    {/* Who has been spinning since the last event ended: the window the head's meter measures. FIRST register, so a reader arriving from the meter lands on the answer. Hidden while an event is on air: the window closes when one fires, so it would count toward a milestone not currently being counted. */}
                     {runUp && !live && (
                         <section style={{ paddingBottom: '30px' }}>
                             <div style={{
@@ -385,9 +290,7 @@ export function EventHistoryBoard({ onClose }) {
                                 paddingBottom: '10px',
                             }}>
                                 <BoardLabel size={12} tone={DECK.ink}>The run-up</BoardLabel>
-                                {/* On an empty log there is no last event to
-                                    measure from, and the caption says "so far"
-                                    rather than inventing a boundary. */}
+                                {/* On an empty log there is no last event to measure from, so the caption says "so far". */}
                                 <BoardLabel tone={DECK.inkMid}>
                                     {`${fmt(runUp.spins)} spins ${runUp.since ? 'since the last event' : 'so far'} · ${fmt(runUp.contributors)} ${runUp.contributors === 1 ? 'player' : 'players'}`}
                                 </BoardLabel>
@@ -413,13 +316,7 @@ export function EventHistoryBoard({ onClose }) {
                             )}
 
                             {(runUp.top || []).map((row, i) => {
-                                // Share of the window, not of the interval the
-                                // event needs. The denominator is what has been
-                                // spun so far, so these bars fill the register
-                                // whatever stage the run-up is at — a leader on
-                                // 40% did 40% of the work done, which is the
-                                // readable fact. A share of the 300–600 target
-                                // would leave every bar near empty early on.
+                                // Share of the window so far, not of the 300-600 target: a share of the target would leave every bar near empty early on.
                                 const share = runUp.spins > 0 ? row.spins / runUp.spins : 0;
 
                                 return (
@@ -434,22 +331,12 @@ export function EventHistoryBoard({ onClose }) {
                                             '--fib-row-tone': DECK.amber,
                                         }}
                                     >
-                                        {/* The standing as a figure rather than a
-                                            medal: this is a window a few hundred
-                                            spins long, not a ranking anybody
-                                            keeps. The leaderboard is the board
-                                            for standings. */}
+                                        {/* The standing as a figure, not a medal: this is a window a few hundred spins long, not a ranking (the leaderboard is for standings). */}
                                         <BoardLabel tone={i === 0 ? DECK.amber : DECK.inkDim}>
                                             {i + 1}
                                         </BoardLabel>
 
-                                        {/* The same face-and-name cell the log's
-                                            winner column uses. A contributor is
-                                            not a winner, but a player rendered
-                                            one way here and another way six rows
-                                            down is how a board stops reading as
-                                            one surface — and the prestige ring
-                                            rule (§9) applies to both. */}
+                                        {/* The same face-and-name cell as the log's winner column, so a player renders one way across the board (and the §9 prestige ring rule applies to both). */}
                                         <Winner winner={row} tone={i === 0 ? DECK.amber : DECK.ink} />
 
                                         {!isPhone && <BoardMeter value={share} tone={DECK.amber} />}
@@ -474,10 +361,7 @@ export function EventHistoryBoard({ onClose }) {
                                 );
                             })}
 
-                            {/* The cap, stated. The list is the top twelve and the
-                                caption above counts everyone, so without this a
-                                thirteenth contributor reads as somebody who did
-                                not spin rather than somebody who did not fit. */}
+                            {/* The cap, stated: the list is the top twelve while the caption counts everyone, so a thirteenth contributor does not read as someone who did not spin. */}
                             {runUp.contributors > (runUp.top || []).length && (
                                 <div style={{ paddingTop: '10px' }}>
                                     <BoardLabel tone={DECK.inkMid}>
@@ -511,10 +395,7 @@ export function EventHistoryBoard({ onClose }) {
                             const Icon = EVENT_ICONS[key];
                             const t = totals[key];
                             const fired = t?.fired || 0;
-                            // Share of events that have actually run, not the 20%
-                            // the rotation aims at. The two disagree over a short
-                            // log, and the observed number is the one this board
-                            // is for — the intended share is on the odds board.
+                            // Share of events that have actually run, not the 20% the rotation aims at; the intended share is on the odds board.
                             const share = summary.fired > 0 ? fired / summary.fired : 0;
                             const isLive = live?.type === key;
 
@@ -569,11 +450,7 @@ export function EventHistoryBoard({ onClose }) {
                             <BoardLabel size={12} tone={DECK.ink}>Recent events</BoardLabel>
                         </div>
 
-                        {/* The event on screen right now, above the log rather
-                            than in it. It has no outcome yet — that is written
-                            when it ends — so it is a different kind of row and
-                            takes a different shape: a lit lamp and a sentence,
-                            not a set of columns with holes in them. */}
+                        {/* The event on air, above the log: it has no outcome yet, so it is a lit lamp and a sentence, not a row of columns with holes. */}
                         {live && EVENT_IDENTITY[live.type] && (
                             <div
                                 className="fib-register-row is-static is-active"
@@ -625,11 +502,7 @@ export function EventHistoryBoard({ onClose }) {
 
                         {recent.map((row, i) => {
                             const id = EVENT_IDENTITY[row.eventType]
-                                // A retired type can still be in the log. Gold Rush
-                                // is gone from the codebase entirely now and cannot
-                                // be forced by anyone, but the rows it wrote while it
-                                // ran are still rows, and a board that rendered them
-                                // as blanks would be lying about the server's past.
+                                // A retired type can still be in the log: rows Gold Rush wrote are still rows, and rendering them as blanks would misstate the server's past.
                                 || { name: String(row.eventType || 'Unknown').replace(/_/g, ' ').toUpperCase(), color: DECK.inkMid };
                             const Icon = EVENT_ICONS[row.eventType];
 
@@ -656,14 +529,7 @@ export function EventHistoryBoard({ onClose }) {
                                         />
                                     )}
 
-                                    {/* On a phone this column carries the event's
-                                        name with the result under it, because the
-                                        two together are what a row means and
-                                        neither survives alone. Every row is two
-                                        lines, so the register's height stays
-                                        constant — §9's rule is that rows must not
-                                        change height between STATES, not that a
-                                        row cannot be two lines tall. */}
+                                    {/* On a phone this column carries the event's name with the result under it; every row is two lines, so the height stays constant (§9: rows must not change height between STATES). */}
                                     <span title={`${id.name}: ${row.outcome || 'No result recorded'}${row.forced ? ' · forced' : ''}`} style={{ minWidth: 0 }}>
                                         {isPhone && (
                                             <span style={{
@@ -680,11 +546,7 @@ export function EventHistoryBoard({ onClose }) {
                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                         }}>
                                             {row.outcome || '—'}
-                                            {/* A forced event really ran and really
-                                                paid, so it is logged — but a run of
-                                                them is what a test session looks
-                                                like, and totals beside unmarked
-                                                forced rows would be a lie. */}
+                                            {/* A forced event really ran and paid, so it is logged, but forced rows must be marked or totals beside them would mislead. */}
                                             {row.forced && (
                                                 <span style={{ color: DECK.inkDim }}> · forced</span>
                                             )}

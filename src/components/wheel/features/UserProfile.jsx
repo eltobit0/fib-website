@@ -1,64 +1,5 @@
-﻿/*
- * ═══════════════════════════════════════════════════════════════════════════
- * THE CONCOURSE — the player board
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * DIRECTION CONTRACT (impeccable). The world is not new and no roll was taken:
- * THE CONCOURSE is the committed world of this route, already carrying the
- * collection book (DESIGN.md §9) and the leaderboard, and the owner pinned this
- * surface's composition directly — one board, two columns, no tabs. A concept
- * tournament over a structure the owner has just chosen is a tournament with a
- * predetermined loser.
- *
- * THESIS: a profile is a player's record, not a business card. It refuses what
- * this surface shipped for a year — a 520px column of bordered tiles behind two
- * tabs, where the same four figures appeared under both of them and the numbers
- * that answered a real question (how long have I been waiting, what have I
- * actually pulled lately) appeared under neither.
- *
- * OWN-WORLD: the deck's blue-hour ramp under SURFACE_NOISE, edges made of rail
- * light rather than borders, station amber as the one signal, Barlow Condensed
- * in caps on split-flap drums, the seven locked tier hues. No radius, no card.
- *
- * STORY: the reader — the player themselves, or a visitor arriving from the
- * leaderboard — reads one identity, then splits: the case on the left (what
- * this player chose to show), the record on the right (what they have actually
- * done). They leave knowing something the old profile never said: which tier is
- * overdue, and what this player pulled last.
- *
- * FIRST VIEWPORT: the head — avatar in its prestige ring, the name on drums,
- * five figures in two registers over the platform line — then the two columns
- * beneath it, the register's ruled tier rows leading the right.
- *
- * FORM: two columns, no tabs (owner-pinned from three options, 2026-08-21).
- *
- * FINISH: unreviewed and undocumented is unfinished; this build ends with the
- * finish review, the verdict, and DESIGN.md.
- *
- * ── ONE BOARD, BOTH JOBS ─────────────────────────────────────────────────────
- *
- * The owner's first call. This surface is your own record AND the card a
- * stranger opens from the leaderboard, and those used to be argued as two
- * designs. They are one board with a lens on the reader: the structure, the
- * columns and every figure are identical, and `isOwnProfile` adds edit
- * affordances rather than rearranging anything. It is the same principle
- * prestige proved on the collection board — a lens, not a second board — and it
- * means there is exactly one profile to keep right.
- *
- * What genuinely differs is what the API will answer. `/api/stats/me` and
- * `/api/stats/rankings/:id` are session-gated, so a visitor's board has no best
- * day and no rank-against-the-field. Those are absent, never zeroed: an absence
- * is a dash, which is the rule this route already writes down twice.
- *
- * ── WHAT `*_count` ACTUALLY MEANS, WHICH THE OLD PROFILE GOT WRONG ───────────
- *
- * `profile.mythic_count` is `SUM(count)` over the tier — every COPY ever pulled,
- * duplicates included. The old board printed it under the word "Mythic" beside a
- * completion percentage, so a player who had pulled the same mythic eleven times
- * read "11" on a tier holding four items and could reasonably conclude they had
- * eleven of four. The register separates the two questions it was answering at
- * once: HELD is unique items over the tier's total, PULLED is copies.
- */
+﻿// THE CONCOURSE: the player board. One board, two columns, no tabs; `isOwnProfile` adds edit affordances rather than rearranging anything (a lens, not a second board).
+// A visitor's board has no best day or rank-against-the-field (/api/stats/me and /rankings/:id are session-gated): absent, never zeroed. `profile.*_count` is SUM(count), copies pulled, so the register keeps HELD (unique over total) and PULLED (copies) apart.
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { API_BASE_URL, IMAGE_BASE_URL, CUSTOM_IMAGE_BASE_URL } from '../../../config/constants.js';
@@ -83,30 +24,18 @@ import {
 } from 'lucide-react';
 import { AchievementIcon } from '../../../utils/achievementIcons.jsx';
 
-/**
- * The tiers that go into a collection: everything on the ladder except `common`
- * (not a special item) and `event` (a bonus-wheel trigger, never collected).
- */
+// Tiers that go into a collection: all but `common` (not special) and `event` (a trigger, never collected).
 const COLLECTABLE_TIERS = RARITY_KEYS.filter(key => key !== 'common' && key !== 'event');
 
 /** Zeroed counts for every collectable tier — the initial state for both counters. */
 const EMPTY_TIER_COUNTS = Object.fromEntries(COLLECTABLE_TIERS.map(key => [key, 0]));
 
-/*
- * Insane is exempt from the overdue claim, exactly as it is on the collection
- * board. One item at 0.000001% makes the expectation larger than any account's
- * lifetime spin count, so the board says nothing rather than lighting a lamp
- * that can never go out.
- */
+// Insane is exempt from the overdue claim, as on the collection board: its expectation exceeds any account's spin count.
 const NO_STREAK = new Set(['insane']);
 
 /* A prestige level is worn as a numeral: "II" reads as a rank where "2" reads as
    a quantity, and it sits beside counts that are quantities. */
-/*
- * One number format, forced to en-US — the rule the leaderboard learned when a
- * German machine printed "331.955" two panels from the collection board's
- * "331,955". PRODUCT.md commits the site to English, so this is a constant.
- */
+// Number format forced to en-US (the site is English-only); locale formats once disagreed between panels.
 const fmt = n => (typeof n === 'number' && isFinite(n) ? n : Number(n) || 0).toLocaleString('en-US');
 
 /** A board date: short, tracked, and the same shape the collection board uses. */
@@ -137,10 +66,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
     const [showCollectionBook, setShowCollectionBook] = useState(false);
     const [collectionBookData, setCollectionBookData] = useState(null);
 
-    // The collection itself, and its per-item detail. `details` is what makes
-    // RECENT FINDS and the register's LAST PULL column possible at all — it
-    // carries `firstObtained`, which the old profile's endpoint threw away when
-    // it flattened the payload to texture → count.
+    // `details` carries `firstObtained`, which RECENT FINDS and the register's LAST PULL need.
     const [collection, setCollection] = useState({});
     const [details, setDetails] = useState({});
 
@@ -158,22 +84,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
     const [pendingBadges, setPendingBadges] = useState([]);
     const [pendingShowcase, setPendingShowcase] = useState([]);
 
-    /*
-     * `hasFlanks` (1200px) is the two-column line, and it is measured rather
-     * than chosen — the same way that constant was.
-     *
-     * `isPhone` (900px) is the wrong line for this board and shipping it that
-     * way put a 135px-wide hole in the middle of the viewport range. At 900px
-     * the board is 860 wide; take the gutters, the 336px case column and the
-     * gap, and the register has 446px for tracks that need 506 before the tier
-     * name gets a pixel. `minmax(0, 1fr)` floors at zero, so INSANE, MYTHIC and
-     * LEGENDARY collapsed to nothing and spilled over the HELD column — which
-     * is verbatim the failure the leaderboard already wrote down: a ranking
-     * whose rows have no names is not a smaller ranking, it is a broken one.
-     *
-     * So the columns split at 1200 and everything from 900 to 1199 gets the
-     * narrow layout, which is a real layout rather than a squeezed one.
-     */
+    // `hasFlanks` (1200px) is the two-column line, measured: from 900 to 1199 the register's tracks need more than the column has, so that range gets the narrow layout.
     const { isPhone, hasFlanks } = useWheelViewport();
     const twoColumn = hasFlanks;
 
@@ -181,32 +92,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         loadProfile();
     }, [userId]);
 
-    /*
-     * Escape closes the board, and the board is a dialog.
-     *
-     * This shipped with neither, though both siblings have them: Escape did
-     * nothing, and a screen reader met an unlabelled run of content in the
-     * middle of the wheel page rather than a named modal.
-     *
-     * ── WHY THE GUARD, AND NOT `stopPropagation` ─────────────────────────────
-     *
-     * The first version called `e.stopPropagation()` and believed that was
-     * enough. It is not, and the failure is worth keeping: `CollectionBook`
-     * binds its own Escape handler on **`window`, in the bubble phase**, and so
-     * did this one — the same node in the same phase. `stopPropagation` governs
-     * propagation BETWEEN nodes; it does nothing to a listener already
-     * registered on the node you are standing on. So both ran, in registration
-     * order, and because the profile mounts first, closing the collection book
-     * with the keyboard closed the profile underneath it as well. Escape used to
-     * cost a player one modal; for one build it cost them two.
-     *
-     * `stopImmediatePropagation` would silence the sibling, which is worse: the
-     * board would be deciding for a surface it does not own. Instead the rule
-     * stays in one place — the board's Escape is for the board, and while
-     * anything of the board's is open on top of it, that thing owns the key.
-     * Every child listed here either handles Escape itself or is dismissed by
-     * its own controls.
-     */
+    // Escape closes the board (a dialog). Guarded rather than stopPropagation: CollectionBook binds Escape on `window` in the bubble phase too, and stopPropagation does not stop a same-node listener, so the profile would close under it. While anything of the board's is open on top, that thing owns the key.
     const childOpen = showCollectionBook || showAchievements || showLuckInfoModal
         || showBadgeEditor || showShowcaseEditor;
 
@@ -222,13 +108,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
 
     async function loadProfile() {
         try {
-            // Batch all fetches together for better performance.
-            //
-            // `/api/collection/user/:id` replaced `/api/user/:id/collection`
-            // here. The latter returns texture → count and nothing else; this
-            // one returns the same map plus `collectionDetails`, which carries
-            // the name, type and first-obtained timestamp of every held item.
-            // Same round trip, three new panels.
+            // `/api/collection/user/:id` returns `collectionDetails` (name, type, first-obtained per item) beyond the texture -> count map.
             const fetchPromises = [
                 fetch(`${API_BASE_URL}/api/user/${userId}/profile`),
                 isOwnProfile
@@ -270,9 +150,6 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                 setRankings(rankingsData);
             }
 
-            // Prestige is a pure UI job here — the endpoint has been public since
-            // the collection board shipped it, and this was the last surface not
-            // wearing the level.
             if (prestigeRes && prestigeRes.ok) {
                 setPrestige(await prestigeRes.json());
             }
@@ -291,9 +168,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
             const items = specialData.items || [];
             setSpecialItems(items);
 
-            // Per tier, from the shared ladder rather than four hand-written
-            // filters — which is why exotic was missing from both objects and its
-            // completion condition could never evaluate true.
+            // Per tier from the shared ladder (exotic was once missing from both objects).
             const byTier = Object.fromEntries(
                 COLLECTABLE_TIERS.map(key => [key, items.filter(i => i.rarity === key)])
             );
@@ -361,9 +236,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                 }))
                 .filter(item => COLLECTABLE_TIERS.includes(item.item_type) || item.item_type === 'event');
 
-            // Rarest first, off the shared ladder rather than a private order map
-            // — the same reason every other tier list on this route reads from
-            // RARITY_KEYS.
+            // Rarest first, off RARITY_KEYS.
             const order = key => {
                 const i = RARITY_KEYS.indexOf(key);
                 return i < 0 ? RARITY_KEYS.length : i;
@@ -416,22 +289,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
             const itemsRes = await fetch(`${API_BASE_URL}/api/items`);
             const itemsData = await itemsRes.json();
 
-            /*
-             * The book gets EVERY held row, not just the specials.
-             *
-             * This is the whole payload from `/collection/user/:id`, with the
-             * special items' own metadata (the player head or custom artwork)
-             * merged over the rows that have it. The first version projected
-             * `specialItems` instead, which is 28 of appa's 1,559 items — and the
-             * book marks an item held from `collection` but prints its plaque
-             * from `collectionDetails`, so every common rendered as held in the
-             * grid and then said "Copies held 0 · First pull —" one click later.
-             * The old profile did the same thing; it survived because nothing
-             * else here had the details to do better.
-             *
-             * It also restores `isLucky` / `isGoldRush`, which the plaque's
-             * gold-rush row has never once seen on a profile-opened book.
-             */
+            // The book gets EVERY held row, not just specials: it marks held from `collection` but prints the plaque from `collectionDetails`, so projecting `specialItems` showed commons as held with 'Copies held 0'. Also restores `isLucky` / `isGoldRush`.
             const byTexture = new Map(specialItems.map(i => [i.texture, i]));
             const bookDetails = Object.fromEntries(
                 Object.entries(details).map(([texture, d]) => {
@@ -482,16 +340,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         });
     }
 
-    /*
-     * The showcase is a LIST of three picks, not a set of three items.
-     *
-     * Three copies of the same item is a legitimate showcase — and for a player
-     * who has pulled the same insane three times, the one they want. Every guard
-     * here is therefore per-copy: you may add a copy while you still hold one
-     * that is not already on show and a slot is free. `user_showcase` allows the
-     * duplicate rows (the constraint was changed for exactly this) and the POST
-     * takes the array as it stands.
-     */
+    // The showcase is a list of three picks, not a set: duplicates are legitimate (`user_showcase` allows them), so every guard is per-copy and the POST takes the array as it stands.
     function addShowcaseItem(texture, ownedCount = 1) {
         setPendingShowcase(prev => {
             const currentCount = prev.filter(t => t === texture).length;
@@ -502,12 +351,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         });
     }
 
-    /*
-     * Removal is by SLOT, not by item — the one deliberate change from the
-     * profile this replaced, which cleared every copy of an item at once. A
-     * reader who has just placed three of something and wants two back was, in
-     * that model, obliged to start again.
-     */
+    // Removal is by SLOT, not by item.
     function removeShowcaseSlot(index) {
         setPendingShowcase(prev => prev.filter((_, i) => i !== index));
     }
@@ -526,16 +370,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         }
     }
 
-    /*
-     * Where a player stands on luck, as a word.
-     *
-     * The five-step colour ramp this used to carry — spring green, green, gold,
-     * orange, red — was a sixth palette on a surface with a locked one, and its
-     * top step was a hue that appears nowhere else on the route. Luck is not a
-     * rarity and has no tier, so it takes the board's own signal: amber when the
-     * player is running above the field, ordinary ink when they are not. The
-     * figure and the percentile carry the rest, and both are on screen.
-     */
+    // Luck as a word: amber above the field, ordinary ink otherwise; luck has no tier, so no extra palette.
     function luckStanding(rating, percentile) {
         if (!rating) return { tone: DECK.inkDim, label: null };
         if (percentile == null) return { tone: DECK.inkMid, label: 'Calculating' };
@@ -594,12 +429,6 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         return `${IMAGE_BASE_URL}/${item.item_texture}.png`;
     }
 
-    /* ── The register ─────────────────────────────────────────────────────────
-     *
-     * One ruled row per tier, rarest first. Everything in it is read off data
-     * this board already had; what is new is that HELD and PULLED are separated,
-     * that the wait has a number, and that the number is checkable.
-     */
     const register = useMemo(() => COLLECTABLE_TIERS.map(key => {
         const items = specialItems.filter(i => i.rarity === key);
         if (items.length === 0) return null;
@@ -616,24 +445,14 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
             if (at && (!last || new Date(at) > new Date(last))) last = at;
         }
 
-        // Expected spins between pulls = 1 / (the tier's summed chance).
-        //
-        // `chance` is a FRACTION, not a percentage. The collection board was
-        // written against the percentage reading first and every expectation came
-        // out a hundred times too large — "one costs about 1,111,111 spins" for a
-        // tier the player had completed three times over. Same data, same
-        // arithmetic, same trap.
+        // Expected spins between pulls = 1 / the tier's summed chance. `chance` is a FRACTION, not a percentage (the collection board came out 100x too large).
         const chanceSum = items.reduce((sum, i) => sum + (Number(i.chance) || 0), 0);
         const expected = chanceSum > 0 ? Math.round(1 / chanceSum) : null;
-        // `?? null`, never `?? 0`: a row of zeros is the most optimistic thing a
-        // dry-streak column can say — it renders "you just pulled one" for every
-        // tier and no tier can ever be overdue.
+        // `?? null`, never `?? 0`: zeros read as 'just pulled one' for every tier and nothing could be overdue.
         const since = NO_STREAK.has(key) ? null : (profile?.dry_streaks?.[key] ?? null);
         const overdue = expected != null && since != null && since > expected;
 
-        // Complete outranks overdue, and they are not the same claim: a tier you
-        // have finished is not overdue for anything you still need, but the wait
-        // is still true and still belongs on the SINCE figure.
+        // Complete outranks overdue: a finished tier is not overdue, but the wait still belongs on SINCE.
         const status = held >= total ? 'complete'
             : held === 0 ? 'empty'
             : overdue ? 'overdue'
@@ -646,14 +465,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         };
     }).filter(Boolean), [specialItems, uniqueCollected, specialItemTotals, profile, details]);
 
-    /*
-     * RECENT FINDS — the five specials this player discovered most recently.
-     *
-     * `firstObtained` is the timestamp of the FIRST copy, so this is a list of
-     * discoveries and the panel says "found", not "pulled". A duplicate does not
-     * move an item up this list, and claiming otherwise would be the easiest
-     * false sentence on the board to write.
-     */
+    // RECENT FINDS: `firstObtained` is the FIRST copy, so this lists discoveries ("found"), and a duplicate does not move an item up.
     const recentFinds = useMemo(() => {
         const specials = new Set(specialItems.map(i => i.texture));
         const byTexture = new Map(specialItems.map(i => [i.texture, i]));
@@ -690,14 +502,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         );
     }
 
-    /*
-     * A board that could not be read says so.
-     *
-     * This called `onClose()` from inside render — which React warns about as
-     * updating another component mid-render, and which the player experiences
-     * as clicking a leaderboard row and having nothing happen at all. An error
-     * with no recovery is not an error state; it is a disappearance.
-     */
+    // An unreadable board says so; calling onClose() during render warns and looks like a dead click.
     if (!profile) {
         return (
             <div
@@ -740,13 +545,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         );
     }
 
-    /*
-     * `total_possible` is the pool length plus the active specials, and the pool
-     * is a network fetch of the mcmeta registry — the single field on this board
-     * most likely to arrive as 0. Unguarded it printed "NAN%" on the head's
-     * drums (every one of N, A and N is on the drum, so it shuffled cheerfully
-     * into place) and handed `scaleX(NaN)` to the platform line, which kills it.
-     */
+    // `total_possible` is the mcmeta pool plus specials and can arrive as 0: unguarded it printed NaN% and handed `scaleX(NaN)` to the platform line.
     const completionPercent = profile.total_possible > 0
         ? (profile.unique_items / profile.total_possible) * 100
         : null;
@@ -754,9 +553,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
     const luck = luckStanding(luckRating?.rating, luckRating?.percentile);
     const luckiestDay = extendedStats?.luckiestDay;
 
-    // Tiers the player has finished, rarest first. `total > 0` guards the window
-    // before the special-items request lands, when both sides are 0 and every
-    // tier would otherwise read as complete.
+    // `total > 0` guards the window before the special-items request lands, when every tier would read as complete.
     const completedTiers = COLLECTABLE_TIERS.filter(
         key => specialItemTotals[key] > 0 && uniqueCollected[key] >= specialItemTotals[key]
     );
@@ -768,10 +565,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         ? Math.round(profile.total_spins / specialsPulled)
         : null;
 
-    /* The head's two registers, at a 1.35 size ratio — the same two-tier trick
-       the collection board settled on. Three figures about HOLDING lead; three
-       about SPINNING support. Six equal drums put two five-digit numbers side by
-       side at identical weight and the eye could not separate them. */
+    // Two registers at a 1.35 size ratio (as on the collection board): three figures about HOLDING lead, three about SPINNING support.
     const holdFigures = [
         { label: 'Held', value: fmt(profile.unique_items), tone: DECK.ink },
         {
@@ -787,34 +581,14 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
         { label: 'Events', value: fmt(profile.event_triggers) },
     ];
 
-    // Lamp / tier / held / pulled / meter / last / since / status.
-    //
-    // The phone drops PULLED, the meter and LAST PULL — every one of them is
-    // derivable or decorative — and keeps SINCE, which is derivable from
-    // nothing. That is the collection board's rule applied to this register.
-    //
-    // The name track has a FLOOR and the meter FLEXES, both copied from the
-    // collection board's own template rather than reinvented. A floorless
-    // `minmax(0, 1fr)` beside seven rigid tracks does not degrade when the
-    // column narrows — it vanishes, taking every tier name with it — and a
-    // rigid meter is what leaves it nothing to give back.
-    //
-    // The phone floor is 56 and not 72 because 320px is still a viewport: at
-    // 72 the five tracks and their gaps need 302px against the 288 an SE leaves
-    // after the gutters, and a register that overflows by fourteen pixels is a
-    // register with a horizontal scrollbar.
+    // Tracks: lamp / tier / held / pulled / meter / last / since / status. The phone drops PULLED, the meter and LAST PULL (derivable) and keeps SINCE. The name track has a FLOOR and the meter FLEXES, as on the collection board; the phone floor is 56 so 320px does not overflow.
     const registerColumns = isPhone
         ? '8px minmax(66px, 1fr) 64px 50px 72px'
         : '10px minmax(92px, 1fr) 72px 62px minmax(40px, 0.6fr) 66px 60px 80px';
 
     const gutter = isPhone ? '16px' : '26px';
 
-    // A drum's cell is ~0.62em wide plus a 2px gap, so a name's width is close
-    // to length × (0.62 × size + 2). Four steps, and the top one exists for a
-    // real case rather than a hypothetical: Discord permits 32 characters, and
-    // at three steps a 32-character name still measured ~352px against the ~324
-    // a phone head has left after the avatar — enough to push the close button
-    // off the row, because a drum neither wraps nor ellipsises.
+    // A drum cell is ~0.62em plus 2px, so a name is ~length × (0.62 × size + 2) wide; the top step exists for Discord's 32-character names, which drums neither wrap nor ellipsise.
     const nameLength = (profile.custom_username || 'Player').length;
     const nameSize = (isPhone ? [24, 19, 15, 12] : [34, 26, 20, 16])[
         nameLength > 26 ? 3 : nameLength > 20 ? 2 : nameLength > 12 ? 1 : 0
@@ -829,9 +603,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
             className="fib-profile"
             style={{
                 position: 'fixed', inset: 0,
-                // The scrim ladder's middle step, matching the collection board
-                // and the leaderboard: this pushes the stage back behind a plaque
-                // rather than blacking it out.
+                // Scrim ladder's middle step, matching the collection board and leaderboard.
                 background: 'rgba(0,0,0,0.8)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: 1100,
@@ -872,12 +644,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                         justifyContent: 'space-between', gap: '12px 16px', flexWrap: 'wrap',
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, flexShrink: 0, maxWidth: '100%' }}>
-                            {/* The ring is the same component the leaderboard and
-                                the stage wear, so a player carries one mark
-                                everywhere. Earned and in-progress rings are
-                                deliberately identical — the owner rejected both
-                                attempts to distinguish them, and a player mid-run
-                                reads as prestiged because they are. */}
+                            {/* The same ring as the leaderboard and stage; earned and in-progress rings are deliberately identical (owner's call). */}
                             <PrestigeRing standing={standing}>
                                 <img
                                     src={getDiscordAvatarUrl(profile.discord_id, profile.discord_avatar, 256)}
@@ -898,11 +665,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                             </PrestigeRing>
 
                             <div style={{ minWidth: 0 }}>
-                                {/* A drum cannot shrink and does not wrap, so a
-                                    long name is sized down rather than allowed
-                                    to run into the prestige chip and the close
-                                    button. Discord allows 32 characters; the
-                                    board's own players sit around 8. */}
+                                {/* A drum cannot shrink or wrap, so a long name is sized down instead (Discord allows 32 characters). */}
                                 <FlapText
                                     text={profile.custom_username || 'Player'}
                                     size={nameSize}
@@ -914,14 +677,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                     display: 'flex', alignItems: 'center', flexWrap: 'wrap',
                                     gap: '4px 14px', marginTop: '10px',
                                 }}>
-                                    {/* Qualified, because two other ranks for the
-                                        same player sit 200px below it. This one
-                                        is position in the default leaderboard
-                                        order, which is collection size; the
-                                        Record's are spins and events, and appa
-                                        is 1st here and 2nd in both of those. An
-                                        unqualified "Rank 1" beside them reads as
-                                        one of the three being wrong. */}
+                                    {/* Qualified: this is rank in the default leaderboard order (collection size), while the Record's ranks are spins and events. */}
                                     <BoardLabel tone={profile.rank === 1 ? DECK.amber : DECK.inkMid}>
                                         {typeof profile.rank === 'number' ? `Rank ${profile.rank} by collection` : 'Unranked'}
                                     </BoardLabel>
@@ -933,28 +689,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
-                            {/*
-                              * The level, worn beside the ring — SPELLED OUT,
-                              * because this head has the room for it.
-                              *
-                              * It was the tier's mark plus a Roman numeral, and
-                              * the owner asked the obvious question: what does
-                              * the "I" mean. Nothing the mark was not already
-                              * saying. The level determines the icon, so ◇ and I
-                              * are two spellings of "1" — the badge said it
-                              * twice and explained it once, in a tooltip no
-                              * phone can reach. Where a surface has room it now
-                              * says "Rare Prestige"; where it does not, the mark
-                              * stands alone and the numeral is gone entirely.
-                              *
-                              * The Crown belongs to the ACTION that starts a
-                              * run, on the collection board; anything naming a
-                              * specific level wears that level's own icon.
-                              */}
-                            {/* The phone gets the badge now too, where it used to
-                                get nothing: a mark alone is 36px square, which
-                                the row it could not carry a worded chip in has
-                                always had. */}
+                            {/* Level worn spelled out where there is room ("Rare Prestige"), the mark alone elsewhere. Anything naming a specific level wears that level's icon; the Crown belongs to the action that starts a run. */}
                             {standing.level > 0 && (
                                 <span
                                     className={isIridescentPrestige(standing.level) ? 'fib-holo' : undefined}
@@ -974,12 +709,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                     }}
                                 >
                                     {prestigeIcon(standing.level, 13)}
-                                    {/* The phone has no room for the word, so it
-                                        carries the name as the accessible name
-                                        instead. The qualifier trails the label in
-                                        BOTH cases — it read "— in progress Rare
-                                        Prestige" for one build, which is the
-                                        sentence backwards. */}
+                                    {/* On the phone the name is the accessible name; the qualifier trails the label in both cases. */}
                                     {isPhone
                                         ? <span className="fib-sr-only">{prestigeLabel(standing.level)}</span>
                                         : <BoardLabel tone="currentColor">{prestigeLabel(standing.level)}</BoardLabel>}
@@ -989,24 +719,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                 </span>
                             )}
 
-                            {/*
-                              * The two ways out of this board live in the HEAD,
-                              * because the head is the only part of it that
-                              * never scrolls.
-                              *
-                              * They were an "Elsewhere" panel at the bottom of
-                              * the case column, under the completion banners —
-                              * so the reader who had most reason to go and look
-                              * at a collection, the one who had finished five
-                              * tiers, was the reader who had to scroll past five
-                              * banners to find the button. The panel got further
-                              * away the more the player had done. Reported.
-                              *
-                              * They belong here on their own terms too: these
-                              * act on the whole board, which is what this row is
-                              * for, and it is where both sibling boards keep
-                              * theirs.
-                              */}
+                            {/* The two ways out live in the head, the only part that never scrolls; they act on the whole board, as on the sibling boards. */}
                             <Plinth
                                 as="button"
                                 className="fib-board-hit"
@@ -1107,10 +820,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                         {!isPhone && <SpinRegister figures={spinFigures} align="right" />}
                     </div>
 
-                    {/* The platform line: the board's baseline, filled to the
-                        collection's completion. It replaces the thin rounded
-                        progress bar and needs no label — HELD and COMPLETE are
-                        standing directly above it. */}
+                    {/* The platform line: the board's baseline, filled to completion; no label, HELD and COMPLETE stand above it. */}
                     <BoardMeter
                         value={(completionPercent || 0) / 100}
                         tone={standing.level > 0 ? prestigeColor(standing.level) : DECK.amber}
@@ -1124,39 +834,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                     )}
                 </div>
 
-                {/* ── THE TWO COLUMNS ─────────────────────────────────────────
-                    The case on the left, the record on the right. One scroller
-                    for both, so the board scrolls as one object rather than
-                    trapping a column — the nested-scroller problem the collection
-                    board accepted only because its grid is a virtualised canvas
-                    and this board has nothing that needs to be.
-
-                    ── AND WHAT HAPPENS WHEN THERE IS ONLY ONE ──────────────────
-
-                    Collapsing the grid to `1fr` in DOM order put the case first
-                    and the record FIFTH: a narrow reader scrolled the showcase,
-                    the badges, up to five completion banners and the two exit
-                    buttons before reaching a single figure. The thesis of this
-                    surface is that a profile is a record and not a business
-                    card, and that layout led with the business card.
-
-                    So the case is in two pieces. Identity — the showcase and the
-                    badges — stays on top, because that is who the board is
-                    about and it is three rows deep. The banners and the exits go
-                    below the record, which is the half a reader came for.
-
-                    ── AND WHY THERE IS NO `order` HERE ─────────────────────────
-
-                    The DOM is written in the narrow reading order and the
-                    desktop composition is made with grid AREAS, which place a
-                    child regardless of where it sits in the markup. The first
-                    version did the opposite — desktop DOM order, re-sorted on
-                    narrow with `order: 0/1/2` — and `order` moves only the
-                    paint: a keyboard or screen-reader user still got the two
-                    exit buttons BEFORE the record while everyone else got them
-                    after it. Two different reading orders for the same board, in
-                    the one place a board must not have them. Areas cost the same
-                    and cannot drift, because there is only one order to keep. */}
+                {/* Two columns, one scroller. The DOM is in the narrow reading order (identity, record, then banners and exits) and the desktop composition uses grid AREAS, not `order`, which moves only the paint and gives keyboard users a different reading order. */}
                 <div
                     className="fib-board-scroll"
                     style={{
@@ -1192,31 +870,12 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                     ><Edit3 size={11} /> Edit</PanelAction>
                                 )}
                             >
-                                {/* Three mounts, in the platform's own grammar: a
-                                    tier is a RIM around a square mount, not a
-                                    shaft of light. DESIGN.md §9 records why that
-                                    reversed, and the argument is even stronger
-                                    here — three items standing still, on display,
-                                    is the definition of a case.
-
-                                    An empty slot is a recess only where it is an
-                                    invitation. On your own board it says "there
-                                    is room here" and opens the picker; on a
-                                    visitor's it would be three empty recesses
-                                    under a sentence already saying the case is
-                                    empty, which is the same fact told twice and
-                                    once as a control they cannot use. */}
+                                {/* Three mounts: a tier is a RIM around a square mount (DESIGN.md §9). An empty slot is a recess only on your own board, as an invitation to the picker. */}
                                 {showcase.length === 0 && !isOwnProfile ? (
                                     <BoardLabel tone={DECK.inkMid}>Nothing on show</BoardLabel>
                                 ) : (
                                     <div style={{ display: 'flex', gap: '10px' }}>
-                                        {/* A visitor sees only what is on show.
-                                            The stated rule — a recess is an
-                                            invitation, and only your own board
-                                            can accept one — was applied to the
-                                            empty case and then not to the case
-                                            holding one item, which left a
-                                            visitor two dead recesses next to it. */}
+                                        {/* A visitor sees only what is on show: no dead recesses beside a single item. */}
                                         {(isOwnProfile ? [0, 1, 2] : showcase.map((_, i) => i)).map(idx => {
                                             const item = showcase[idx];
                                             if (item) {
@@ -1250,13 +909,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                     ><Edit3 size={11} /> Edit</PanelAction>
                                 )}
                             >
-                                {/* A badge's name is a claim, and a claim may not
-                                    live only in a `title` — unreachable on touch,
-                                    unreliable for assistive tech, and this
-                                    board's own §9 says so in as many words. The
-                                    name is in the DOM for a screen reader and the
-                                    tooltip stays for a mouse. Three anonymous
-                                    glyphs was what the old profile had. */}
+                                {/* A badge's name is in the DOM for screen readers, not only a `title` (unreachable on touch). */}
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                     {badges.length > 0 ? badges.map((badge, idx) => (
                                         <Plinth
@@ -1300,18 +953,13 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                     <BoardLabel style={{ textAlign: 'right' }}>Status</BoardLabel>
                                 </div>
 
-                                {/* An empty register is the one panel here that
-                                    had no empty state: if `/api/special-items`
-                                    fails, the headings stood over nothing. */}
+                                {/* Empty state for when `/api/special-items` fails. */}
                                 {register.length === 0 && (
                                     <div style={{ padding: '12px 0' }}>
                                         <BoardLabel tone={DECK.inkMid}>Tiers unavailable</BoardLabel>
                                     </div>
                                 )}
-                                {/* The empty line sits OUTSIDE the list: a
-                                    `role="list"` whose only child is not a
-                                    listitem is a malformed list, and an empty
-                                    one is better expressed by having no list. */}
+                                {/* The empty line sits OUTSIDE the list: a `role="list"` with no listitem is malformed. */}
                                 <div role={register.length > 0 ? 'list' : undefined}>
                                     {register.map((row, i) => {
                                         const statusWord = {
@@ -1322,12 +970,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                             : row.status === 'overdue' ? DECK.amber
                                             : DECK.inkMid;
 
-                                        // The whole claim as one sentence, on the
-                                        // row itself. A claim that lives only in a
-                                        // `title` is unreachable on touch and
-                                        // unreliable for assistive tech — the
-                                        // collection board shipped the overdue
-                                        // arithmetic that way for a build.
+                                        // The whole claim as one sentence on the row: a `title` alone is unreachable on touch and unreliable for assistive tech.
                                         const waitSentence = row.expected != null && row.since != null
                                             ? `${fmt(row.since)} spins since the last ${row.label}; one costs about ${fmt(row.expected)} spins on average`
                                             : null;
@@ -1335,19 +978,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                         return (
                                             <div
                                                 key={row.key}
-                                                /* `is-static` and it is not
-                                                   cosmetic: on the collection
-                                                   board this row's hover is the
-                                                   affordance for a control that
-                                                   filters the platform, and here
-                                                   the row is a readout. Same
-                                                   board, same lift under the
-                                                   cursor, nothing behind it — a
-                                                   reader who has learned the
-                                                   sibling clicks five rows and
-                                                   gets nothing. A listitem, so
-                                                   the label below is still read
-                                                   out. */
+                                                // `is-static`: on the collection board the row hover signals a filter control; here the row is a readout, so no lift.
                                                 className="fib-register-row is-static"
                                                 role="listitem"
                                                 aria-label={[
@@ -1367,11 +998,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                                     state={row.status === 'complete' ? 'lit' : row.overdue ? 'due' : 'dark'}
                                                     tone={row.tone}
                                                 />
-                                                {/* A tier with nothing held has
-                                                    everything left to do and was
-                                                    the quietest row on the old
-                                                    board. The chase keeps its
-                                                    ink. */}
+                                                {/* A tier with nothing held keeps its ink: it has the most left to do. */}
                                                 <FlapText
                                                     text={row.label}
                                                     size={isPhone ? 15 : 16}
@@ -1436,21 +1063,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                         note={standingText(rankings.spins)}
                                         first
                                     />
-                                    {/* Lifetime, not the unspent balance — see the
-                                        column's own note in statements.js for the
-                                        three plausible-looking sources that answer
-                                        a different question. It sits next to SPINS
-                                        because it is a subset of that figure and
-                                        reads as one there; against LUCK it would
-                                        look like an input to the rating, which it
-                                        is not.
-
-                                        No note under it on purpose. The obvious
-                                        one is a share of SPINS, and that division
-                                        is wrong in a way nobody would catch: the
-                                        numerator counts only spins that produced
-                                        an item, the denominator includes event and
-                                        recursion triggers that produced none. */}
+                                    {/* Lifetime, not the unspent balance (see the column's note in statements.js). No share-of-SPINS note on purpose: the numerator counts only item-producing spins while the denominator includes event and recursion triggers. */}
                                     <RecordFigure
                                         label="Lucky spins"
                                         value={fmt(profile.lucky_spins_used || 0)}
@@ -1469,15 +1082,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                         value={fmt(profile.event_triggers)}
                                         note={standingText(rankings.events)}
                                     />
-                                    {/* "One special every N spins" is the honest
-                                        reading of this number, and it is the
-                                        wording the caption carries. The old card
-                                        said "avg. between special finds" over a
-                                        figure computed from COPIES, so a player
-                                        with many duplicates read a gap shorter
-                                        than their own finds justified. It counts
-                                        copies still — that is what a spin
-                                        produces — and now says so. */}
+                                    {/* "One special every N spins" is the honest reading; N counts COPIES, since that is what a spin produces. */}
                                     <RecordFigure
                                         label="Per special"
                                         value={avgBetween != null ? `~${fmt(avgBetween)}` : '—'}
@@ -1486,9 +1091,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                     />
                                 </div>
 
-                                {/* Own-profile only: /api/stats/me is session
-                                    gated, so a visitor's board has no best day.
-                                    Absent, never zeroed. */}
+                                {/* Own-profile only: /api/stats/me is session-gated, so a visitor's board has no best day. Absent, never zeroed. */}
                                 {luckiestDay && luckiestDay.spins > 0 && (
                                     <div style={{
                                         display: 'flex', alignItems: 'center', flexWrap: 'wrap',
@@ -1499,16 +1102,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                             <Crown size={13} />
                                             <BoardLabel tone="currentColor">Best day</BoardLabel>
                                         </span>
-                                        {/* `new Date('2026-08-14')` parses as
-                                            UTC midnight and then prints in local
-                                            time, so a reader east of UTC can see
-                                            this dated a day behind what the
-                                            register's own FOUND column says
-                                            about the same event. Left as it is —
-                                            it is one decorative line and every
-                                            other date on the board goes through
-                                            the same parse — but recorded so the
-                                            next reader does not rediscover it. */}
+                                        {/* `new Date('2026-08-14')` parses as UTC midnight and prints in local time, so east of UTC this can be a day behind the register's FOUND column. Known and left: one decorative line. */}
                                         <BoardLabel size={13} tone={DECK.ink} style={{ letterSpacing: '0.03em' }}>
                                             {new Date(luckiestDay.date).toLocaleDateString('en-US', {
                                                 weekday: 'short', month: 'short', day: 'numeric',
@@ -1566,12 +1160,6 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                                 }}>
                                                     {find.name}
                                                 </span>
-                                                {/* Copies held, and it needs to
-                                                    read as a figure rather than
-                                                    as punctuation: at 10px in the
-                                                    dimmest ink it sat against the
-                                                    date as a smudge, and the two
-                                                    were the same size. */}
                                                 <BoardLabel size={12} tone={DECK.inkDim}>
                                                     {find.count > 1 ? `×${fmt(find.count)}` : ''}
                                                 </BoardLabel>
@@ -1587,16 +1175,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                 )}
                             </Panel>
 
-                            {/* ── ACHIEVEMENTS ─────────────────────────────────
-                                On the board, not only behind a button. The old
-                                profile's entire representation of achievements was
-                                a 10px "Achievements" link, on a surface whose job
-                                is showing what a player has done. */}
-                            {/* No "View all" action on this panel. With the head
-                                carrying a permanent Achievements button and every
-                                mark below opening the same modal, a third control
-                                doing one job is how a reader stops being sure any
-                                of them does something different. */}
+                            {/* No "View all" here: the head's Achievements button and every mark below open the same modal. */}
                             <Panel title="Achievements">
                                 {userAchievements.length === 0 ? (
                                     <BoardLabel tone={DECK.inkMid}>None unlocked yet</BoardLabel>
@@ -1611,18 +1190,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                             />
                                             <BoardLabel tone={DECK.inkMid}>Unlocked</BoardLabel>
                                         </div>
-                                        {/* Every mark opens the full list.
-                                            An icon whose name lives in a tooltip
-                                            and a screen-reader span is legible to
-                                            a mouse and to assistive tech and to
-                                            nobody on a phone — which is most of
-                                            this site's readers, and half of what
-                                            §9 objects to about a title-only
-                                            claim. A tap now goes where the names
-                                            are. It also makes each mark a tab
-                                            stop, so the sr-only name is reachable
-                                            by keyboard rather than only in browse
-                                            mode. */}
+                                        {/* Every mark opens the full list: a tooltip-only name is unreadable on a phone, and each mark is a tab stop so the sr-only name is keyboard-reachable. */}
                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                             {userAchievements.slice(0, isPhone ? 8 : 12).map((a, idx) => (
                                                 <Plinth
@@ -1630,14 +1198,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                                     as="button"
                                                     className="fib-board-hit"
                                                     onClick={() => setShowAchievements(true)}
-                                                    // A censored achievement is
-                                                    // one this player earned and a
-                                                    // visitor may not see the name
-                                                    // of. It keeps its slot: the
-                                                    // count would not add up
-                                                    // otherwise, and "you have one
-                                                    // I cannot see" is the honest
-                                                    // state.
+                                                    // A censored achievement is one the player earned and a visitor may not see by name; it keeps its slot so the count adds up.
                                                     title={a.censored ? 'Hidden achievement' : a.name}
                                                     style={{
                                                         width: '34px', height: '34px',
@@ -1667,19 +1228,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                         </div>
                         {/* ── THE CASE: WHAT IS FINISHED ──────────────────── */}
                         <div style={{ minWidth: 0, gridArea: 'caseRest' }}>
-                            {/* ── THE BANNERS ──────────────────────────────────
-                                Kept, and kept deliberately as they were.
-
-                                They are the one thing the owner named as worth
-                                saving from the old profile, so this is not the
-                                place to demonstrate taste: the wash, the
-                                medallion, the trophy, the shine sweep and the
-                                wording are untouched. Only the corner radius
-                                goes, because a radius here would be the only one
-                                on the surface — and the border stays, which makes
-                                this a deliberate, owner-pinned exception to THE
-                                NOCTURNE's standing ban rather than an oversight
-                                for a later pass to "fix". */}
+                            {/* THE BANNERS are kept as they were (owner-pinned): the border is a deliberate exception to the Nocturne's no-border rule, not an oversight to fix; only the radius went. */}
                             {completedTiers.length > 0 && (
                                 <Panel title="Completed collections">
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1751,27 +1300,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                     onSave={saveShowcase}
                     isPhone={isPhone}
                 >
-                    {/*
-                      * THE THREE SLOTS, and they are the reason this sheet has
-                      * two controls rather than one.
-                      *
-                      * A showcase holds three PICKS, not three distinct items —
-                      * three Cavendishes is a legitimate and rather good
-                      * showcase if you have pulled three. The first version of
-                      * this sheet made one tile a toggle: click to add, click
-                      * again to remove. That is a set, and a set cannot hold the
-                      * same item twice, so a second copy became unreachable. The
-                      * profile this replaced had it right by having two controls
-                      * — the tile added, a separate mark removed — and losing
-                      * that was a real regression, reported.
-                      *
-                      * So: the grid below ADDS a copy, and these slots REMOVE
-                      * one. Removing by slot rather than by item is the one
-                      * change kept from the rewrite — the old × cleared every
-                      * copy at once, which is not what a reader who has just put
-                      * three of something in wants from a control sitting on
-                      * one of them.
-                      */}
+                    {/* The slots REMOVE and the grid ADDS: a showcase holds three picks, not a set, so a toggle tile would make a second copy unreachable. Removal is by slot, not by item. */}
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: '10px',
                         paddingBottom: '14px', marginBottom: '4px',
@@ -1823,9 +1352,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                             {userCollection.map(item => {
                                 const picked = pendingShowcase.filter(t => t === item.item_texture).length;
                                 const owned = item.count || 1;
-                                // You may show a copy for every copy you hold,
-                                // up to the three slots. Both limits are real and
-                                // the tile says which one it has hit.
+                                // You may show a copy for every copy you hold, up to the three slots; the tile says which limit it hit.
                                 const canAdd = picked < owned && pendingShowcase.length < 3;
                                 return (
                                     <button
@@ -1853,9 +1380,6 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
                                             size={52}
                                             quiet={!picked}
                                         />
-                                        {/* How many you HOLD, bottom left — the
-                                            figure that says a second copy is
-                                            even possible. */}
                                         {owned > 1 && (
                                             <span
                                                 aria-hidden="true"
@@ -1927,17 +1451,7 @@ export function UserProfile({ userId, onClose, isOwnProfile, onEditUsername }) {
     );
 }
 
-/**
- * The head's supporting register: figures about SPINNING, at 20px against the
- * collection figures' 27.
- *
- * A 1.35 ratio, which is the collection board's own answer to the same problem
- * and is not arbitrary at either end. Six equal drums is the hero-metric
- * template with the boxes taken off — the form kept, the container removed — and
- * it puts two five-digit numbers side by side at identical size and tone. The
- * over-correction was label size, which made "44,408 spins" a side-note when it
- * is the denominator under half the board.
- */
+// The head's supporting register: figures about SPINNING at 20px against the collection figures' 27 (the 1.35 ratio).
 function SpinRegister({ figures, size = 20, align = 'left' }) {
     return (
         <div style={{
@@ -1972,14 +1486,7 @@ function SpinRegister({ figures, size = 20, align = 'left' }) {
     );
 }
 
-/**
- * A section of the board: a tracked heading over a seam, and its content.
- *
- * Not a card, and the distinction is the whole point of the surface — the thing
- * this profile replaces was eleven bordered rounded rectangles stacked in a
- * column, which is the lazy container doing the work a heading should do. More
- * space above the heading than below it.
- */
+// A section of the board: a tracked heading over a seam. Not a card.
 function Panel({ title, action, children }) {
     return (
         <section style={{ paddingTop: '22px' }}>
@@ -2015,12 +1522,7 @@ function PanelAction({ onClick, label, children }) {
     );
 }
 
-/**
- * One figure in the record, with the field it stands against.
- *
- * The figure leads and the standing explains it. A rank is not decoration here —
- * "24,109 spins" says nothing on its own, and "#3" says what it is worth.
- */
+// One figure in the record, with the field it stands against.
 function RecordFigure({ label, value, note, tone, onInfo, first }) {
     return (
         <div style={{
@@ -2051,21 +1553,7 @@ function RecordFigure({ label, value, note, tone, onInfo, first }) {
     );
 }
 
-/**
- * An item in a case: a square mount in a rim of its own tier.
- *
- * DESIGN.md §9 records why a rim and not a shaft of light, and the argument is
- * stronger here than on the platform it was written for: the reel moves items
- * past a focal slot and earns its shaft from travel, while a showcase is three
- * objects standing still, on display, forever. A display case mounts its objects
- * in a rim.
- *
- * The rim's terms come straight off that table — the whole slick for insane, the
- * aqua ramp shimmering for mythic, flat gold STEADY for legendary, a slow pulse
- * for the flat tiers below. Colour is supplied as a custom property and every
- * visual property is a class, because every one of them has a state; a colour in
- * a `style` object on this surface is a state nobody has thought about.
- */
+// An item in a case: a square mount in a rim of its own tier (DESIGN.md §9). Colour is a custom property and every visual property is a class, since each has a state.
 function ShowcaseMount({ tier, name, src, size = 56, empty, onClick, quiet }) {
     if (empty) {
         const Tag = onClick ? 'button' : 'div';
@@ -2120,25 +1608,9 @@ function ShowcaseMount({ tier, name, src, size = 56, empty, onClick, quiet }) {
     );
 }
 
-/**
- * A sheet over the board, for the two editing tasks.
- *
- * These are the surface's only modals-over-a-modal, and they earn it: both are
- * "pick up to three of a large set", which needs the room and must not lose the
- * board behind it. They wear the board's own material rather than the rounded
- * bordered dialogs they replaced — a 16px-radius card hanging off a surface with
- * no radius anywhere is the join everyone sees first.
- */
+// A sheet over the board for the two editing tasks (pick up to three of a large set); wears the board's own material.
 function EditorSheet({ title, hint, onCancel, onSave, isPhone, children }) {
-    /*
-     * Capture phase, and that is the whole reason this listener exists
-     * separately from the board's. Both are bound to `window`; without capture
-     * the board's handler — bound first, on the earlier mount — would close the
-     * whole profile out from under a sheet the player was only trying to
-     * dismiss. `stopPropagation` on a capturing listener stops the bubbling one
-     * from ever running, which is the same trick the item plaque uses one
-     * surface over.
-     */
+    // Capture phase, so this listener runs before the board's own window handler and dismisses only the sheet; stopPropagation stops the bubbling one.
     useEffect(() => {
         const onKey = e => {
             if (e.key !== 'Escape') return;
@@ -2234,34 +1706,13 @@ function EditorSheet({ title, hint, onCancel, onSave, isPhone, children }) {
     );
 }
 
-/**
- * "<Tier> Collection Complete!" banner, one per finished tier.
- *
- * This was four near-identical blocks of inline JSX, one per tier, each ~40 lines
- * of hand-tuned colour. Exotic shipped without a fifth, so finishing the exotic
- * tier - eight items and the hardest set on the wheel to complete - announced
- * nothing. Everything a banner needs is already on the ladder, so it is one
- * component driven by `rarity` and the tier list decides how many exist.
- *
- * Colours come from RARITY, never from COLORS directly. The blocks this replaces
- * painted Legendary with COLORS.purple, which the ladder rework had reassigned to
- * EXOTIC - so a player who finished both tiers would have seen two identically
- * magenta banners with different words on them.
- *
- * Kept through THE CONCOURSE rebuild at the owner's explicit request — it is the
- * one part of the old profile they named as worth saving. Its wash, medallion,
- * trophy, shine sweep and wording are untouched; only the radius went, because a
- * radius would be the only one on this surface. The border stays and is a
- * deliberate exception to the no-border rule rather than an oversight.
- */
+// "<Tier> Collection Complete!" banner, one per finished tier, driven by `rarity`; colours come from RARITY, never COLORS directly. Kept at the owner's request; the border is a deliberate exception to the no-border rule.
 function CompletionBanner({ rarity, total }) {
     const stops = getRarityStops(rarity);
     const color = getRarityColor(rarity);
     const ink = getRarityInk(rarity);
 
-    // An animated tier is painted with its WHOLE ramp, never one sampled point off
-    // it - a single stop off the insane ramp is some other tier's colour two thirds
-    // of the time. Flat tiers get the same two-step gradient they had before.
+    // An animated tier is painted with its WHOLE ramp, never one sampled point; flat tiers keep the two-step gradient.
     const medallion = stops
         ? `linear-gradient(135deg, ${stops.join(', ')})`
         : `linear-gradient(135deg, ${color}, ${color}bb)`;
@@ -2292,9 +1743,7 @@ function CompletionBanner({ rarity, total }) {
                 boxShadow: `0 0 15px ${color}66`,
                 flex: '0 0 auto',
             }}>
-                {/* The trophy sits ON the tier's own fill, so it takes the on-color
-                    step rather than the ink step - the opposite question, and the
-                    two are only distinguishable by reading them. */}
+                {/* The trophy sits on the tier's fill, so it takes the on-colour step, not the ink step. */}
                 <Trophy size={17} color={getRarityOnColor(rarity)} />
             </div>
             <div style={{ minWidth: 0 }}>

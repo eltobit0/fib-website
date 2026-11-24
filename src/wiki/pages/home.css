@@ -8,8 +8,6 @@
   color: var(--wk-ink);
 }
 
-/* ── 1. Opening: the item you were handed ─────────────────────────────────── */
-
 .hm-open { position: relative; padding-top: 8px; }
 .hm-open-grid {
   display: grid;
@@ -92,8 +90,6 @@
 .hm-draw { min-height: 40px; font-size: 14px; }
 .hm-hero-how { font-size: 16px; }
 
-/* ── 2. One item, many ways ───────────────────────────────────────────────── */
-
 /* Tighter, about 28/72, where 65% would be narrower than the board's ~790px. */
 .hm-routes {
   display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 13fr); gap: 40px 56px;
@@ -109,8 +105,6 @@
 .hm-try-item { padding: 0; border: 0; background: none; cursor: pointer; line-height: 0; border-radius: 2px; }
 .hm-try-item:hover .wk-slot::after { background: oklch(100% 0 0 / 0.1); }
 .hm-try-item[aria-pressed="true"] .wk-slot { box-shadow: inset 0 0 0 2px var(--wk-ink); }
-
-/* ── 3. The loop ──────────────────────────────────────────────────────────── */
 
 .hm-loop {
   display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 48px;
@@ -183,8 +177,6 @@
 .hm-beats { grid-column: 1 / -1; margin-top: 2px; }
 .hm-loop-strip .hm-source { grid-column: 1 / -1; margin-top: 0; }
 
-/* ── 4. The round clock, as the pool it grows ─────────────────────────────── */
-
 .hm-pressure { padding: 56px 0 64px; box-shadow: inset 0 1px 0 var(--wk-line); }
 .hm-pressure-head { margin-bottom: 28px; }
 .hm-clock { margin: 0; }
@@ -253,7 +245,6 @@
 .hm-clock-you[data-start]::before { left: 4px; }
 .hm-clock-you .wk-slot { box-shadow: inset 2px 2px 0 oklch(4% 0 0 / 0.65), 0 0 0 2px var(--c); }
 .hm-clock + .hm-source, .hm-clock .hm-source { margin-top: 20px; }
-/* ── 5. The escapes ───────────────────────────────────────────────────────── */
 
 .hm-escapes { padding: 56px 0 64px; box-shadow: inset 0 1px 0 var(--wk-line); }
 .hm-escapes-grid {
@@ -321,8 +312,6 @@
 .hm-rung-name { font-family: var(--wk-font-display); font-size: 25px; font-weight: 600; line-height: 1.05; color: var(--f); overflow-wrap: anywhere; }
 .hm-rung-when { font-size: 14px; color: var(--wk-ink-2); }
 .hm-rung-note { font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; color: var(--wk-ink-3); }
-
-/* ── 6. The world, as the toolbox ─────────────────────────────────────────── */
 
 .hm-world { padding: 56px 0 8px; box-shadow: inset 0 1px 0 var(--wk-line); }
 .hm-world-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 40px; align-items: end; }
@@ -396,8 +385,6 @@
   transition: background 140ms var(--wk-ease);
 }
 .hm-more:hover { background: oklch(28% 0.010 255); }
-
-/* ── 7. The modes, as four frames of one diagram ──────────────────────────── */
 
 .hm-modes { --hm-gap: 40px; padding: 64px 0 56px; }
 .hm-modes-head, .hm-std-head {
@@ -487,8 +474,6 @@
   background: repeating-linear-gradient(180deg, var(--wk-ink-4) 0 4px, transparent 4px 8px);
 }
 
-/* ── The standard round ── */
-
 .hm-std { margin-top: 56px; padding-top: 22px; box-shadow: inset 0 1px 0 var(--wk-line); }
 .hm-std-head .wk-name { font-size: 25px; }
 /* Six columns on the modes' grid, so the dividers fall on its gutters. */
@@ -520,8 +505,6 @@
   box-shadow: inset -2px -2px 0 oklch(62% 0.13 60);
 }
 
-/* ── 8. Where next ────────────────────────────────────────────────────────── */
-
 .hm-index { padding: 48px 0 40px; box-shadow: inset 0 1px 0 var(--wk-line); }
 .hm-index-groups {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 40px;
@@ -544,8 +527,6 @@
 .hm-page-desc { font-size: 14px; line-height: 1.35; color: var(--wk-ink-3); }
 .hm-page-exit { color: var(--wk-ink-3); flex-shrink: 0; }
 
-/* ── 9. Made by ───────────────────────────────────────────────────────────── */
-
 .hm-team { padding: 8px 0 44px; }
 .hm-crew {
   list-style: none; margin: 16px 0 0; padding: 0;
@@ -558,8 +539,6 @@
 .hm-member-role { font-size: 14px; color: var(--wk-ink-3); }
 .hm-thanks { margin-top: 20px; max-width: none; }
 .hm-gh { width: 18px; height: 18px; border-radius: 2px; vertical-align: -4px; margin-right: 5px; }
-
-/* ── Narrower screens ─────────────────────────────────────────────────────── */
 
 @media (max-width: 1360px) {
   .hm-routes { grid-template-columns: minmax(0, 7fr) minmax(0, 18fr); column-gap: 40px; }
@@ -635,8 +614,6 @@
   .hm-std-item:nth-child(3n + 1)::before { display: block; }
   .hm-std-item:nth-child(odd)::before { display: none; }
 }
-
-/* ── Calm ─────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .hm-hero-sprite, .hm-hero-shadow, .hm-target-env, .hm-loop-now .wk-slot, .hm-loop-trail li,

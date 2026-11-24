@@ -1,20 +1,11 @@
 /*
- * The mystery box, unwrapped by hand, and the coat it leaves on the reel.
- * See MysteryBoxOpening.jsx for the sequence.
- *
- * Every colour here comes in through custom properties set inline from the
- * tokens: `--gilt-*` from COLORS.mysteryGilt (the box is metal, so always the
- * ramp, never a flat gold) and `--bounty` for the ribbon - the sight's white,
- * so the prize is visibly the bounty's.
- *
- * The unwrap, in order:
- *   0ms      the lid comes off, a gilt flash, the box jolts
- *   ~260ms   the room comes back: wash, rays and words fade, so the reel the
- *            box is heading for is visible before anything reaches it
- *   ~380ms   the box drops into the reel band (--fly-x / --fly-y, measured),
- *            shrinking as it goes, and the gilt stream arcs out after it
- *   ~1050ms  the reel takes the coat (.fib-mbox-coat, WheelSpinner)
- */
+* The mystery box, unwrapped by hand, and the coat it leaves on the reel (see MysteryBoxOpening.jsx).
+* Colours come in as custom properties set inline from tokens: `--gilt-*` from COLORS.mysteryGilt (always the ramp,
+* never flat gold) and `--bounty` for the ribbon.
+*
+* 0ms the lid comes off, flash, jolt; ~260ms the room fades back so the reel is visible; ~380ms the box drops into
+* the band (--fly-x / --fly-y, measured) with the gilt stream after it; ~1050ms the reel takes the coat (.fib-mbox-coat).
+*/
 
 .fib-mbox-scene {
     position: fixed;
@@ -104,9 +95,7 @@
 }
 .fib-mbox-hit:disabled { cursor: default; }
 
-/* The flight: measured from the box's centre to the reel band's. Rides on
-   `translate`/`scale`, not `transform`, so it composes with the phone's
-   centring transform on the same element. */
+/* The flight, measured from the box's centre to the reel band's. Uses `translate`/`scale`, not `transform`, so it composes with the phone's centring transform. */
 .fib-mbox-scene.is-unwrapping.is-flying .fib-mbox-hit {
     animation: fibMboxFly 720ms cubic-bezier(0.55, 0, 0.8, 0.4) 380ms both;
 }
@@ -415,12 +404,7 @@
 }
 .fib-mbox-later:hover { color: #e6e8ef; background: rgba(255, 255, 255, 0.05); }
 
-/* ── The coat: the reel band taking the gilt ────────────────────────────────
- * Mounted inside the band by WheelSpinner for the length of the hand-over.
- * The reel underneath has already switched to the box's strip and deck; this
- * is the moment of it happening - a sheen that spreads out from the middle,
- * where the box went in, to both ends, a bright edge riding its front, and
- * the last of the gilt settling onto the tiles and going out. */
+/* The coat: the reel band taking the gilt. A sheen spreads from the middle to both ends with a bright edge, then the gilt settles and goes out. */
 
 .fib-mbox-coat {
     position: absolute;
@@ -486,10 +470,7 @@
     100% { opacity: 0; scale: 0.6; }
 }
 
-/* ── The shelf ───────────────────────────────────────────────────────────────
- * Boxes held and not yet opened, in the reel header beside the `?`. The
- * plinth language of the controls around it - ground, lit rail on top - with
- * the one gilt thing on it being the box itself. */
+/* The shelf: unopened boxes in the reel header beside the `?`, in the controls' plinth language. */
 
 .fib-mbox-shelf-anchor {
     display: inline-block;

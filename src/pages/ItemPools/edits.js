@@ -2,8 +2,6 @@
 
 import { REGISTER_REGEX, yamlQuote } from './poolData.js';
 
-/* ── The pool: ItemDifficultiesManager.registerAllItems() ────────────────────── */
-
 const REGISTER_ALL_ITEMS_REGEX = /private void registerAllItems\(\)\s*\{/;
 
 function parseExistingItems(content) {
@@ -70,8 +68,6 @@ export function pullRequestBody(changes) {
     return `## Changes\n\n${sections.join('\n\n')}\n\nOpened from the Item Pools page.`;
 }
 
-/* ── The descriptions: descriptions.yml's descriptions: block ──────────────────────── */
-
 export function updateDescriptionInConfig(content, materialName, descriptionLines) {
     const configLines = content.split('\n');
     const result = [];
@@ -102,7 +98,6 @@ export function updateDescriptionInConfig(content, materialName, descriptionLine
             continue;
         }
         if (/^\s{4}-\s*"/.test(line)) { if (!inTargetItem) result.push(line); continue; }
-        // Blank lines inside the section are dropped, as the old editor did, to keep it tidy.
         if (line.trim() === '') continue;
         if (!inTargetItem) result.push(line);
     }

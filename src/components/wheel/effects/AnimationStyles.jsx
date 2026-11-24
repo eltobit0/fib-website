@@ -2,26 +2,11 @@ import React from 'react';
 import { COLORS } from '../config/constants';
 
 /**
- * The gradient the Insane tier's icons are stroked with.
- *
- * Insane has no flat colour — it is the oil-slick — but a Lucide glyph is an SVG
- * stroke, and CSS cannot put a gradient on a stroke. It can point the stroke at
- * an SVG paint server, so this mounts one: `stroke: url(#fib-holo-grad)`, applied
- * by the .fib-holo-icon class in index.css and set by getRarityIcon.
- *
- * Without it, insane rendered as flat platinum everywhere it appeared as a small
- * icon — technically its fallback colour, but it read as "white", i.e. as no tier
- * at all, which is the opposite of what the top of the ladder should look like.
- *
- * The three stops are static. Animating them with CSS was tried and does not
- * work — a paint server has no box, so the keyframes register but their clock
- * never advances; see the note beside .fib-holo-stop-a in index.css. That is
- * fine: at icon scale the point is the material, not the motion.
- *
- * One instance is enough for the whole page — an id reference resolves document
- * wide — so it lives here, next to the other global wheel chrome, and is hidden
- * from layout and from assistive tech.
- */
+* The gradient the Insane tier's icons are stroked with. A Lucide glyph is an SVG stroke and CSS cannot put a
+* gradient on one, so this mounts a paint server: `stroke: url(#fib-holo-grad)`, applied by .fib-holo-icon in
+* index.css and set by getRarityIcon. The stops are static: animating a paint server does not work (see the
+* note beside .fib-holo-stop-a in index.css). One instance serves the page, hidden from layout and assistive tech.
+*/
 const HoloIconGradient = () => (
     <svg
         aria-hidden="true"
@@ -44,9 +29,6 @@ export const AnimationStyles = () => (
     <>
     <HoloIconGradient />
     <style>{`
-        /* ============================================
-           CORE ANIMATIONS (Preserved)
-           ============================================ */
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -77,14 +59,7 @@ export const AnimationStyles = () => (
             50% { transform: scale(1.1); opacity: 0.8; }
         }
         
-        /* ============================================
-           RARITY GLOW ANIMATIONS (Preserved + Enhanced)
-           ============================================ */
-        /* specialGlow is LEGENDARY. Gold, and deliberately not animated between
-           two colours — legendary holds still so the tiers above it read as rarer
-           by motion as well as by hue. The keyframe is kept rather than deleted
-           because it is referenced by name in several places; it now just holds
-           one state. */
+        /* specialGlow is LEGENDARY: gold and deliberately still, so the tiers above it read as rarer by motion. Kept because it is referenced by name. */
         @keyframes specialGlow {
             0%, 100% {
                 box-shadow: 0 0 15px ${COLORS.insane}88, 0 0 30px ${COLORS.insane}44;
@@ -127,10 +102,7 @@ export const AnimationStyles = () => (
                 border-color: ${COLORS.mythicCycle[2]};
             }
         }
-        /* Insane's aura walks the oil-slick ramp — magenta, cyan, gold — rather
-           than pulsing gold to cream, which is now legendary's colour. The four
-           stops are the ramp's own, so this keyframe and .fib-holo in index.css
-           and the canvas renderers all describe the same material. */
+        /* Insane's aura walks the oil-slick ramp (magenta, cyan, gold); the stops match .fib-holo in index.css and the canvas renderers. */
         @keyframes insaneGlow {
             0%, 100% {
                 box-shadow: 0 0 25px ${COLORS.insaneHolo[0]}cc, 0 0 50px ${COLORS.insaneHolo[0]}66, 0 0 75px ${COLORS.insaneFlat}44;
@@ -200,9 +172,6 @@ export const AnimationStyles = () => (
             }
         }
         
-        /* ============================================
-           UI ANIMATIONS (Preserved)
-           ============================================ */
         @keyframes sparkle {
             0%, 100% { opacity: 0; transform: scale(0.5); }
             50% { opacity: 1; transform: scale(1); }
@@ -223,9 +192,6 @@ export const AnimationStyles = () => (
             0%, 100% { opacity: 1; }
             50% { opacity: 0.85; }
         }
-        /* ============================================
-           RECURSION ANIMATIONS (Preserved)
-           ============================================ */
         @keyframes recursionGlow {
             0%, 100% { 
                 box-shadow: 0 0 20px ${COLORS.recursion}cc, 0 0 40px ${COLORS.recursion}66, 0 0 60px ${COLORS.recursionDark}44;
@@ -285,10 +251,6 @@ export const AnimationStyles = () => (
             66% { box-shadow: 0 0 40px ${COLORS.insaneHolo[2]}aa, 0 0 70px ${COLORS.insaneHolo[0]}66; }
         }
 
-        /* ============================================
-           NEW: COSMIC CASINO ANIMATIONS
-           ============================================ */
-        
         /* Floating cosmic particles */
         /* Slow drift for background orbs */
         /* Orbital ring rotation */
@@ -356,9 +318,7 @@ export const AnimationStyles = () => (
         /* Glassmorphism shine */
         /* Counter tick animation */
         /* Ambient orb float */
-        /* Tooltip slide in — rises into place under a tooltip that sits ABOVE
-           its trigger. A tooltip hanging below has to fall instead; see
-           tooltipDrop. */
+        /* Tooltip slide in: rises under a tooltip ABOVE its trigger. A tooltip below must fall instead (tooltipDrop). */
         @keyframes tooltipSlide {
             0% {
                 opacity: 0;
@@ -370,9 +330,7 @@ export const AnimationStyles = () => (
             }
         }
 
-        /* Tooltip drop in — for tooltips below their trigger, as the topbar's
-           are. Reusing tooltipSlide there made the bubble slide up towards the
-           button it was supposed to be hanging off. */
+        /* Tooltip drop in, for tooltips below their trigger; tooltipSlide would slide the bubble up towards its button. */
         @keyframes tooltipDrop {
             0% {
                 opacity: 0;
@@ -384,10 +342,7 @@ export const AnimationStyles = () => (
             }
         }
 
-        /* As tooltipDrop, for the right-aligned variant used by the last control
-           on the topbar. It is positioned by right:0 rather than by a centring
-           translate, so borrowing tooltipDrop would slide it half its own width
-           off the button. */
+        /* As tooltipDrop for the right-aligned variant, positioned by right:0 rather than a centring translate. */
         @keyframes tooltipDropEnd {
             0% {
                 opacity: 0;
@@ -422,9 +377,6 @@ export const AnimationStyles = () => (
         /* Mobile tap feedback */
         /* Odds bar fill */
         /* Achievement unlock */
-        /* ============================================
-           PHASE 2: SPINNING STRIP ENHANCEMENTS
-           ============================================ */
         
         /* Speed lines - horizontal */
         /* Speed lines - vertical (mobile) */
@@ -500,9 +452,6 @@ export const AnimationStyles = () => (
         /* Result item materialize with glow */
         /* Result name letter reveal */
         /* Vignette color pulse on result */
-        /* ============================================
-           PHASE 3: SUBTLE RESULT ENHANCEMENTS
-           ============================================ */
         
         /* Subtle light sweep across item */
         /* Smooth container entrance */
@@ -518,12 +467,7 @@ export const AnimationStyles = () => (
         }
         
         /* Staggered text reveal */
-        /* The landed row opening into the payoff. It scales from the row's own
-           height rather than fading in, so it reads as the tile growing — the
-           thing it is — instead of a panel arriving on top of one. Transform
-           origin is the centre because the row expands both ways into its
-           neighbours. Decelerator, no overshoot: the spin control owns the only
-           overshoot on this surface. */
+        /* The landed row opening into the payoff: scales from the row's own height around its centre, decelerator, no overshoot (the spin control owns the only one). */
         @keyframes shaftResultOpen {
             0%   { transform: scaleY(0.54); opacity: 0; }
             100% { transform: scaleY(1); opacity: 1; }
@@ -534,9 +478,7 @@ export const AnimationStyles = () => (
             [style*="shaftResultOpen"] { animation: none !important; }
         }
 
-        /* The phone's overflow sheet. The panel rises and the scrim fades on the
-           surface's recorded decelerator — no overshoot, which is the one easing
-           this page reserves for the spin control. */
+        /* The phone's overflow sheet: panel rises and scrim fades on the recorded decelerator, no overshoot. */
         @keyframes fibSheetRise {
             0%   { transform: translateY(100%); }
             100% { transform: translateY(0); }
@@ -607,10 +549,6 @@ export const AnimationStyles = () => (
                 transform: scale(1);
             }
         }
-        
-        /* ============================================
-           PHASE 4: PAGE LAYOUT POLISH
-           ============================================ */
         
         /* Staggered section entrance */
         @keyframes sectionFadeIn {
@@ -702,10 +640,6 @@ export const AnimationStyles = () => (
                 transform: translateX(-50%) scale(1.1);
             }
         }
-        
-        /* ============================================
-           ENHANCED RECURSION SPINNING ANIMATIONS
-           ============================================ */
         
         /* Matrix-style screen flash on spin start */
         /* Intense green pulse during recursion spin */
@@ -876,15 +810,7 @@ export const AnimationStyles = () => (
             }
         }
 
-        /* ============================================
-           THE STATUS CONSOLE (the band's header row)
-           ============================================ */
-
-        /* The LED stripe's chase: one bright head running along the
-           segments, one segment per 0.1s of a 1.2s cycle, so the twelve
-           segments always hold a single moving highlight. Ambient by the
-           Ambient-Off Rule — the static keyframes under reduced motion
-           leave the stripe lit but standing still, never dark. */
+        /* The LED stripe's chase: one bright head, one segment per 0.1s of a 1.2s cycle. Ambient by the Ambient-Off Rule: static keyframes under reduced motion leave it lit but still. */
         @media (prefers-reduced-motion: no-preference) {
             @keyframes fibLedChase {
                 from { opacity: 1; }

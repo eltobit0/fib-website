@@ -1,23 +1,12 @@
 /*
- * The room's celebration of a bounty claim. See BountyCelebration in
- * DailyBounty.jsx for why it looks like this and what it replaced.
- *
- * The rule it is built on: nothing has a corner except the sight. Every layer
- * here is light - a beam, a halo, a ring, a scrim, motes - and every one of
- * them fades to nothing at its edges. The sight is the only hard shape, and it
- * is the bounty's own mark.
- *
- * Timeline (all from mount; the whole thing leaves at 6.4s, inside the 7s
- * ActivityContext holds `bountyCelebration` for):
- *     0ms   the room dims at its edges; the beam starts down from the top
- *   180ms   the item arrives in the beam, out of focus and settling
- *   ~500ms  the sight locks on (DailyBounty.css, .is-locking); the ring goes out
- *   600ms+  the words, one line at a time; motes start to rise
- *   6.4s    everything lifts a little and goes
- *
- * Colours come in from the tokens as custom properties: `--bounty` (sight
- * white) for the light, `--gilt-*` for the box's line.
- */
+* The room's celebration of a bounty claim (see BountyCelebration in DailyBounty.jsx). Nothing has a corner except
+* the sight: every other layer is light that fades at its edges. Colours come from tokens as custom properties:
+* `--bounty` for the light, `--gilt-*` for the box's line.
+*
+* Timeline from mount, leaving at 6.4s inside the 7s ActivityContext holds `bountyCelebration` for:
+* 0ms the room dims, the beam starts down; 180ms the item arrives; ~500ms the sight locks (.is-locking), the ring goes
+* out; 600ms+ the words and rising motes; 6.4s everything lifts and goes.
+*/
 
 .fib-bounty-room {
     position: fixed;
@@ -264,9 +253,7 @@
     border-radius: 50%;
     box-shadow: 0 0 0 2px rgba(255, 241, 214, 0.85), 0 0 18px rgba(255, 241, 214, 0.3);
 }
-/* The name, large, with one pass of light across it. The pass is a copy of
-   the word (`data-text`) clipped to a moving band, so the name's own colour
-   never has to change for it. */
+/* The name with one pass of light across it: a copy of the word (`data-text`) clipped to a moving band. */
 .fib-bounty-room-who strong {
     position: relative;
     min-width: 0;

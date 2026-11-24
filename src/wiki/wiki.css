@@ -1,9 +1,6 @@
 /* Ships in the entry chunk that wheel and stats also load: every rule is scoped under .wk or a wk- class. */
 
-/*
- * ── Figures ──
- * Digits only, from a 1.8 kB Atkinson subset: Handjet's dotted zero reads as an 8.
- */
+/* Digits only, from a 1.8 kB Atkinson subset: Handjet's dotted zero reads as an 8. */
 @font-face {
   font-family: 'FIB Figures';
   src: url('/fonts/fib-figures.woff2') format('woff2');
@@ -11,8 +8,6 @@
   font-display: swap;
   unicode-range: U+0030-0039;
 }
-
-/* ── The page ─────────────────────────────────────────────────────────────── */
 
 html:has(.wk) {
   background: oklch(14.5% 0.007 255);
@@ -37,8 +32,6 @@ html:has(.wk) {
 
 .wk { --wk-arrowhead: polygon(0 0, 33% 0, 33% 20%, 67% 20%, 67% 40%, 100% 40%, 100% 60%, 67% 60%, 67% 80%, 33% 80%, 33% 100%, 0 100%); }
 @media (max-width: 600px) { .wk-wrap { width: calc(100% - 32px); } }
-
-/* ── Type ── */
 
 .wk-d1, .wk-h2, .wk-h3, .wk-name {
   font-family: var(--wk-font-display);
@@ -80,7 +73,6 @@ html:has(.wk) {
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
 
-/* ── The loop (LoopBeats.jsx) ── */
 .wk-beats {
   position: relative; list-style: none; margin: 0; padding: 0 0 16px;
   display: flex; align-items: center; min-width: 0;
@@ -118,8 +110,6 @@ html:has(.wk) {
   .wk-beat-to { min-width: 8px; margin: 0 7px 0 5px; }
 }
 
-/* ── Links and buttons ── */
-
 .wk-link {
   color: var(--wk-ink);
   text-decoration: underline;
@@ -151,8 +141,6 @@ html:has(.wk) {
   box-shadow: inset 0 -3px 0 oklch(0% 0 0 / 0.35), inset 0 1px 0 var(--wk-line-hi);
 }
 .wk-btn--quiet:hover { background: oklch(27% 0.010 255); }
-
-/* ── Slots ── */
 
 .wk-slot {
   --slot: 56px;
@@ -209,8 +197,6 @@ html:has(.wk) {
   gap: 2px;
 }
 
-/* ── The tooltip, as the game draws it ─────────────────────────────────────── */
-
 .wk-tip {
   position: fixed; z-index: 400;
   max-width: 300px;
@@ -233,8 +219,6 @@ html:has(.wk) {
 .wk-tip-members { margin-top: 4px; color: var(--wk-ink-3); }
 .wk-tip-id { margin-top: 5px; font-family: var(--wk-font-typed); font-size: 11.5px; color: oklch(58% 0.01 300); }
 
-/* ── Environments ── */
-
 .wk-env {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
@@ -249,8 +233,6 @@ html:has(.wk) {
   height: 1px; border: 0; margin: 0;
   background: linear-gradient(90deg, transparent, var(--wk-line) 18%, var(--wk-line) 82%, transparent);
 }
-
-/* ── Navigation ────────────────────────────────────────────────────────────── */
 
 .wk-nav {
   position: sticky; top: 0; z-index: 100;
@@ -343,8 +325,6 @@ html:has(.wk) {
 .wk-drawer-row[aria-current="page"] { color: var(--wk-ink); background: var(--wk-panel); }
 .wk-drawer-row .wk-drawer-note { margin-left: auto; font-size: 13px; color: var(--wk-ink-3); }
 
-/* ── Footer ────────────────────────────────────────────────────────────────── */
-
 .wk-foot { padding: 28px 0 36px; }
 .wk-foot-in {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 28px;
@@ -355,8 +335,6 @@ html:has(.wk) {
 .wk-foot-made svg { color: var(--wk-ink-2); }
 .wk-foot a { color: var(--wk-ink-2); text-decoration: none; }
 .wk-foot a:hover { color: var(--wk-ink); text-decoration: underline; text-underline-offset: 3px; }
-
-/* ── Calm ──────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .wk *, .wk *::before, .wk *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; }

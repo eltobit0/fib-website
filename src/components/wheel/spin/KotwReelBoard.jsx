@@ -4,35 +4,7 @@ import { useActivity } from '../../../context/ActivityContext.jsx';
 import { useAuth } from '../../../context/AuthContext.jsx';
 import { kotwStandings } from '../../../utils/kotwStandings.js';
 
-/**
- * King of the Wheel standings, in the reel's status bar.
- *
- * The old board was a vertical list in LeaderboardSidebar. That panel no longer
- * sits beside the reel, and a live competition that can only be watched by
- * opening a modal is the wrong shape for something that changes every few
- * seconds — so it comes back here, where you are already looking.
- *
- * This is the same design turned on its side: the rank badge (crown, trophy,
- * medal for the podium, a number below that), the name, the monospace point
- * count, and the crimson highlight on your own row. Same palette, same
- * vocabulary — only the axis changed.
- *
- * It lives in the status bar — the row that reads "Ready to spin" / "Spinning…"
- * above the reel. That row already spans the full width and carries only a label
- * on the left and two buttons on the right, so its middle is the largest piece of
- * unused horizontal space on the surface.
- *
- * Sized to the old board's proportions — a 30px rank badge and 18px monospace
- * points — rather than shrunk to fit the gap. The status bar's left group
- * already carries a 32px wheel mark, so chips of this height cost the row
- * almost nothing.
- *
- * It was briefly tucked into the band's headroom instead — the ~41px of clear
- * space above the item sprites. That worked, but it put the standings over a reel
- * travelling at speed and squeezed them into a gap defined by the sprite scale,
- * which meant any change to STRIP_HEIGHT or that scale would silently start
- * overlapping the items. The status bar has neither problem.
- */
+// King of the Wheel standings in the reel's status bar (the row's middle is the largest unused horizontal space), the vertical LeaderboardSidebar board turned on its side: rank badge, name, monospace points, crimson highlight on your row. It is not in the band's headroom: a change to STRIP_HEIGHT or the sprite scale would silently overlap the items.
 
 const KOTW_BG_DARK = '#0F172A';
 const KOTW_PRIMARY = '#F43F5E';
@@ -48,22 +20,7 @@ export function KotwReelBoard() {
     const { globalEventStatus, kotwLeaderboard, kotwUserStats, kotwSpinPending } = useActivity();
     const { user } = useAuth();
 
-    // ── Overtake animation ───────────────────────────────────────────────────
-    //
-    // When someone passes someone else the chips swap places. Done plainly that is
-    // a hard cut: two names are simply somewhere else on the next render, and the
-    // one thing a live competition should make legible — that a position changed —
-    // is the one thing you cannot see.
-    //
-    // This is FLIP. Before the browser paints, each chip's new x is compared with
-    // where it was last render; any that moved are offset back to their old
-    // position and then released, so they slide to the new one. Nothing animates
-    // on mount, only on a change of order, and the transform runs on the
-    // compositor rather than through layout.
-    //
-    // The old vertical board did NOT do this — its KOTW rows were plain divs that
-    // reordered instantly. The `slideIn` in that file belongs to the collection
-    // leaderboard's rows, not these.
+    // Overtake animation, FLIP: before paint each chip's new x is compared with its last, moved chips are offset back and released so they slide. Only on a change of order, on the compositor. (The `slideIn` in the leaderboard file belongs to its own rows.)
     const chipRefs = useRef(new Map());
     const prevX = useRef(new Map());
     const prevOrder = useRef('');
@@ -72,15 +29,7 @@ export function KotwReelBoard() {
         const reduce = typeof window !== 'undefined'
             && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-        // Only an actual overtake animates.
-        //
-        // Keyed on the sequence of ids, not on whether anyone's x moved. Those are
-        // different questions: the whole row shifts whenever the status bar's
-        // contents change width, and animating that made five chips glide sideways
-        // every time the label changed or the Try Again button appeared — motion
-        // that looked like an overtake and meant nothing. The row is centred
-        // independently of its neighbours now, so that should not happen at all,
-        // but this is the guarantee rather than the assumption.
+        // Only an actual overtake animates, keyed on the sequence of ids, not on x movement: the row shifts whenever the status bar's contents change width, and that made five chips glide for no reason.
         const order = [...chipRefs.current.keys()].join(',');
         const reordered = prevOrder.current !== '' && prevOrder.current !== order;
         prevOrder.current = order;
@@ -110,17 +59,7 @@ export function KotwReelBoard() {
     const isKotw = globalEventStatus?.active && globalEventStatus?.type === 'king_of_wheel';
     if (!isKotw || !kotwLeaderboard?.length) return null;
 
-    /*
-     * Ordered by the points these chips will actually PRINT, not by the order
-     * the broadcast arrived in — so a chip cannot slide to first place while
-     * still showing the number it had before the spin that put it there. See
-     * utils/kotwStandings.js; the freeze used to live here as a ternary on the
-     * points span alone, which moved the row and held the digits.
-     *
-     * Sorted before the slice, deliberately. Cutting the server's top five and
-     * then reordering them would let a player the board is holding at a lower
-     * total keep a seat that, at the number shown, belongs to the sixth.
-     */
+    // Ordered by the points these chips will PRINT, not broadcast order, so a chip cannot reach first while showing its old number (utils/kotwStandings.js). Sorted before the slice: cutting the server's top five first would let a held-back player keep a seat the sixth owns.
     const standings = kotwStandings(kotwLeaderboard, {
         userId: user?.id,
         pending: kotwSpinPending,
@@ -134,9 +73,7 @@ export function KotwReelBoard() {
     return (
         <div
             style={{
-                // Sized to its content. The status bar's left and right groups
-                // each take `flex: 1 1 0`, so they absorb the slack evenly and
-                // this stays centred on the bar no matter what they contain.
+                // Sized to its content; the status bar's left and right groups each take `flex: 1 1 0`, so this stays centred on the bar.
                 flex: '0 0 auto',
                 minWidth: 0,
                 display: 'flex',
@@ -167,9 +104,7 @@ export function KotwReelBoard() {
                             gap: '10px',
                             padding: '6px 14px 6px 6px',
                             borderRadius: '10px',
-                            // The status bar is a solid surface, so these no
-                            // longer need to be near-opaque to stay readable the
-                            // way they did when they sat over the moving reel.
+                            // The status bar is solid, so these need not be near-opaque as they did over the moving reel.
                             background: isCurrentUser
                                 ? `linear-gradient(135deg, ${KOTW_PRIMARY}33, ${KOTW_BG_DARK}CC)`
                                 : `${KOTW_BG_DARK}99`,
@@ -221,9 +156,7 @@ export function KotwReelBoard() {
                             color: index < 3 ? rankColor : KOTW_TEXT,
                             flexShrink: 0,
                         }}>
-                            {/* Already the value to show — `kotwStandings` held
-                                it back if this player's spin is still resolving,
-                                and placed the chip on that same number. */}
+                            {/* Already the value to show: `kotwStandings` held it back while this player's spin resolves and placed the chip on that number. */}
                             {entry.points}
                         </span>
                         <span style={{

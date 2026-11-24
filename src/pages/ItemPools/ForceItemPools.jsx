@@ -71,8 +71,6 @@ function ago(ts) {
     return `${Math.round(m / 60)} h ago`;
 }
 
-/* ── The page ───────────────────────────────────────────────────────────────── */
-
 export default function ForceItemPools() {
     const initial = useMemo(readParams, []);
     const [items, setItems] = useState([]);
@@ -429,8 +427,6 @@ function Skeleton({ mode }) {
         </div>
     );
 }
-
-/* ── The browser ────────────────────────────────────────────────────────────── */
 
 /* The tooltip waits in the Catalogue, where entries already name the item, so a crossing pointer does not strobe tooltips. */
 const TIP_DELAY = { inventory: 0, catalogue: 450 };

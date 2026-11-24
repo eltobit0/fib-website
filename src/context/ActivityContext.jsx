@@ -1,126 +1,35 @@
-// ============================================
-// Activity Context - Real-time activity via SSE
-// ============================================
-// Uses Server-Sent Events for instant updates
-// Initial fetch on mount, then pure SSE for real-time
-
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE_URL } from '../config/constants';
 import { parseActivityDate, spinRevealDelay } from '../utils/helpers.js';
 import { noteServerTime, serverNow } from '../utils/serverClock.js';
-/*
- * The arrival's own end, imported rather than copied.
- *
- * This used to be a hardcoded 18700ms with a comment naming the constant it was
- * tracking, and the comment was already out of date once: the timeline moved and
- * this did not, which hands the wheel back while the band is still shuttered —
- * a spin you cannot see. It is three bytes of import to make that impossible.
- */
+/* Imported, not copied: clearing before the arrival's timeline ends hands back a still-shuttered wheel. */
 import { T_LIFT_END } from '../components/wheel/effects/arrivalTimeline.js';
 import { isSaverOn } from '../config/power.js';
 
-/*
- * Exported for one caller only: `src/dev/ArrivalTiming.jsx`, the standalone
- * timing harness for THE ARRIVAL. That page plays the real theatre against a
- * fabricated manifest so the animation can be scored to, and the theatre reads
- * its arrival from this context — a harness that could not supply one would
- * have to duplicate ArrivalTheatre, which is exactly the drift the timeline
- * file exists to prevent.
- *
- * Consumers still go through `useActivity()`; nothing in the app imports this.
- */
+/* Exported only for src/dev/ArrivalTiming.jsx, the arrival timing harness; the app goes through `useActivity()`. */
 export const ActivityContext = createContext(null);
 
 // How far back mythic/insane drops are folded into the main activity feed. The board
 // itself is all-time; this only governs how long a rare drop lingers in the All tab.
 const RARE_FEED_MERGE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-/*
- * The gap between the winning pull surfacing and First Blood naming its winner.
- *
- * Not a safety margin — the reveal is already ordered behind the feed by the
- * subtraction it is added to, and zero would be correct if the only requirement
- * were "not before". It is the beat itself: the ticker prints the item, the page
- * has a moment to register that something landed, and then the banner says what
- * it meant. Firing them in the same frame reads as one event with two headlines,
- * which is how you lose the drop the announcement is about.
- *
- * Long enough to be a sequence rather than a stutter, short enough that it is
- * still plainly the same moment. It also absorbs the few milliseconds between
- * the activity row being logged and the race being claimed — both happen inside
- * the winning spin's request, in that order (routes/api.js), so the two stamps
- * differ by less than this by a wide margin.
- */
+/* The beat between the winning pull surfacing in the feed and First Blood naming its winner, so they read as a sequence. */
 const FIRST_BLOOD_ANNOUNCE_BEAT_MS = 1200;
 
-/*
- * The daily bounty's celebration: how long after the winning reel lands it
- * waits, and how long it stays up.
- *
- * The beat is First Blood's and for First Blood's reason, one step removed: the
- * bounty is a common, so no feed row is printed for it and the thing being
- * reacted to is the reel stopping rather than the ticker. The claim is made
- * inside the winning spin's request, so `wonAt` is the pull on the server's
- * clock and `spinRevealDelay(wonAt)` is when that reel comes to rest.
- */
+/* First Blood's beat, measured from the reel landing: `spinRevealDelay(wonAt)` is when the winning reel comes to rest. */
 const BOUNTY_ANNOUNCE_BEAT_MS = 900;
-/** How often to re-ask for the board while it still shows an opening that has passed. */
 const BOUNTY_STALE_RETRY_MS = 30_000;
 const BOUNTY_CELEBRATION_MS = 7000;
 
-/*
- * How long THE PARLOUR's table stays mounted after the ball stops.
- *
- * Measured from the result rather than from the table opening, so it is a
- * duration this file can own without importing the whole timeline: the reveal,
- * the payout cascade, the frame collapsing and the shutters lifting all live
- * inside it, with a second of slack on the end.
- *
- * It must OUTLAST the client timeline's T_END − T_CALL (13.4s), for the reason
- * the arrival's clear timeout must outlast its own: unmounting is what hands the
- * band back to the reel, and doing it while the pockets are still turning over
- * would cut the change back mid-flip.
- */
+/* Measured from the result. Must outlast the client timeline's T_END - T_CALL (13.4s): unmounting hands the band back to the reel. */
 const ROULETTE_TEARDOWN_MS = 14200;
 
-/*
- * The parlour's dead-man switch: the longest the table may stay mounted,
- * measured from the moment it opened on the SERVER's clock.
- *
- * Nothing should ever reach this. The ordinary teardown is armed by
- * `roulette_result` and runs 14.2s later, which lands at ~30.4s past the open,
- * four seconds inside this. It exists because the table is the one takeover
- * that owns the reel outright: while `roulette` is set the band is not the
- * reel's, WheelSpinner refuses to start a spin, and the ONLY thing that hands
- * it back is that timer. Every path that sets the table without arming one is
- * therefore a page you have to reload, and there were two of them - a mid-event
- * page load that arrived after the ball had already dropped, and a stale spin
- * response resurrecting a table the client had already torn down (see
- * `recoverGlobalEventStatus`). Both are fixed at the source; this is the
- * guarantee that the next one cannot cost a reload.
- *
- * Server clock, not local: `openedAt` is server milliseconds, so the remaining
- * time has to be measured with `serverNow()` like every other beat of this
- * event. A table restored from a payload whose open is already in the past
- * simply clears on the next tick, which is the correct answer for it.
- */
+/* Dead-man switch from the open, on the SERVER's clock: while `roulette` is set spinning is refused and only a teardown
+   gives the reel back, so any path that sets the table without arming one would need a reload. */
 const ROULETTE_MAX_LIFETIME_MS = 34000;
 
-/*
- * HIGH ROLLER's two timers, the Parlour's pair one table along.
- *
- * TEARDOWN runs from `high_roller_result` and hands the band back to the reel.
- * Just inside the server's HIGH_ROLLER_SETTLE_MS (14s) for the Parlour's
- * reason: unmounting is what returns the reel, and the server's end broadcast
- * should find the table already gone rather than the other way round. It must
- * also outlast the reveal in effects/highRollerTimeline.js - the longest
- * dealer hand ends at ~9.9s - with the outcome left on screen to be read.
- *
- * MAX_LIFETIME is the dead-man switch, measured from the open on the server's
- * clock. The longest a table can legitimately run is the intro, the deal, the
- * full play window and the settle - 41.5s - so this is that plus slack.
- * Reaching it means the result never arrived.
- */
+/* TEARDOWN runs from `high_roller_result`, just inside the server's HIGH_ROLLER_SETTLE_MS (14s), and must outlast the
+   reveal in effects/highRollerTimeline.js (~9.9s). MAX_LIFETIME is the dead-man switch: the longest legitimate table is 41.5s. */
 const HIGH_ROLLER_TEARDOWN_MS = 13000;
 const HIGH_ROLLER_MAX_LIFETIME_MS = 48000;
 
@@ -134,103 +43,47 @@ export function ActivityProvider({ children }) {
     const [recursionStatus, setRecursionStatus] = useState({ active: false });
     const [globalEventStatus, setGlobalEventStatus] = useState({ active: false, milestone: null });
 
-    // Mirrors globalEventStatus so recoverGlobalEventStatus can ask what the client
-    // currently believes without reading it inside a state updater - React may run an
-    // updater twice, and that one has a side effect.
+    // Mirrors globalEventStatus so recoverGlobalEventStatus can read it outside a state updater, which React may run twice.
     const globalEventStatusRef = useRef(globalEventStatus);
     useEffect(() => {
         globalEventStatusRef.current = globalEventStatus;
     }, [globalEventStatus]);
 
-    /*
-     * The `activatesAt` of the most recent event INSTANCE this client has seen -
-     * still running or long finished - in raw server milliseconds.
-     *
-     * `recoverGlobalEventStatus` needs to tell "an event I have never heard of"
-     * from "the event that just ended", and `globalEventStatus` cannot: the end
-     * broadcast wipes `type` back to null, so a stale response naming a finished
-     * event looks exactly like a missed one. The start does not move for the
-     * life of an event, so it identifies the instance, which is the question
-     * actually being asked.
-     *
-     * Raw, uncorrected, because that is what the payloads carry. The clock
-     * correction in `applyGlobalEventStatus` rewrites its argument in place, so
-     * this is captured before it runs.
-     */
+    /* The `activatesAt` (raw server ms) of the latest event instance seen: the end broadcast nulls `type`, so only the start
+       tells a finished event from a missed one. Captured before `applyGlobalEventStatus` corrects it in place. */
     const knownEventStartRef = useRef(null);
 
-    // King of the Wheel state
     const [kotwLeaderboard, setKotwLeaderboard] = useState([]);
     const [kotwUserStats, setKotwUserStats] = useState(null);
     const [kotwWinner, setKotwWinner] = useState(null);
     const [kotwSpinPending, setKotwSpinPending] = useState(false); // Track if user is mid-spin
     const [eventSelection, setEventSelection] = useState(null); // For event selection animation
 
-    // First Blood state
     const [firstBloodWinner, setFirstBloodWinner] = useState(null);
 
-    // Community Goal state
     const [communityGoal, setCommunityGoal] = useState(null); // { progress, target, participants }
     const [communityGoalResult, setCommunityGoalResult] = useState(null);
     const [communityGoalResultPending, setCommunityGoalResultPending] = useState(false);
 
-    // Both of these events also hold their result back so it cannot land mid-spin. The
-    // flags let their banners stay on screen through that gap instead of unmounting and
-    // sliding back in a few seconds later, which read as a glitch.
+    // Both events hold their result back so it cannot land mid-spin; these keep their banners up through that gap.
     const [kotwWinnerPending, setKotwWinnerPending] = useState(false);
     const [firstBloodResultPending, setFirstBloodResultPending] = useState(false);
     const [communityGoalReward, setCommunityGoalReward] = useState(null); // This user's payout
 
-    /*
-     * The Arrival.
-     *
-     * Two pieces, and they are deliberately separate. `arrival` is the public
-     * manifest everyone sees — who was on the platform and what landed in front
-     * of them — and it is the whole event. `arrivalCrate` is this player's own
-     * new balance, sent only to them, because a lucky spin count is nobody
-     * else's business; the same split the community goal's payout makes.
-     */
+    /* `arrival` is the public manifest; `arrivalCrate` is this player's private new balance. */
     const [arrival, setArrival] = useState(null);
     const [arrivalCrate, setArrivalCrate] = useState(null);
 
-    /*
-     * THE PARLOUR.
-     *
-     * Four pieces, and the split is the arrival's one level further on.
-     *
-     *   `roulette`        the table itself — the wheel, the stake, the deadline.
-     *                     Set once when it opens and never mutated, because
-     *                     everything in it is decided at that moment. Its
-     *                     presence is what makes the event exist.
-     *   `rouletteTable`   who is seated and what they are on. Replaced wholesale
-     *                     by every `roulette_bets` frame; see the note on why
-     *                     this is not merged.
-     *   `rouletteResult`  the pocket and everyone's payout, once the ball stops.
-     *   `rouletteMyBet`   this client's own choice, held locally so a button
-     *                     looks pressed before the round trip returns.
-     *
-     * The player's new BALANCE is deliberately not here. It rides on the private
-     * `roulette_payout` message and lands in WheelPage's lucky-spin pool the way
-     * every other event's payout does — amounts are public, balances are not.
-     */
+    /* `roulette` is fixed at the open and its presence is the event; `rouletteTable` is replaced wholesale per frame;
+       `rouletteMyBet` is a local echo. Balances ride the private `roulette_payout`, never here. */
     const [roulette, setRoulette] = useState(null);
     const [rouletteTable, setRouletteTable] = useState(null);
     const [rouletteResult, setRouletteResult] = useState(null);
     const [rouletteMyBet, setRouletteMyBetState] = useState(null);
     const [roulettePayout, setRoulettePayout] = useState(null);
 
-    /*
-     * HIGH ROLLER, split the Parlour's way.
-     *
-     *   `highRoller`        the table's fixed facts: payouts and the three
-     *                       timestamps (openedAt, actsFrom, playClosesAt). Its
-     *                       presence is what makes the event exist.
-     *   `highRollerTable`   the dealer as far as it may be seen, and every seat's
-     *                       hand. Replaced wholesale by each `high_roller_table`
-     *                       frame and by this player's own action responses.
-     *   `highRollerResult`  the turned-over dealer and every seat's payout.
-     *   `highRollerPayout`  this player's own outcome and new balance, private.
-     */
+    /* `highRoller` holds the fixed facts and its presence is the event; `highRollerTable` is replaced wholesale;
+       `highRollerPayout` is this player's private outcome. */
     const [highRoller, setHighRoller] = useState(null);
     const [highRollerTable, setHighRollerTableState] = useState(null);
     const [highRollerResult, setHighRollerResult] = useState(null);
@@ -239,52 +92,18 @@ export function ActivityProvider({ children }) {
     // result, and must not put the hole card back face down.
     const highRollerSettledRef = useRef(false);
 
-    /*
-     * THE DAILY BOUNTIES. Not a global event - they run all day underneath them
-     * (wheel-backend services/dailyBounty.js says why) - so they have their own
-     * pieces, split the Parlour's way:
-     *
-     *   `bountyBoard`        today as the room sees it: every bounty opened so
-     *                        far (`bounties`), the one the card leads with
-     *                        (`bounty`), and when the next opens (`next` - a
-     *                        time and a number, never the item, which the
-     *                        server keeps secret until then). What the card
-     *                        and the strip read.
-     *   `bountyWinsToday`    how many of today's this player has taken, against
-     *                        the board's `winsPerDay`. Private, like the boxes.
-     *   `bountyCelebration`  the claim, set only for the celebration's
-     *                        lifetime. Its presence is what shows it.
-     *   `mysteryBoxes`       this player's own unopened boxes, private (below).
-     *
-     * A claim updates the board at the same moment it raises the celebration,
-     * never on arrival: the broadcast leaves the server while the winner's reel
-     * is still turning, and a card reading "claimed by you" beside a wheel that
-     * has not stopped yet spoils the one pull the bounty was about.
-     *
-     * It was one bounty a day, held as `dailyBounty`, until the day grew five.
-     */
+    /* Daily bounties run all day underneath the global events (see wheel-backend services/dailyBounty.js). A claim updates the
+       board only when the celebration shows: the broadcast leaves before the winner's reel stops. */
     const [bountyBoard, setBountyBoard] = useState(null);
     const [bountyWinsToday, setBountyWinsToday] = useState(0);
     const [bountyCelebration, setBountyCelebration] = useState(null);
     const bountyRevealTimeoutRef = useRef(null);
     const bountyClearTimeoutRef = useRef(null);
-    // A board that arrived while a claim's reveal was holding the card back, and
-    // was dropped because it would have shown the claim early. Set, the reveal
-    // refetches once it has shown, so an opening in that window is not lost.
+    // A board dropped while a claim's reveal held the card back; the reveal refetches once shown.
     const bountyBoardStaleRef = useRef(false);
     const pendingWinsTodayRef = useRef(null);
 
-    /*
-     * How many mystery boxes this player holds unopened - the bounty's prize.
-     * Private, like every balance: read from /api/bounty (which only ever
-     * reports the asker's own) and pushed by the `daily_bounty_payout` that only
-     * the winner receives.
-     *
-     * The payout is held until the celebration reveals, for the reason the
-     * celebration itself is held: the wheel turns gold the moment this goes
-     * above zero, and a reel gilding over a spin that has not landed yet would
-     * be the result arriving before the wheel said so.
-     */
+    /* Held until the celebration reveals: the wheel turns gold above zero, which would spoil a spin still turning. */
     const [mysteryBoxes, setMysteryBoxes] = useState(0);
     const pendingBoxesRef = useRef(null);
 
@@ -297,7 +116,6 @@ export function ActivityProvider({ children }) {
     const lastIdRef = useRef(null);
     const initializedRef = useRef(false);
 
-    // Timeout refs for SSE handler cleanup
     const eventSelectionTimeoutRef = useRef(null);
     const kotwWinnerDelayTimeoutRef = useRef(null);
     const kotwWinnerTimeoutRef = useRef(null);
@@ -309,18 +127,13 @@ export function ActivityProvider({ children }) {
     const communityGoalClearTimeoutRef = useRef(null);
     const arrivalTimeoutRef = useRef(null);
     const arrivalClearTimeoutRef = useRef(null);
-    // True while this client's own wheel is animating. An event result that
-    // arrives mid-spin must not render until the wheel lands — see
-    // deferResultUntilLanding() below.
+    // True while this client's own wheel is animating; see deferResultUntilLanding().
     const spinInFlightRef = useRef(false);
     const deferredResultRevealsRef = useRef([]);
     const deferredResultGuardsRef = useRef([]);
-    // A list rather than a single ref: several drops can be in their reveal window
-    // at once — a busy server, or your own spin landing while someone else's is
-    // still held — and each needs its own timer.
+    // A list: several drops can be in their reveal window at once, each with its own timer.
     const feedRevealTimeoutsRef = useRef([]);
 
-    // Keep refs in sync with state
     useEffect(() => {
         lastIdRef.current = lastId;
     }, [lastId]);
@@ -329,7 +142,6 @@ export function ActivityProvider({ children }) {
         initializedRef.current = initialized;
     }, [initialized]);
 
-    // Fetch recursion status
     const fetchRecursionStatus = useCallback(async () => {
         try {
             const res = await fetch(`${API_BASE_URL}/api/recursion/status`, { credentials: 'include' });
@@ -340,21 +152,8 @@ export function ActivityProvider({ children }) {
         }
     }, []);
 
-    /**
-     * Refresh only the milestone — how many spins until the next global event.
-     *
-     * The full status carries this too, but it is only *pushed* when the event
-     * state itself changes, and between events that is exactly never. So a meter
-     * reading off `globalEventStatus.milestone` alone would freeze at whatever the
-     * number was when the tab loaded, which for a figure the whole server moves is
-     * worse than not showing it.
-     *
-     * It writes into the same `globalEventStatus.milestone` the status fetch and
-     * the SSE broadcasts write, so there is still one milestone on the client
-     * rather than a second copy owned by whichever component happens to display it.
-     * `/api/global-event/milestone` is the cheap endpoint — four integers, no
-     * event payload — because this is called on a timer.
-     */
+    /* The full status is only pushed when event state changes, so the milestone is refreshed separately, on a timer, from the
+       cheap endpoint. It writes into the same `globalEventStatus.milestone`. */
     const refreshMilestone = useCallback(async () => {
         try {
             const res = await fetch(`${API_BASE_URL}/api/global-event/milestone`, { credentials: 'include' });
@@ -363,42 +162,19 @@ export function ActivityProvider({ children }) {
             if (!milestone || typeof milestone.remaining !== 'number') return;
             setGlobalEventStatus(prev => ({ ...prev, milestone }));
         } catch {
-            // A stale meter is the failure mode here, and it is a fine one. The
-            // next tick tries again.
+            // A stale meter is a fine failure; the next tick tries again.
         }
     }, []);
 
-    // Fetch global event status
-    /*
-     * Apply a getEventState() payload - whatever produced it.
-     *
-     * Split out of fetchGlobalEventStatus so the same handling can be fed from somewhere
-     * other than a fetch. Every one of these payloads has the same shape because they all
-     * come from the one server function: the REST endpoint returns it, and so does every
-     * spin response.
-     */
+    /* Shared by the fetch and every spin response, which all carry the same getEventState() payload. */
     const applyGlobalEventStatus = useCallback(async (data) => {
         try {
             if (!data) return;
 
-            /*
-             * Kept before the block below rewrites it onto the local clock.
-             *
-             * THE PARLOUR's whole timeline is measured through `serverNow()`,
-             * which expects SERVER milliseconds — the same units the
-             * `roulette_open` broadcast carries. The correction below converts
-             * these two fields into local milliseconds for every other consumer,
-             * so a parlour restored from this payload would be reading a
-             * local-clock origin through a server-clock function. The two are
-             * numerically equivalent today, which is exactly what makes the
-             * mistake survive review; keeping the raw value means the restore
-             * path and the broadcast path cannot diverge if either clock's
-             * derivation is ever tuned.
-             */
+            /* Kept raw: THE PARLOUR's timeline reads it through `serverNow()`, which expects server ms, and the block below rewrites it to local. */
             const rawActivatesAt = data.activatesAt;
             if (data.type && rawActivatesAt) knownEventStartRef.current = rawActivatesAt;
 
-            // Apply clock sync if serverTime is provided
             if (data.serverTime && (data.activatesAt || data.expiresAt)) {
                 const clockOffset = data.serverTime - Date.now();
                 console.log('[Fetch] Clock offset:', clockOffset, 'ms');
@@ -412,47 +188,19 @@ export function ActivityProvider({ children }) {
 
             setGlobalEventStatus(data);
 
-            // King of the Wheel standings, for anyone arriving mid-event.
-            //
-            // kotwLeaderboard was only ever populated from the `kotw_leaderboard`
-            // SSE message, which is pushed when somebody spins. That is fine once
-            // you are watching, but it means a page loaded during a live
-            // competition showed an empty board until the next spin happened
-            // anywhere on the server — which, late in a quiet event, can be a long
-            // time. The standings existed; nothing had asked for them.
-            //
-            // Fetched here rather than in its own effect because this function
-            // already knows whether a KOTW event is running, and it is called both
-            // on mount and whenever the tab becomes visible again — the two moments
-            // where the client can be behind.
+            // Fetched here so a page loaded mid-event gets the standings; they are otherwise pushed only when someone spins.
             if (data?.active && data?.type === 'king_of_wheel') {
                 try {
                     const kotwRes = await fetch(`${API_BASE_URL}/api/kotw/leaderboard`, { credentials: 'include' });
                     const kotwData = await kotwRes.json();
                     if (kotwData?.leaderboard) setKotwLeaderboard(kotwData.leaderboard);
-                    // The endpoint returns the caller's own row when signed in, so
-                    // your rank and points come back with it rather than needing a
-                    // second request.
+                    // The endpoint returns the caller's own row when signed in.
                     if (kotwData?.userStats) setKotwUserStats(kotwData.userStats);
                 } catch (e) {
                     console.error('[ActivityContext] Failed to fetch KOTW leaderboard:', e);
                 }
             }
-            /*
-             * THE PARLOUR, for anyone arriving mid-table.
-             *
-             * The same gap KOTW's standings had, and it matters more here
-             * because what is being missed is not a scoreboard but a window the
-             * player can still act inside. `roulette_open` is a one-shot
-             * broadcast: a page loaded ten seconds into the betting window never
-             * saw it, and without this would sit through the whole event with no
-             * table on screen and no idea it had a seat.
-             *
-             * `getRouletteState` folds the live table into `data`, so everything
-             * needed is already here — bar the origin, which comes from
-             * `rawActivatesAt` for the reason recorded at the top of this
-             * function.
-             */
+            /* `roulette_open` is one-shot, so a page loaded mid-table restores it from here. The origin is `rawActivatesAt` (see above). */
             if (data?.active && data?.type === 'roulette' && data?.data) {
                 const table = data.data;
                 setRoulette({
@@ -475,13 +223,7 @@ export function ActivityProvider({ children }) {
                     });
                 }
             }
-            /*
-             * HIGH ROLLER, for anyone arriving mid-table - the Parlour's case
-             * exactly, and with a hand to play it matters as much. `describe`
-             * folds the table in: the dealer (up card only until the settle),
-             * every seat, and the results once there are some. The origin is
-             * `rawActivatesAt`, server milliseconds, like the Parlour's.
-             */
+            /* A page loaded mid-table restores it from here, the Parlour's way; the origin is `rawActivatesAt`. */
             if (data?.active && data?.type === 'high_roller' && data?.data) {
                 const table = data.data;
                 setHighRoller({
@@ -493,10 +235,8 @@ export function ActivityProvider({ children }) {
                     expiresAt: data.expiresAt,
                 });
                 setHighRollerTableState({ dealer: table.dealer, seats: table.seats || [] });
-                // Walked in on the reveal: show it. Nothing arms the teardown
-                // from here, which is what the dead-man switch below is for.
-                // Set either way: a table walked in on mid-hand must not inherit
-                // the previous table's settled flag, or its moves are refused.
+                // Walked in on the reveal: nothing arms the teardown from here, which the dead-man switch covers. Always reset, or a new
+                // table inherits the previous one's settled flag and its moves are refused.
                 highRollerSettledRef.current = !!table.results;
                 if (table.results) {
                     setHighRollerResult({ dealer: table.dealer, results: table.results });
@@ -507,10 +247,8 @@ export function ActivityProvider({ children }) {
         }
     }, []);
 
-    // Today's board. On mount and on every return to the tab, like the event
-    // status, because the claims, the openings and the midnight rollover are
-    // all broadcasts a backgrounded tab can miss. Never while a celebration is
-    // pending: that would print the winner the celebration is still holding back.
+    // On mount and tab return, since a backgrounded tab can miss the broadcasts. Never while a celebration is pending,
+    // or it would print the winner early.
     const fetchDailyBounty = useCallback(async () => {
         try {
             const res = await fetch(`${API_BASE_URL}/api/bounty`, { credentials: 'include' });
@@ -528,16 +266,8 @@ export function ActivityProvider({ children }) {
         }
     }, []);
 
-    // The safety net under the opening broadcast. A slot opens because its time
-    // has passed - the server announces it, but a dropped SSE connection would
-    // leave the card counting down to a moment already gone. So once the time
-    // passes, ask. A few seconds late on purpose: the broadcast usually lands
-    // first, and then this re-reads what the card already shows.
-    //
-    // And if that read comes back with the board still pointing at the moment that
-    // has passed (the server's tick not yet run, a dropped request), ask again every
-    // BOUNTY_STALE_RETRY_MS until it moves on - `bountyRetry` is what re-runs this
-    // effect, since an unchanged board leaves `nextBountyAt` unchanged too.
+    // Safety net under the opening broadcast: once the time passes, ask (a few seconds late on purpose), and keep asking every
+    // BOUNTY_STALE_RETRY_MS while the board still points at the past. `bountyRetry` is what re-runs this effect.
     const nextBountyAt = bountyBoard?.next?.opensAt || bountyBoard?.dayEndsAt || null;
     const [bountyRetry, setBountyRetry] = useState(0);
     useEffect(() => {
@@ -563,56 +293,18 @@ export function ActivityProvider({ children }) {
         }
     }, [applyGlobalEventStatus]);
 
-    /*
-     * Fill in an event the client missed, from a payload it was given anyway.
-     *
-     * Every spin response carries `globalEventStatus` - the complete server-side event
-     * state, on every single spin - and until now nothing read it. `recursionStatus` rides
-     * along on the same responses for exactly this purpose and always has been consumed;
-     * this is its neglected twin.
-     *
-     * It matters because it is the last line of defence. A client whose SSE connection has
-     * died without saying so, and whose visibility refetch failed or never ran, has no
-     * other way back: it can spin all the way through a five-minute King of the Wheel,
-     * scoring on the server's leaderboard the whole time, while showing no event at all.
-     * That is a real report, not a hypothetical.
-     *
-     * RECOVERY ONLY, and that restriction is the important part. A spin response is built
-     * before it is sent, so one that started before an event ended can arrive after the
-     * `global_event_end` broadcast that cleared it. Treating these as a general sync would
-     * let a slow response resurrect a finished event - and the banners, the accent colour
-     * and the aftermath cards all key off that state. So this only ever fills a gap: it
-     * acts when the payload shows an event running and the client believes there is none,
-     * and is otherwise silent. It can add what was missed; it can never undo an ending.
-     */
+    /* RECOVERY ONLY: fills in an event a dead SSE connection missed, from the status every spin response carries. A slow
+       response can arrive after `global_event_end`, so this may add what was missed but never undo an ending. */
     const recoverGlobalEventStatus = useCallback((payload) => {
         if (!payload?.type) return;
         if (!payload.active && !payload.pending) return;
 
-        // Already knows about this one: leave it alone. The live state is fresher than
-        // anything a spin response can carry.
+        // Already known: the live state is fresher than any spin response.
         const current = globalEventStatusRef.current;
         if (current?.type === payload.type && (current.active || current.pending)) return;
 
-        /*
-         * Already seen this one, and it is over. The check above only catches an
-         * event the client still believes is running; `global_event_end` sets
-         * `type` to null, so from that moment the finished event and an event
-         * this client never heard of are indistinguishable BY TYPE. They are not
-         * indistinguishable by start.
-         *
-         * The window is small and it is real. A spin response is built while the
-         * server still has the event and can arrive after the end broadcast that
-         * cleared it - and for THE PARLOUR that window is exactly the moment a
-         * player is most likely to spin, because the client hands the reel back
-         * (its teardown timer) a few hundred milliseconds BEFORE the server
-         * closes the event. Spin into that gap and the response re-opened a
-         * table the client had already dismantled: `roulette` set again from a
-         * payload whose `roulette_result` had long since been and gone, so
-         * nothing was left to arm the teardown, the band never came back, and
-         * the page had to be reloaded. Recovery may fill a gap; it may not
-         * re-run an event this client has already lived through.
-         */
+        /* Already seen and over: a spin response built before the end can arrive after it, and re-opening a finished table
+           leaves nothing to arm its teardown. Matched by start, since the end nulls `type`. */
         if (payload.activatesAt && payload.activatesAt === knownEventStartRef.current) return;
 
         console.log('[Spin] Recovered a missed global event from the spin response:', payload.type);
@@ -621,25 +313,17 @@ export function ActivityProvider({ children }) {
         applyGlobalEventStatus(payload);
     }, [applyGlobalEventStatus]);
 
-    // Fetch activity feed - uses refs to avoid dependency issues
     const fetchActivity = useCallback(async () => {
         if (!isVisibleRef.current) return;
 
         try {
-            // The activity request's own round trip, timed so the clock offset it
-            // carries can have the latency taken back out of it — see
-            // utils/serverClock.js. Only THIS request is timed: the two run
-            // concurrently, so timing the pair would measure the slower of them and
-            // hand the clock a correction it did not earn.
+            // Only this request is timed (see utils/serverClock.js): the two run concurrently, so timing both would measure the slower.
             const sentAt = Date.now();
             let allRoundTrip;
             const [allRes, rareRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/activity/all?limit=100`, { credentials: 'include' })
                     .then(res => { allRoundTrip = Date.now() - sentAt; return res; }),
-                // Full mythic/insane history - the Mythic & Insane board is all-time.
-                // One request serves both consumers: the board takes the whole list, while
-                // the main feed still only merges the last 7 days so the All tab keeps
-                // reading as a recent-activity feed rather than an archive.
+                // All-time, for the Mythic & Insane board; the main feed still only merges the last 7 days.
                 fetch(`${API_BASE_URL}/api/activity/rare?days=all&limit=500`)
             ]);
 
@@ -652,11 +336,7 @@ export function ActivityProvider({ children }) {
 
             if (allData.feed) {
                 if (allData.serverTime) {
-                    // The authoritative clock sample: it is the only one whose
-                    // travel time is known, so it is the only one that can be
-                    // corrected for it. Runs on mount, on reconnect and whenever
-                    // the tab is refocused, which is more than often enough — a
-                    // clock's error drifts over days, not minutes.
+                    // The authoritative clock sample: the only one whose travel time is known.
                     noteServerTime(allData.serverTime, allRoundTrip);
                 }
 
@@ -674,7 +354,6 @@ export function ActivityProvider({ children }) {
 
                 let mergedFeed = allData.feed;
                 if (rareData.feed && rareData.feed.length > 0) {
-                    // Only the recent slice belongs in the main feed - see the fetch above.
                     const rareCutoff = Date.now() - RARE_FEED_MERGE_WINDOW_MS;
                     const existingIds = new Set(allData.feed.map(item => item.id));
                     const additionalRare = rareData.feed.filter(item =>
@@ -685,29 +364,8 @@ export function ActivityProvider({ children }) {
                     }
                 }
 
-                /*
-                 * Hold back anything still inside its reveal window, the same way
-                 * the SSE path does.
-                 *
-                 * The SSE handler already delays a live drop so the ticker cannot
-                 * print your item while your own reel is still turning, and its
-                 * note there spotted half of this hole: it moves `lastId`
-                 * immediately so "anything after this?" cannot re-fetch the very
-                 * drop being delayed. That guard only covers `newItems`. This
-                 * function replaces the WHOLE feed from the server's list, which
-                 * is not gated on `lastId` at all, so a fetch landing inside the
-                 * window put the held item straight back on screen early.
-                 *
-                 * Not just theoretical on the polling path either: fetchActivity
-                 * runs on mount, on SSE reconnect and on tab refocus, and a
-                 * reconnect inside the 4.2s window is an ordinary thing for a
-                 * phone to do mid-spin.
-                 *
-                 * Held items are the youngest by definition, so they fire oldest
-                 * first and plain prepending keeps the feed newest-first without
-                 * a re-sort. The id guard is the SSE path's, for the case where
-                 * its timer and this one are holding the same drop.
-                 */
+                /* Hold back drops still in their reveal window, as the SSE path does: this replaces the whole feed and is not gated on `lastId`.
+                   Held items are the youngest, so prepending oldest first keeps the order. */
                 const revealNow = [];
                 const revealLater = [];
                 for (const item of mergedFeed) {
@@ -747,14 +405,8 @@ export function ActivityProvider({ children }) {
         }
     }, []); // No dependencies - uses refs
 
-    // Event results that arrive while the player's own wheel is still turning
-    // (the event end timers fire mid-spin as often as not) must not render
-    // until the wheel lands: a fixed wait can fire while the wheel is not done,
-    // spoiling the pull. The pending flags the callers set keep their banners
-    // on screen meanwhile. The wheel reports start/landing through
-    // markSpinInFlight()/markSpinLanded(); markSpinLanded drains this queue. A
-    // guard timer guarantees a stranded result is not held forever if the
-    // landing never fires (e.g. the spin request failed and the wheel reset).
+    // Results arriving mid-spin wait for markSpinLanded() rather than a fixed delay; a guard timer releases a result stranded
+    // by a landing that never fires.
     const deferResultUntilLanding = useCallback((reveal) => {
         deferredResultRevealsRef.current.push(reveal);
         const guard = setTimeout(() => {
@@ -779,7 +431,6 @@ export function ActivityProvider({ children }) {
         for (const reveal of reveals) reveal();
     }, []);
 
-    // SSE connection - runs once on mount
     useEffect(() => {
         fetchActivity();
         fetchGlobalEventStatus();
@@ -797,12 +448,7 @@ export function ActivityProvider({ children }) {
                     try {
                         const data = JSON.parse(event.data);
 
-                        // Every frame is stamped by broadcastToAll/broadcastToUser, so
-                        // this is the cheapest and most frequent clock reference the page
-                        // gets — and it is taken before the switch so a message type
-                        // nobody handles still keeps the offset fresh. What it buys is in
-                        // utils/serverClock.js: the reveal windows below stop being a
-                        // subtraction across two machines' clocks.
+                        // Taken before the switch so even an unhandled message type keeps the clock offset fresh (see utils/serverClock.js).
                         noteServerTime(data.timestamp);
 
                         switch (data.type) {
@@ -815,10 +461,7 @@ export function ActivityProvider({ children }) {
                             case 'global_event_countdown':
                             case 'global_event_start':
                                 console.log('[SSE] Global event update:', data.type, data);
-                                // Seed the Community Goal bar. Every one of these three
-                                // carries the target, and global_event_status (sent on
-                                // connect) also carries live progress, so a client that
-                                // joins mid-event gets a filled bar rather than an empty one.
+                                // All three carry the target, and global_event_status also carries progress, so a mid-event join gets a filled bar.
                                 if (data.eventType === 'community_goal') {
                                     setCommunityGoal(prev => ({
                                         progress: data.progress ?? prev?.progress ?? 0,
@@ -828,8 +471,7 @@ export function ActivityProvider({ children }) {
                                         payout: data.payout ?? prev?.payout ?? data.participationReward ?? 0,
                                         participationReward: data.participationReward ?? prev?.participationReward ?? 0,
                                         participants: data.participants ?? prev?.participants ?? 0,
-                                        // Stages gate on rare-or-better drops as well as on points,
-                                        // so the bar being full is not on its own enough to pay.
+                                        // Stages gate on rare-or-better drops as well as points.
                                         specialDrops: data.specialDrops ?? prev?.specialDrops ?? 0,
                                     }));
                                 }
@@ -837,7 +479,6 @@ export function ActivityProvider({ children }) {
                                 // rewrites it. See knownEventStartRef.
                                 if (data.activatesAt) knownEventStartRef.current = data.activatesAt;
                                 setGlobalEventStatus(prev => {
-                                    // Determine active/pending based on event type
                                     let active = prev.active;
                                     let pending = prev.pending;
 
@@ -852,8 +493,7 @@ export function ActivityProvider({ children }) {
                                         pending = data.pending || false;
                                     }
 
-                                    // Calculate clock offset and adjust timestamps for clock skew
-                                    // This ensures countdown/timer displays correctly even if client/server clocks differ
+                                    // Adjusted for clock skew so countdowns are right even when the client's clock differs.
                                     let adjustedActivatesAt = data.activatesAt || prev.activatesAt;
                                     let adjustedExpiresAt = data.expiresAt || prev.expiresAt;
 
@@ -891,7 +531,6 @@ export function ActivityProvider({ children }) {
 
                             case 'global_event_end':
                                 console.log('[SSE] Global event ended:', data);
-                                // Use milestone from broadcast instead of fetching
                                 setGlobalEventStatus({
                                     active: false,
                                     pending: false,
@@ -899,24 +538,13 @@ export function ActivityProvider({ children }) {
                                     data: null,
                                     milestone: data.milestone || null
                                 });
-                                // Clear KOTW state if it was a KOTW event
                                 setKotwLeaderboard([]);
                                 setKotwUserStats(null);
-                                // Community Goal progress is deliberately NOT cleared here.
-                                // This message lands ~5s before the result is shown, and
-                                // wiping it would empty the banner for that whole gap. The
-                                // result handler clears it at the moment it swaps the banner
-                                // over. See communityGoalResultPending.
+                                // Deliberately not cleared here: this lands ~5s before the result, and the result handler clears it. See communityGoalResultPending.
                                 break;
 
                             case 'global_event_milestone':
-                                // Pushed after every spin while no event is running.
-                                // The activity feed only broadcasts notable drops, so
-                                // this is the counter's one live signal — without it
-                                // the meter would sit stale until a poll or a special
-                                // drop. Written into the same globalEventStatus.milestone
-                                // as everything else, so there is still one milestone
-                                // on the client.
+                                // Pushed after every spin while no event runs: the milestone's only live signal.
                                 if (data.milestone && typeof data.milestone.remaining === 'number') {
                                     setGlobalEventStatus(prev => ({ ...prev, milestone: data.milestone }));
                                 }
@@ -924,12 +552,10 @@ export function ActivityProvider({ children }) {
 
                             case 'event_selection':
                                 console.log('[SSE] Event selection started:', data);
-                                // Clear any existing timeout
                                 if (eventSelectionTimeoutRef.current) {
                                     clearTimeout(eventSelectionTimeoutRef.current);
                                 }
                                 setEventSelection(data);
-                                // Clear selection after animation completes
                                 eventSelectionTimeoutRef.current = setTimeout(() => {
                                     setEventSelection(null);
                                     eventSelectionTimeoutRef.current = null;
@@ -943,24 +569,18 @@ export function ActivityProvider({ children }) {
 
                             case 'kotw_winner':
                                 console.log('[SSE] KOTW winner announced:', data);
-                                // Clear any existing timeouts
                                 if (kotwWinnerDelayTimeoutRef.current) {
                                     clearTimeout(kotwWinnerDelayTimeoutRef.current);
                                 }
                                 if (kotwWinnerTimeoutRef.current) {
                                     clearTimeout(kotwWinnerTimeoutRef.current);
                                 }
-                                // Delay the announcement the same way First Blood does.
-                                // KOTW ends on a server timer, so it routinely fires while
-                                // someone is mid-spin - without the delay the winner banner
-                                // and the lucky-spin reward appear on top of a wheel that
-                                // has not landed yet, spoiling the result.
+                                // Delayed like First Blood: KOTW ends on a server timer, routinely mid-spin, and must not land over an unlanded wheel.
                                 setKotwWinnerPending(true);
                                 kotwWinnerDelayTimeoutRef.current = setTimeout(() => {
                                     setKotwWinner(data);
                                     setKotwWinnerPending(false);
                                     kotwWinnerDelayTimeoutRef.current = null;
-                                    // Clear leaderboard after winner announcement
                                     kotwWinnerTimeoutRef.current = setTimeout(() => {
                                         setKotwWinner(null);
                                         setKotwLeaderboard([]);
@@ -971,8 +591,7 @@ export function ActivityProvider({ children }) {
                                 break;
 
                             case 'community_goal_progress':
-                                // Already throttled server-side past the spin animation,
-                                // so this is safe to apply the moment it lands.
+                                // Already throttled server-side past the spin animation, so safe to apply at once.
                                 setCommunityGoal(prev => ({
                                     ...prev,
                                     progress: data.progress,
@@ -993,10 +612,7 @@ export function ActivityProvider({ children }) {
                                 if (communityGoalClearTimeoutRef.current) {
                                     clearTimeout(communityGoalClearTimeoutRef.current);
                                 }
-                                // Flag the pending result straight away. The banner uses this
-                                // to hold its ground for the delay below instead of vanishing
-                                // and popping back - the event is over, but the summary is not
-                                // ready to show yet.
+                                // Flagged at once so the banner holds its ground through the delay below instead of vanishing and popping back.
                                 setCommunityGoalResultPending(true);
 
                                 const reveal = () => {
@@ -1012,10 +628,7 @@ export function ActivityProvider({ children }) {
                                 };
 
                                 if (spinInFlightRef.current) {
-                                    // The end timer fired while this client's wheel was still
-                                    // turning: a fixed wait can land the summary over a wheel
-                                    // that is not done. Defer to the actual landing, which the
-                                    // wheel reports through markSpinLanded().
+                                    // Mid-spin: defer to the wheel's actual landing rather than a fixed wait.
                                     deferResultUntilLanding(reveal);
                                 } else {
                                     // No local spin to spoil - keep the settle rhythm.
@@ -1032,17 +645,7 @@ export function ActivityProvider({ children }) {
                                 const show = () => {
                                     setArrival(data);
                                     arrivalTimeoutRef.current = null;
-                                    /*
-                                     * Just after the shutters finish opening.
-                                     *
-                                     * This is also what re-enables spinning —
-                                     * WheelSpinner refuses a spin while
-                                     * `arrival` is set — so it must not fire
-                                     * before the reel is actually back. Clearing
-                                     * at 15.5s handed the wheel back while the
-                                     * band was still shuttered, which is a spin
-                                     * you cannot see.
-                                     */
+                                    /* This also re-enables spinning, so it must not fire before the reel is back. */
                                     arrivalClearTimeoutRef.current = setTimeout(() => {
                                         setArrival(null);
                                         setArrivalCrate(null);
@@ -1050,11 +653,7 @@ export function ActivityProvider({ children }) {
                                     }, T_LIFT_END * 1000 + 300);
                                 };
 
-                                // A train pulling in over a wheel that is still
-                                // turning steals the player's own result, which
-                                // is the one moment on this page that outranks a
-                                // global event. Same deferral the community goal
-                                // and first blood summaries use.
+                                // Same deferral as the community goal and First Blood: an arrival must not land over a turning wheel.
                                 if (spinInFlightRef.current) {
                                     deferResultUntilLanding(show);
                                 } else {
@@ -1075,34 +674,8 @@ export function ActivityProvider({ children }) {
                                 setRouletteTable({ seats: data.seats || [], counts: data.counts });
                                 setRoulette(data);
 
-                                /*
-                                 * And tell the rest of the page that an event is
-                                 * running, because nothing else will.
-                                 *
-                                 * THE PARLOUR is the one event that never sends
-                                 * `global_event_start`: it has no activation
-                                 * countdown, so it broadcasts the table opening
-                                 * instead and that is the whole of its start.
-                                 * Which means `globalEventStatus` sat inactive
-                                 * for the entire event on any client that was
-                                 * already connected - only a page loaded
-                                 * mid-table ever learned otherwise, through
-                                 * `/global-event/status`.
-                                 *
-                                 * It showed: MilestoneMeter fills the banner row
-                                 * whenever no event is running, and the event
-                                 * selection roll that hides it lasts four
-                                 * seconds. So four seconds into the table, "next
-                                 * global event - 0 spins to go" faded up into the
-                                 * middle of the room. Every other consumer of
-                                 * this state was wrong for the same half minute;
-                                 * the meter is just the one you can see.
-                                 *
-                                 * `openedAt` is kept RAW here and corrected only
-                                 * into the status, for the reason
-                                 * applyGlobalEventStatus records: the timeline
-                                 * reads `roulette.openedAt` through serverNow().
-                                 */
+                                /* THE PARLOUR never sends `global_event_start`, so the status is set here, or connected clients see no event running.
+                                   `openedAt` stays raw, for the reason in applyGlobalEventStatus. */
                                 knownEventStartRef.current = data.openedAt;
                                 const parlourOffset = data.serverTime ? data.serverTime - Date.now() : 0;
                                 setGlobalEventStatus(prev => ({
@@ -1114,58 +687,19 @@ export function ActivityProvider({ children }) {
                                     expiresAt: data.expiresAt ? data.expiresAt - parlourOffset : prev.expiresAt,
                                 }));
 
-                                /*
-                                 * NOT deferred behind a spin in flight, and it is
-                                 * the only takeover on the site that is not.
-                                 *
-                                 * The arrival, the community goal summary and the
-                                 * First Blood winner all wait for the local wheel
-                                 * to land, because each of them is a RESULT and
-                                 * landing one over a reel that is still turning
-                                 * steals the player's own. This is the opposite
-                                 * shape: nothing has been decided yet, and what
-                                 * the message opens is a thirty-second window the
-                                 * player has to act inside. Holding it back four
-                                 * seconds would spend an eighth of the betting
-                                 * window protecting a spin whose result this
-                                 * cannot spoil — there is no result yet to spoil
-                                 * it with.
-                                 *
-                                 * The shutter coming down over a spinning reel is
-                                 * the one cost, and it is bounded: WheelSpinner
-                                 * refuses to START a spin while the table is up,
-                                 * so at worst one already-launched reel finishes
-                                 * behind the blades, and the result panel is
-                                 * still there when they lift.
-                                 */
+                                /* Deliberately NOT deferred behind a spin in flight: it opens a window to act in, and there is no result yet to spoil. */
                                 break;
                             }
 
                             case 'roulette_bets':
-                                /*
-                                 * Replaced wholesale rather than merged.
-                                 *
-                                 * The server sends the entire table every time
-                                 * because the table IS small — a room is a
-                                 * handful of seats — and a merge would have to
-                                 * decide what to do about a seat that vanished
-                                 * from the list, which is a question with no good
-                                 * answer on a channel that can drop a frame.
-                                 * Taking the newest whole picture cannot drift.
-                                 */
+                                /* Replaced wholesale, not merged: a merge cannot tell a vanished seat from a dropped frame. */
                                 setRouletteTable({ seats: data.seats || [], counts: data.counts });
                                 break;
 
                             case 'roulette_result': {
                                 console.log('[SSE] Parlour result:', data);
                                 setRouletteResult(data);
-                                /*
-                                 * Held until well past the animation's own end.
-                                 * The theatre unmounts on `roulette` going null,
-                                 * and the result has to outlive it or the payout
-                                 * board would empty while the frame was still
-                                 * collapsing over it.
-                                 */
+                                /* The result must outlive the theatre's unmount, or the payout board empties while the frame is still collapsing. */
                                 if (rouletteClearTimeoutRef.current) {
                                     clearTimeout(rouletteClearTimeoutRef.current);
                                 }
@@ -1180,7 +714,6 @@ export function ActivityProvider({ children }) {
                             }
 
                             case 'roulette_payout':
-                                // This player's own outcome and new balance.
                                 console.log('[SSE] Parlour payout:', data);
                                 setRoulettePayout(data);
                                 break;
@@ -1203,14 +736,7 @@ export function ActivityProvider({ children }) {
                                     playClosesAt: data.playClosesAt,
                                     expiresAt: data.expiresAt,
                                 });
-                                /*
-                                 * No `global_event_start` for this one either, so
-                                 * the status is set here - see the long note on
-                                 * `roulette_open` for what happens when it is not.
-                                 * Not deferred behind a spin in flight, for the
-                                 * Parlour's reason: it opens a window to act in,
-                                 * and there is no result yet to spoil.
-                                 */
+                                /* No `global_event_start` here either (see `roulette_open`), and not deferred, for the Parlour's reason. */
                                 knownEventStartRef.current = data.openedAt;
                                 const highRollerOffset = data.serverTime ? data.serverTime - Date.now() : 0;
                                 setGlobalEventStatus(prev => ({
@@ -1225,9 +751,7 @@ export function ActivityProvider({ children }) {
                             }
 
                             case 'high_roller_table':
-                                // Wholesale, as `roulette_bets`. Never after the
-                                // settle: a throttled frame landing late would turn
-                                // the hole card back over.
+                                // Never after the settle: a late throttled frame would turn the hole card back over.
                                 if (!highRollerSettledRef.current) {
                                     setHighRollerTableState({ dealer: data.dealer, seats: data.seats || [] });
                                 }
@@ -1259,31 +783,24 @@ export function ActivityProvider({ children }) {
                             }
 
                             case 'high_roller_payout':
-                                // This player's own outcome and new balance.
                                 console.log('[SSE] High Roller payout:', data);
                                 setHighRollerPayout(data);
                                 break;
 
                             case 'arrival_crate':
-                                // This player's own crate and new balance.
                                 console.log('[SSE] Arrival crate:', data);
                                 setArrivalCrate(data);
                                 break;
 
                             case 'community_goal_reward':
-                                // Sent only to players who took part - carries their own
-                                // new balance, so no arithmetic on this side.
+                                // Sent only to participants, with their own new balance.
                                 console.log('[SSE] Community Goal reward:', data);
                                 setCommunityGoalReward(data);
                                 break;
 
                             case 'daily_bounty':
                             case 'daily_bounty_day':
-                                // `daily_bounty`: a bounty opened - its time came and
-                                // the server announced it, with the whole board.
-                                // `daily_bounty_day`: midnight - a new day, nothing
-                                // open yet, the first slot's time on the board, and
-                                // this player's count against the cap back to zero.
+                                // `daily_bounty`: a bounty opened. `daily_bounty_day`: midnight rollover, this player's count back to zero.
                                 // Nothing to hold back for either: no pull is behind it.
                                 console.log(`[SSE] ${data.type}:`, data.bounty || data.board);
                                 if (data.type === 'daily_bounty_day') setBountyWinsToday(0);
@@ -1333,9 +850,7 @@ export function ActivityProvider({ children }) {
                                     }, BOUNTY_CELEBRATION_MS);
                                 };
 
-                                // First Blood's two waits, for its reasons: the reel
-                                // that won it (measured from `wonAt` on the server's
-                                // clock) and this client's own wheel if it is turning.
+                                // First Blood waits for the winning reel (from `wonAt`, server clock) and this client's own wheel.
                                 const revealAt = Date.now() + spinRevealDelay(claimed.winner.wonAt) + BOUNTY_ANNOUNCE_BEAT_MS;
                                 const revealAfterPull = () => {
                                     const wait = revealAt - Date.now();
@@ -1355,10 +870,7 @@ export function ActivityProvider({ children }) {
                             }
 
                             case 'daily_bounty_payout':
-                                // This player's own box count - see mysteryBoxes. Sent
-                                // right after the claim broadcast, so the reveal is
-                                // normally still pending and picks it up; if it has
-                                // already gone up, there is nothing left to wait for.
+                                // Normally arrives while the reveal is still pending and is picked up by it; otherwise applied now.
                                 console.log('[SSE] Daily bounty payout:', data);
                                 if (bountyRevealTimeoutRef.current) {
                                     pendingBoxesRef.current = data.mysteryBoxes ?? 0;
@@ -1371,7 +883,6 @@ export function ActivityProvider({ children }) {
 
                             case 'first_blood_result': {
                                 console.log('[SSE] First Blood result:', data);
-                                // Clear any existing timeouts
                                 if (firstBloodTimeoutRef.current) {
                                     clearTimeout(firstBloodTimeoutRef.current);
                                 }
@@ -1384,40 +895,14 @@ export function ActivityProvider({ children }) {
                                     setFirstBloodWinner(data);
                                     setFirstBloodResultPending(false);
                                     firstBloodTimeoutRef.current = null;
-                                    // Clear winner after display period
                                     firstBloodClearTimeoutRef.current = setTimeout(() => {
                                         setFirstBloodWinner(null);
                                         firstBloodClearTimeoutRef.current = null;
                                     }, 8000); // Show winner for 8 seconds before clearing
                                 };
 
-                                // The announcement has to clear TWO things, and holding for
-                                // only one of them is what this used to get wrong.
-                                //
-                                // (1) The local wheel, which the deferral below covers.
-                                // (2) The winning pull itself. The race is claimed inside the
-                                //     winning spin's own request, so this broadcast leaves the
-                                //     server ~4s before that drop is due to surface anywhere:
-                                //     the live activity feed and the toast both hold it until
-                                //     `created_at + SPIN_REVEAL_MS`. A banner naming the item
-                                //     before the ticker has printed it announces a pull that,
-                                //     as far as the page is concerned, has not happened yet.
-                                //
-                                // The old code held a flat 5s from ARRIVAL, which cleared (2)
-                                // by accident for an idle viewer and not at all for a spinning
-                                // one: the landing drained the deferral the instant the reel
-                                // stopped, and for the winner that is ~200ms before their own
-                                // drop reaches the feed (SPIN_REVEAL_MS is 4200 against a
-                                // 4000ms reel - see helpers.js), so the banner beat the ticker
-                                // on any connection quicker than a 400ms round trip. Locally,
-                                // always.
-                                //
-                                // So measure from the pull, on the server's clock, exactly as
-                                // the feed does, and add a beat so the banner reads as a
-                                // reaction to the drop rather than a race with it. `wonAt` is
-                                // absent when nobody claimed the race (and from a server that
-                                // predates it), and there is no pull to wait for in that case
-                                // - the flat settle is still right there.
+                                // Must clear both this client's landing (deferred below) and the winning pull reaching the feed, which is held until
+                                // `created_at + SPIN_REVEAL_MS`: so measure from `wonAt` on the server's clock, plus a beat. No `wonAt`: flat settle.
                                 const feedDelay = data.winner?.wonAt
                                     ? spinRevealDelay(data.winner.wonAt) + FIRST_BLOOD_ANNOUNCE_BEAT_MS
                                     : 5000;
@@ -1433,10 +918,7 @@ export function ActivityProvider({ children }) {
                                 };
 
                                 if (spinInFlightRef.current) {
-                                    // Same deal as the Community Goal summary: the end timer
-                                    // can fire while the player's wheel is still turning, and
-                                    // the winner must wait for the landing too. Whichever of
-                                    // the two waits finishes last is the one that decides.
+                                    // Whichever wait finishes last decides.
                                     deferResultUntilLanding(revealAfterPull);
                                 } else {
                                     revealAfterPull();
@@ -1446,47 +928,9 @@ export function ActivityProvider({ children }) {
 
                             case 'activity':
                                 if (data.item && data.item.id) {
-                                    /*
-                                     * There is deliberately no clock handling here any more.
-                                     *
-                                     * This block used to read `data.serverTime` and push it
-                                     * into a `serverTime` state, under a comment saying it
-                                     * "prevents stale timestamps that cause delayed
-                                     * celebrations". It never once ran: `broadcastToAll`
-                                     * stamps the envelope `timestamp`, not `serverTime`
-                                     * (wheel-backend routes/api.js), so the guard was always
-                                     * false and that state stayed frozen at whatever the last
-                                     * `fetchActivity` had put in it — page load, tab refocus
-                                     * or SSE reconnect, and nothing else.
-                                     *
-                                     * Which made it the exact stale clock it was written to
-                                     * avoid, with a reload as the only cure. The celebration
-                                     * read it to decide when to fire and so ran on a clock
-                                     * that stopped minutes ago.
-                                     *
-                                     * The frame's real stamp is already taken above the
-                                     * switch, by `noteServerTime(data.timestamp)`, and every
-                                     * surface now reads it back through `serverNow()` rather
-                                     * than through a React snapshot of it. One clock, always
-                                     * current, no state to go stale.
-                                     */
 
-                                    // Prepend to feed — but not before the reel that
-                                    // produced this drop has finished turning.
-                                    //
-                                    // This used to be immediate, and it was the one
-                                    // live surface that was: the toast holds items
-                                    // ~4.5s, the mythic celebration computes its own
-                                    // per-user delay, First Blood waits 5s. The feed
-                                    // prepending on arrival meant the ticker printed
-                                    // your item while your own wheel was still
-                                    // spinning, roughly four seconds before the
-                                    // notification for the same drop — so the strip
-                                    // above the reel was spoiling the reel.
-                                    //
-                                    // `spinRevealDelay` measures from the drop's
-                                    // `created_at`, so a drop that reaches you late
-                                    // is not held for the full window a second time.
+                                    // Not before the reel that produced this drop has finished turning. `spinRevealDelay` measures from `created_at`,
+                                    // so a late drop is not held twice.
                                     const revealIn = spinRevealDelay(data.item.created_at);
                                     const prependToFeed = () => setFeed(prev => {
                                         if (prev.some(item => item.id === data.item.id)) return prev;
@@ -1504,24 +948,17 @@ export function ActivityProvider({ children }) {
                                         feedRevealTimeoutsRef.current.push(revealTimeout);
                                     }
 
-                                    // `lastId` moves immediately, unlike the feed
-                                    // itself. It is the high-water mark the catch-up
-                                    // fetch asks "anything after this?" with, and
-                                    // holding it back would let that fetch pull the
-                                    // very drop being delayed and prepend it early —
-                                    // the polling path would quietly undo the reveal.
+                                    // `lastId` moves at once: holding it would let the catch-up fetch pull the delayed drop and prepend it early.
                                     setLastId(prev => {
                                         if (prev === null || data.item.id > prev) return data.item.id;
                                         return prev;
                                     });
 
-                                    // Add to newItems for toast notification (capped at 50)
                                     setNewItems(prev => {
                                         if (prev.some(item => item.id === data.item.id)) return prev;
                                         return [data.item, ...prev].slice(0, 50);
                                     });
 
-                                    // Mark as initialized if not already
                                     setInitialized(true);
                                 }
                                 break;
@@ -1546,7 +983,6 @@ export function ActivityProvider({ children }) {
 
                             case 'connected':
                                 console.log('[SSE] Connected');
-                                // If we got online count with connection, dispatch it
                                 if (data.onlineCount !== undefined) {
                                     window.dispatchEvent(new CustomEvent('sse-online-count', {
                                         detail: { count: data.onlineCount, userIds: data.onlineUserIds }
@@ -1560,25 +996,14 @@ export function ActivityProvider({ children }) {
                 };
 
                 eventSource.onerror = () => {
-                    // Log more details for debugging
                     console.log('[SSE] Connection error, state:', eventSource.readyState);
                     eventSource.close();
                     eventSourceRef.current = null;
                     scheduleReconnect();
                 };
 
-                // A connection that OPENED is a connection that worked, so the
-                // next failure starts its backoff from the bottom again.
-                //
-                // This has to hang off `onopen` and nowhere else. It used to sit
-                // below, on the line after the constructor returned — which
-                // reset the counter on every *attempt*, because `new
-                // EventSource(...)` succeeds whether or not anything is
-                // listening on the other end. The result was a backoff that
-                // could never grow past its first step: attempt, reset to 0,
-                // fail, wait 1s, attempt, reset to 0 … which is precisely the
-                // once-a-second reconnect storm the backoff was added to stop,
-                // wearing the backoff's clothes.
+                // Reset on `onopen` only: `new EventSource()` succeeds whether or not anything is listening, so resetting there
+                // would keep the backoff at its first step.
                 eventSource.onopen = () => {
                     reconnectAttemptRef.current = 0;
                 };
@@ -1590,31 +1015,7 @@ export function ActivityProvider({ children }) {
             }
         };
 
-        /**
-         * ── THE RECONNECT, WHICH WAS THE WORST BATTERY BUG ON THE SITE ───────
-         *
-         * The old version was `setTimeout(connectSSE, 1000)` with a comment
-         * explaining that a fast retry is right because "the server is probably
-         * fine, it's likely a proxy timeout". That reasoning holds for the first
-         * retry and for no other: when the server is *not* fine, or the phone is
-         * on a dead train-tunnel connection, `onerror` fires immediately, the
-         * retry fires a second later, and it fails immediately — one connection
-         * attempt per second, plus a `fetchActivity()` alongside it, forever, in
-         * a tab the player put in their pocket twenty minutes ago. Nothing
-         * capped it and nothing checked whether anyone was looking.
-         *
-         * Three fixes, all of which are correct regardless of saver mode:
-         *
-         *   - **Backoff.** 1s for the first attempt, doubling to a 30s ceiling.
-         *     The fast first retry the original comment wanted is preserved
-         *     exactly; only the tenth one is different.
-         *   - **Nothing retries while hidden.** The attempt is abandoned, not
-         *     deferred, because `visibilitychange` already reconnects on the way
-         *     back in and does it immediately rather than on a stale timer.
-         *   - **One timer.** The old code could stack retries — an error during
-         *     a pending retry scheduled a second one — and each survivor kept
-         *     doubling the traffic.
-         */
+        /* Backoff from 1s doubling to 30s, a single pending timer, and no retry while hidden (`visibilitychange` reconnects). */
         const scheduleReconnect = () => {
             if (reconnectTimerRef.current) return;
             if (document.hidden) return;
@@ -1641,17 +1042,7 @@ export function ActivityProvider({ children }) {
             isVisibleRef.current = !document.hidden;
 
             if (document.hidden) {
-                // ── Saver mode hangs up ──────────────────────────────────────
-                //
-                // An open EventSource is not free on a phone: the connection
-                // holds the radio in a higher power state, and the server's
-                // keepalive comments wake the tab periodically to parse frames
-                // nobody will read. Outside saver mode that is the price of a
-                // live surface and worth paying — a player who tabs away for
-                // eight seconds should come back to a feed that never stopped.
-                // In saver mode it is exactly the ambient cost this setting
-                // exists to remove, and the reconnect below is instant enough
-                // that the seam is invisible.
+                // Saver mode hangs up while hidden: an open EventSource keeps a phone's radio awake. The reconnect on return is instant.
                 if (isSaverOn()) {
                     if (reconnectTimerRef.current) {
                         clearTimeout(reconnectTimerRef.current);
@@ -1686,7 +1077,6 @@ export function ActivityProvider({ children }) {
                 eventSourceRef.current.close();
                 eventSourceRef.current = null;
             }
-            // Clean up any pending timeouts
             if (eventSelectionTimeoutRef.current) {
                 clearTimeout(eventSelectionTimeoutRef.current);
                 eventSelectionTimeoutRef.current = null;
@@ -1751,52 +1141,22 @@ export function ActivityProvider({ children }) {
         setGlobalEventStatus(status);
     }, []);
 
-    // Mark that user has started spinning (points should not update visually yet)
     const markKotwSpinStart = useCallback(() => {
         setKotwSpinPending(true);
     }, []);
 
-    // Update user stats AND clear pending flag (called when animation completes)
     const updateKotwUserStats = useCallback((stats) => {
         setKotwUserStats(stats);
         setKotwSpinPending(false);
     }, []);
 
-    /**
-     * This client's own bet, shown before the server has confirmed it.
-     *
-     * Held here rather than read out of `rouletteTable` because the table is
-     * everyone's view and arrives on a 600ms throttle — a button that waited for
-     * its own choice to come back around on the broadcast would look dead for up
-     * to two thirds of a second, every time, inside a thirty-second window. The
-     * table is still the source of truth for what the ROOM is doing; this is
-     * only the local echo; RouletteTable restores a refused change and reconciles
-     * uncertain requests against the authoritative table.
-     */
+    /* Local echo: `rouletteTable` arrives on a 600ms throttle, so the button would look dead waiting for it. */
     const setRouletteMyBet = useCallback((bet) => {
         setRouletteMyBetState(bet === null || bet === undefined ? null : { bet });
     }, []);
 
-    /*
-     * The table cannot outstay its own timeline - whatever put it on screen.
-     *
-     * The ordinary teardown is armed by `roulette_result`, and that is the path
-     * every client takes. This is the one that covers the paths that never
-     * reach it: a page loaded after the ball had already dropped (the restore
-     * in applyGlobalEventStatus sets the table and the pocket, and the result
-     * it would have been torn down by was broadcast before the tab existed),
-     * and anything else that ever sets `roulette` without a result to follow.
-     *
-     * It has to exist because of what the table OWNS. While it is up the reel
-     * is not the reel, spinning is refused, and no other timer is running - so
-     * a table with no teardown is not a cosmetic leftover, it is a wheel page
-     * that cannot be used again until it is reloaded. That was a real report.
-     *
-     * Deliberately later than the real end (T_END is 29.6s from the open) so it
-     * can never cut the pockets' turn-back short: reaching this at all means
-     * something else has already failed, and the cost of being four seconds
-     * late is nothing next to the cost of being early.
-     */
+    /* Dead-man switch for any path that sets `roulette` without a result to follow (e.g. a page loaded after the drop):
+       the table refuses spins, so without it the page needs a reload. Deliberately later than T_END (29.6s). */
     useEffect(() => {
         const openedAt = roulette?.openedAt;
         if (!openedAt) return undefined;
@@ -1810,18 +1170,8 @@ export function ActivityProvider({ children }) {
             setRouletteTable(null);
             setRouletteResult(null);
             setRouletteMyBetState(null);
-            /*
-             * And the status with it, because reaching here means the end
-             * broadcast never landed either. `roulette_open` is what set this
-             * event active - no `global_event_start` exists for the parlour -
-             * so nothing else is going to unset it, and a status stuck active
-             * costs the milestone meter and holds the navigation compact for
-             * the rest of the session. Only for a roulette: any other type here
-             * is a LATER event that started while this timer was pending, and
-             * clearing that would be the resurrection bug's mirror image.
-             * `milestone` is kept: it is the last count anyone read, and the
-             * meter's own poll refreshes it as soon as it is back on screen.
-             */
+            /* Clear the status too: no `global_event_start` exists for the parlour, so nothing else unsets it. Only for a roulette,
+               since any other type is a later event. */
             setGlobalEventStatus(prev => (prev?.type === 'roulette'
                 ? { ...prev, active: false, pending: false, type: null, data: null }
                 : prev));
@@ -1829,21 +1179,13 @@ export function ActivityProvider({ children }) {
         return () => clearTimeout(id);
     }, [roulette?.openedAt]);
 
-    /**
-     * This player's own action, applied from its response rather than waiting on
-     * the broadcast throttle - a card you asked for should arrive with the reply.
-     * Refused once the table has settled, for `high_roller_table`'s reason.
-     */
+    /* Applied from the action's response rather than waiting on the broadcast throttle; refused once settled. */
     const applyHighRollerTable = useCallback((table) => {
         if (highRollerSettledRef.current || !table) return;
         setHighRollerTableState({ dealer: table.dealer, seats: table.seats || [] });
     }, []);
 
-    /*
-     * HIGH ROLLER's dead-man switch - the Parlour's, for the same reason: while
-     * `highRoller` is set the band is not the reel's and spinning is refused, so
-     * a table nothing tears down is a page that needs a reload.
-     */
+    /* The Parlour's dead-man switch, for the same reason. */
     useEffect(() => {
         const openedAt = highRoller?.openedAt;
         if (!openedAt) return undefined;
@@ -1866,10 +1208,7 @@ export function ActivityProvider({ children }) {
     const value = {
         feed,
         rareFeed,
-        // `serverTime` is deliberately absent. It was a React snapshot of the
-        // server's clock that only three components read, and all three read it
-        // wrong — see the note in the 'activity' handler. The clock lives in
-        // utils/serverClock.js now; ask it with `serverNow()`.
+        // No `serverTime` here: ask utils/serverClock.js's `serverNow()`.
         newItems,
         clearNewItems,
         initialized,
@@ -1880,7 +1219,6 @@ export function ActivityProvider({ children }) {
         recoverGlobalEventStatus,
         updateGlobalEventStatus,
         refreshMilestone,
-        // King of the Wheel
         kotwLeaderboard,
         kotwUserStats,
         kotwWinner,
@@ -1892,32 +1230,26 @@ export function ActivityProvider({ children }) {
         // wheel to land instead of firing over a turning wheel
         markSpinInFlight,
         markSpinLanded,
-        // Event Selection
         eventSelection,
-        // First Blood
         firstBloodWinner,
         firstBloodResultPending,
-        // Community Goal
         communityGoal,
         communityGoalResult,
         communityGoalResultPending,
         communityGoalReward,
         arrival,
         arrivalCrate,
-        // The Parlour
         roulette,
         rouletteTable,
         rouletteResult,
         rouletteMyBet,
         setRouletteMyBet,
         roulettePayout,
-        // High Roller
         highRoller,
         highRollerTable,
         highRollerResult,
         highRollerPayout,
         applyHighRollerTable,
-        // Daily bounties
         bountyBoard,
         bountyWinsToday,
         bountyCelebration,

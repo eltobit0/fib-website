@@ -17,15 +17,7 @@ import { LiveActivityToast } from './sidebars/LiveActivityToast.jsx';
 import { PixiMythicCelebration as MythicCelebration } from './effects/PixiMythicCelebration.jsx';
 import { RecursionOverlay } from './effects/RecursionOverlay.jsx';
 
-/**
- * Which `stats` counter a spin result increments, by tier.
- *
- * The optimistic local update only has to agree with what /api/collection sends
- * back on the next refetch — these are the camelCase names that endpoint uses.
- * `event` is counted as a trigger rather than a collected item, because an event
- * result opens the bonus wheel instead of going into the collection. Commons are
- * absent on purpose: they advance totalSpins and nothing else.
- */
+// Stats counter a spin result increments, by tier (names from /api/collection). `event` counts as a trigger; commons advance only totalSpins.
 const COUNTER_FOR_TIER = {
     insane: 'insaneCount',
     mythic: 'mythicCount',
@@ -48,9 +40,7 @@ import { ActivityTicker } from './sidebars/ActivityTicker.jsx';
 import { StageShortcuts } from './spin/StageShortcuts.jsx';
 import { LeaderboardSidebar } from './sidebars/LeaderboardSidebar.jsx';
 import { NotificationBell, NotificationCenter } from './modals/NotificationCenter.jsx';
-// The release notes. A separate surface from the bell above and not a duplicate of
-// it: the bell is per-user, authored in the admin panel and limited to text, this
-// is per-release, authored in the repo and draws the ladder. See ChangelogModal.jsx.
+// Release notes: per-release and authored in the repo; the bell is per-user text from the admin panel. See ChangelogModal.jsx.
 import { ChangelogModal } from './modals/ChangelogModal.jsx';
 import { useChangelog } from '../../utils/useChangelog.js';
 import { LiveChat } from './features/LiveChat.jsx';
@@ -62,10 +52,7 @@ import { prestigeStanding } from '../../utils/prestigeHelpers.js';
 import { MobileTabBar } from './topbar/MobileTabBar.jsx';
 import { MobileMoreSheet } from './topbar/MobileMoreSheet.jsx';
 import { SaverOffer } from './topbar/SaverOffer.jsx';
-// `prefersCalm` rather than utils/motion's alias for it: that file is now a
-// re-export and says so — new callers come here. It covers saver mode as well as
-// the OS motion preference, which is the right reading for the arrival payout,
-// since both make the board resolve on arrival with no cascade to wait for.
+// `prefersCalm` covers saver mode and the OS motion preference; utils/motion's alias is a re-export, so new callers import it here.
 import { useSaverMode, toggleSaverMode, prefersCalm } from '../../config/power.js';
 import { useWheelViewport } from './config/breakpoints.js';
 // The arrival's beats, so the lucky-spin counter changes on the frame the board
@@ -85,21 +72,9 @@ import {
     BookOpen, ScrollText, Trophy, Check, Clock,
     Sparkles, Star, Diamond, Zap, Award, Activity, PartyPopper,
     ArrowLeft, Home, Bell, X, MoreHorizontal, Volume2, Battery, BatteryLow,
-    // THE EVENT LOG's mark. A broadcast tower, because that is what a global
-    // event is — one thing happening to everybody at once — and because every
-    // clock and scroll glyph in this set is already spent on the spin history,
-    // which is the per-player log this one is deliberately not.
     Radio
 } from 'lucide-react';
 
-// ============================================
-// PERFORMANCE TOGGLE: Canvas vs DOM background
-// Set to true to use GPU-accelerated canvas stars
-// Set to false to use original DOM-based stars
-// ============================================
-// ============================================
-// ENHANCED LOADING SCREEN
-// ============================================
 const CosmicLoader = () => (
     <div style={{
         minHeight: '100vh',
@@ -156,21 +131,7 @@ const CosmicLoader = () => (
     </div>
 );
 
-// NavButton lived here — a 44px gradient tile that lifted and cast a shadow on
-// hover. It is gone rather than adapted: it was the largest of the three icon
-// vocabularies the topbar inherited, and everything it did is now
-// `TopbarIconButton` in topbar/TopbarControls.jsx, which the user controls use
-// too. See that file for why the lift went.
-
-/**
- * Back out of the wheel.
- *
- * Keeps a visible container — it is the only control on the row that leaves the
- * page, so it earns the one border on the left-hand side. Its hover no longer
- * slides it 2px to the left: in the old layout it was a `position: fixed` button
- * floating on its own, where a nudge towards the arrow read as a nice touch. In a
- * row it just looks like the bar is drifting.
- */
+// Back out of the wheel: the only control on the row that leaves the page, so it keeps a visible container.
 function BackButton({ onBack }) {
     const [hovered, setHovered] = useState(false);
 
@@ -209,9 +170,6 @@ function BackButton({ onBack }) {
     );
 }
 
-// ============================================
-// USERNAME PROMPT MODAL (Enhanced)
-// ============================================
 function UsernamePromptModal({ onSetUsername, onDismiss }) {
     return (
         <div style={{
@@ -236,15 +194,7 @@ function UsernamePromptModal({ onSetUsername, onDismiss }) {
                 maxWidth: '400px',
                 width: '100%',
                 textAlign: 'center',
-                // Ease-out-quint, not the overshoot curve this used to carry.
-                //
-                // DESIGN.md §8 grants overshoot easing to the spin control alone,
-                // on the argument that a wheel overshoots and settles and the
-                // button that starts it may borrow that. Nothing else on the
-                // surface has that story, and this is the least likely candidate
-                // for it: a modal that interrupts you to ask for a username, whose
-                // 1.56 control point sent a 400px card past its resting position
-                // and back. A dialog arriving should decelerate and stop.
+                // Ease-out-quint: overshoot easing is reserved for the spin control (DESIGN.md §8); a dialog should decelerate and stop.
                 animation: 'slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
                 boxShadow: `0 24px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset`
             }}>
@@ -353,9 +303,6 @@ function UsernamePromptModal({ onSetUsername, onDismiss }) {
     );
 }
 
-// ============================================
-// MAIN WHEEL PAGE COMPONENT
-// ============================================
 function WheelOfFortunePage({ onBack }) {
     const { user, loading: authLoading, login, logout } = useAuth();
     const {
@@ -376,11 +323,7 @@ function WheelOfFortunePage({ onBack }) {
         || globalEventStatus?.active || globalEventStatus?.pending);
     const [allItems, setAllItems] = useState([]);
     const [dynamicItems, setDynamicItems] = useState([]);
-    /*
-     * The signed-in player's prestige state, for the collection panel's lens.
-     * Re-read after every spin that lands in a run, so the panel's count tracks
-     * the run rather than going stale until the next page load.
-     */
+    // The signed-in player's prestige state for the collection lens, re-read after every spin that lands in a run.
     const [prestige, setPrestige] = useState(null);
     const [collection, setCollection] = useState({});
     const [collectionDetails, setCollectionDetails] = useState({});
@@ -405,15 +348,7 @@ function WheelOfFortunePage({ onBack }) {
     const [showAchievements, setShowAchievements] = useState(false);
     const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
 
-    /* THE RELEASE NOTES.
-     *
-     * Fires once per release on load and is reachable from the topbar afterwards;
-     * the entries and the seen-version storage live in config/changelog.js.
-     *
-     * `enabled` holds the popup back while the username modal or its prompt owns
-     * the screen — a first-time player would otherwise arrive to two stacked
-     * overlays, which is how someone learns to dismiss things without reading
-     * them. It waits rather than being skipped, so the release still gets seen. */
+    // Release notes: shown once per release; `enabled` holds the popup back while the username modal owns the screen (it waits, not skips). Entries and seen-version storage live in config/changelog.js.
     const {
         isOpen: showChangelog,
         hasUnseen: changelogUnseen,
@@ -424,17 +359,13 @@ function WheelOfFortunePage({ onBack }) {
     // Notification state
     const [showNotifications, setShowNotifications] = useState(false);
     const [showSoundSettings, setShowSoundSettings] = useState(false);
-    // Read here rather than inside the sheet: the sheet renders its rows from a
-    // plain array of descriptors and has no state of its own, which is what
-    // keeps it a sheet rather than a menu that knows about the wheel.
+    // Read here, not in the sheet, which stays a stateless list of descriptors.
     const saverMode = useSaverMode();
     const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
     // Mobile activity feed modal state
     const [showMobileActivity, setShowMobileActivity] = useState(false);
-    // The surface's only viewport question, answered in one place. See
-    // config/breakpoints.js for what these two lines are and why there used to be
-    // three of them disagreeing.
+    // The surface's single viewport question; see config/breakpoints.js.
     const { isPhone: isMobile, hasFlanks } = useWheelViewport();
 
     // Detect when current user wins KOTW and update lucky spins immediately
@@ -449,10 +380,7 @@ function WheelOfFortunePage({ onBack }) {
                 const spinsAwarded = kotwWinner.winner.luckySpinsAwarded || 0;
                 const newTotal = kotwWinner.winner.luckySpinsTotal;
                 console.log('[WheelPage] Current user won KOTW! Awarding', spinsAwarded, 'lucky spins');
-                // Only ever apply the balance the server reports. Deriving it here - either
-                // by assigning the award or by adding it to what we hold - gets it wrong
-                // whenever the winner's in-flight spin response already carried the new
-                // balance, or whenever they had spins left over from an earlier event.
+                // Only apply the balance the server reports: deriving it double-counts when the in-flight spin's response already carried it.
                 if (typeof newTotal === 'number') {
                     // Update ref IMMEDIATELY (bypasses React batching)
                     kotwLuckySpinsRef.current = newTotal;
@@ -475,10 +403,7 @@ function WheelOfFortunePage({ onBack }) {
                 const spinsAwarded = firstBloodWinner.winner.luckySpinsAwarded || 0;
                 const newTotal = firstBloodWinner.winner.luckySpinsTotal;
                 console.log('[WheelPage] Current user won First Blood! Awarding', spinsAwarded, 'lucky spins');
-                // This used to add the award to the pool we already held (shared with KOTW),
-                // which double-counted every First Blood win: the reward is granted inside
-                // the winning spin's own request, so that spin's response had already
-                // reported the post-award balance. Take the server's number instead.
+                // Take the server's number: the reward is granted inside the winning spin's request, so its response already reported the post-award balance.
                 if (typeof newTotal === 'number') {
                     kotwLuckySpinsRef.current = newTotal;
                     setKotwLuckySpins(newTotal);
@@ -487,20 +412,7 @@ function WheelOfFortunePage({ onBack }) {
         }
     }, [firstBloodWinner, user?.id]);
 
-    // Same for the Community Goal, which pays every participant rather than one winner.
-    //
-    // This was missing entirely, and its absence was visible: the balance stayed stale
-    // until something else happened to refresh it, so the first a player heard of their
-    // payout was their *next* spin coming back marked as a lucky spin with a count they
-    // had never been shown. The reward broadcast carries the post-award balance for
-    // exactly this, and nothing was reading it.
-    //
-    // Keyed on communityGoalResult, not on the reward. The reward lands the instant the
-    // event ends, which is mid-spin as often as not; the result is the already-delayed
-    // moment the banner flips to the summary that announces the payout. Updating the
-    // counter then keeps the number and its explanation on screen together, and keeps the
-    // event from tipping its hand over a wheel that is still turning. The server sends the
-    // reward first, so it is always present by the time the result is applied.
+    // Community Goal pays every participant. Keyed on communityGoalResult, not the reward, so the counter changes when the summary banner explains it and not mid-spin; the server sends the reward first.
     const processedCommunityGoalRewardRef = useRef(null);
     useEffect(() => {
         if (!communityGoalResult || !communityGoalReward || !user?.id) return;
@@ -520,48 +432,8 @@ function WheelOfFortunePage({ onBack }) {
         setKotwLuckySpins(newTotal);
     }, [communityGoalResult, communityGoalReward, user?.id]);
 
-    /*
-     * And the same again for the Arrival, which pays every player on the
-     * platform.
-     *
-     * This is the fourth handler doing one job and it was written by reading the
-     * three above: every event that hands out lucky spins has to push the
-     * server's post-award balance into this counter, and the one that forgot
-     * (the community goal, see the note above) shipped a stale number that a
-     * player only discovered on their next spin. The first build of the arrival
-     * reproduced it exactly — the board announced "+11 for you" while the spin
-     * button still read 2.
-     *
-     * Keyed on `arrival`, the public manifest, for the reason the community
-     * goal's is keyed on its result: that is the delayed, wheel-safe moment the
-     * board is actually on screen, so the counter changes while the thing
-     * explaining it is visible.
-     *
-     * ── AND THEN HELD UNTIL THE BOARD SAYS IT ───────────────────────────────
-     *
-     * Keying on `arrival` is necessary and was not sufficient. `arrival` is the
-     * moment the train STARTS arriving — t=0 of an 18.6s timeline — and the
-     * counter sits in the topbar, outside the frame the theatre grows out of.
-     * The shutters need 1.3s to close over the reel and the scrim only dims
-     * what is behind it, so the badge ticked 359 -> 366 in plain sight while the
-     * headlight was still coming down the platform, and the player knew their
-     * number before a single crate was off the train. The whole event is the
-     * reveal; this was the answer printed above it.
-     *
-     * So the payout is scheduled for the beat the board actually resolves this
-     * player's row — `rowLandsAt` against the same `sortManifest` order the
-     * theatre and the scene use, so the number in the topbar changes on the
-     * frame their spins land on the board rather than eight seconds early.
-     * Falls back to `totalLandsAt` for the case that should not happen (a crate
-     * paid to somebody not on the public manifest), and pays immediately under
-     * reduced motion, where the board resolves everything on arrival and there
-     * is no cascade left to be early for.
-     *
-     * The timer is cleared only on unmount, deliberately: cancelling it from
-     * this effect's own cleanup would let a re-run drop the payout entirely,
-     * since `processedArrivalRef` has already claimed the key by then. A stale
-     * balance is exactly the bug the four handlers above exist to prevent.
-     */
+    // The Arrival's payout is keyed on `arrival` but held until the board resolves this player's row (`rowLandsAt`, same `sortManifest` order as the theatre; `totalLandsAt` as fallback; immediate under reduced motion), or the badge ticks before a crate is off the train.
+    // The timer is cleared only on unmount: cancelling in this effect's cleanup would drop the payout, since `processedArrivalRef` already claimed the key.
     const processedArrivalRef = useRef(null);
     const arrivalPayoutTimeoutRef = useRef(null);
     useEffect(() => {
@@ -599,22 +471,7 @@ function WheelOfFortunePage({ onBack }) {
 
     useEffect(() => () => clearTimeout(arrivalPayoutTimeoutRef.current), []);
 
-    /*
-     * THE PARLOUR's payout, held until the ball has actually stopped.
-     *
-     * Same shape as the arrival's above and for the same reason, but the beat it
-     * waits for is simpler: there is one result, not one row per player, so the
-     * balance lands on the reveal rather than on a per-seat cascade.
-     *
-     * What it is protecting against is sharper here, though. The payout is
-     * written and broadcast the moment bets close — seven seconds before the
-     * ball settles on screen — so applying it on arrival would put "+30 Lucky
-     * Spins" in the topbar while the wheel was still turning. That is not just
-     * early, it is the RESULT: a player watching their balance could read the
-     * outcome off it before the ball landed, which would make the whole
-     * animation a formality. The same failure `settleKotwSpin` records for the
-     * lucky-spin badge, one event along.
-     */
+    // The Parlour's payout, held until the ball stops: it is broadcast seven seconds before the ball settles, and the balance would give the result away (same hazard as settleKotwSpin).
     const processedParlourRef = useRef(null);
     const parlourPayoutTimeoutRef = useRef(null);
     useEffect(() => {
@@ -652,29 +509,12 @@ function WheelOfFortunePage({ onBack }) {
 
     useEffect(() => () => clearTimeout(parlourPayoutTimeoutRef.current), []);
 
-    // The daily bounty's box count is per player, and ActivityContext first reads
-    // it before anyone has signed in - so read it again whenever who is signed in
-    // changes. (The bounty used to pay lucky spins, applied from here on the
-    // celebration; it pays a box now, and ActivityContext holds that itself.)
+    // The bounty's box count is per player and ActivityContext reads it before sign-in, so re-read whenever who is signed in changes.
     useEffect(() => {
         refreshDailyBounty();
     }, [user?.id, refreshDailyBounty]);
 
-    /*
-     * HIGH ROLLER's payout into the lucky-spin pool, held until the reveal ends.
-     *
-     * The Parlour's rule, one table along: the balance IS the result. It used to
-     * be applied the moment the private payout arrived, which was harmless while
-     * the table showed the dealer's hand at once - and gave the hand away the
-     * moment the design gave the house a reveal, with the topbar reading +30
-     * while the hole card was still turning. The table animates the dealer's
-     * turn from highRollerTimeline.js, and so does this wait, so the two land
-     * together however many cards the house draws.
-     *
-     * The payout is sent just before the public result, so this waits for both:
-     * the result carries the settle time and the dealer's hand the wait is
-     * measured from.
-     */
+    // High Roller's payout, held until the reveal ends (the balance is the result), timed from highRollerTimeline.js like the table. It waits for both the private payout and the public result, which carries the settle time.
     const processedHighRollerRef = useRef(null);
     const highRollerPayoutTimeoutRef = useRef(null);
     useEffect(() => {
@@ -733,11 +573,7 @@ function WheelOfFortunePage({ onBack }) {
                 insaneCount: data.insaneCount || 0,
                 mythicCount: data.mythicCount || 0,
                 legendaryCount: data.legendaryCount || 0,
-                // relicCount was missing from both this object and the initial
-                // state when the tier landed, while COUNTER_FOR_TIER above already
-                // mapped `relic` to it. So a relic pull bumped a field that did not
-                // exist, and this refetch then dropped the key entirely instead of
-                // correcting it - the one tier whose optimistic count never settled.
+                // Every tier needs a count here and in the initial state (relicCount was missing, so the refetch dropped the key).
                 relicCount: data.relicCount || 0,
                 exoticCount: data.exoticCount || 0,
                 rareCount: data.rareCount || 0,
@@ -821,26 +657,7 @@ function WheelOfFortunePage({ onBack }) {
         if (!spinResult?.result) return;
         const { result } = spinResult;
 
-        /*
-         * A recursion trigger is not a collected item, and the client used to
-         * think it was.
-         *
-         * The server's spin transaction returns early for `isRecursion` — spins,
-         * event triggers and the wheel-fortune counter, and no `upsertCollection`
-         * — because recursion is a mode the pull *starts*, not an entry in the
-         * book. This handler ran anyway and optimistically added the triggering
-         * texture to the local map, so the collection counter went up by one for
-         * an item the player never got, and came back down on the next reload
-         * when the server's own map replaced the guess.
-         *
-         * Reported as "his counter increased despite not getting the item he
-         * needed" and "on prestige it goes to 1560". It looked like a special-item
-         * bug because recursion is triggered by pulling Wheel of Fortune, which is
-         * an exotic.
-         *
-         * The bonus-event branch was already safe: `isEvent` never reaches this
-         * handler at all. Guarding both is cheaper than relying on that.
-         */
+        // A recursion trigger is not a collected item: the server returns early for `isRecursion` without upsertCollection, so do not optimistically add the texture. `isEvent` never reaches here.
         if (spinResult.isRecursion || spinResult.isEvent) return;
 
         // Update collection
@@ -849,35 +666,13 @@ function WheelOfFortunePage({ onBack }) {
             [result.texture]: (prev[result.texture] || 0) + 1
         }));
 
-        // Update stats.
-        //
-        // One counter per tier, keyed off the result's own type. This used to fold
-        // insane into mythicCount — so an insane pull optimistically bumped the
-        // mythic figure until the next refetch corrected it — and had no branch at
-        // all for exotic. COUNTER_FOR_TIER maps tier to the field it increments;
-        // anything not in it (common) only advances totalSpins.
+        // One counter per tier via COUNTER_FOR_TIER; anything absent (common) only advances totalSpins.
         const counterField = COUNTER_FOR_TIER[result.type];
         setStats(prev => ({
             ...prev,
             totalSpins: prev.totalSpins + 1,
             ...(counterField ? { [counterField]: (prev[counterField] || 0) + 1 } : null),
-            /*
-             * Duplicates were never counted here at all.
-             *
-             * The server has always got this right — `total_duplicates` is
-             * `SUM(count) - COUNT(DISTINCT texture)` over the collection, so a
-             * repeat pull moves it the moment it lands. This optimistic update
-             * advanced `totalSpins` and the tier counter and simply left the
-             * duplicate figure alone, so the collection board showed a stale
-             * number until something refetched — and during a prestige run, where
-             * EVERY pull is a main-collection duplicate by definition, it looked
-             * like prestige pulls were not counting toward the main collection at
-             * all. They were; the panel was just not saying so.
-             *
-             * Read from `spinResult.isNew`, which is the server's own verdict, and
-             * not from the local map: deciding "was this new" a second time on the
-             * client is how the two accounts drift apart in the first place.
-             */
+            // Count duplicates from `spinResult.isNew`, the server's verdict, not the local map; under prestige every pull is a main-collection duplicate.
             ...(spinResult.isNew ? null : { totalDuplicates: (prev.totalDuplicates || 0) + 1 }),
         }));
 
@@ -927,98 +722,12 @@ function WheelOfFortunePage({ onBack }) {
 
     return (
         <div style={{
-            // The HUD shell.
-            //
-            // This page is a task surface, not a document: you come to it to spin,
-            // watch, and read the result. It was built as a centred column of
-            // stacked sections inside `height: 100vh; overflow: hidden`, which is a
-            // document's shape, and the mismatch is what made a bigger reel
-            // impossible. In a stack the reel can only get wider by taking width
-            // from the sidebars beside it, and only get taller by pushing the nav
-            // and footer off the bottom of a page that cannot scroll to reach them.
-            // Two attempts failed on exactly that.
-            //
-            // As a grid the reel is a row, and a row spanning `1 / -1` is full
-            // width by construction — no 100vw, no negative margins, no measuring
-            // the viewport, no card for it to burst out of.
-            //
-            // `100dvh`, not `100vh`: on mobile `100vh` is the height with the
-            // address bar collapsed, so it is taller than what you can actually
-            // see. On a surface that deliberately cannot scroll, that difference
-            // is the nav row sitting below the fold with no way to reach it.
-            //
-            // The rows are: topbar, reel, stage (1fr), nav. Columns are the two
-            // sidebars either side of the stage, collapsing to a single column
-            // below 1400px. `minmax(0, 1fr)` rather than `1fr` on the centre
-            // column — a bare `1fr` is `minmax(auto, 1fr)`, which refuses to
-            // shrink below its content and would let a wide result push the grid
-            // past the viewport.
-            // Rows: topbar, live ticker, spacer, reel, stage, nav.
-            //
-            // The two flexible rows either side of the reel are what puts it in
-            // the middle of the screen: whatever vertical slack the viewport has
-            // is shared between them, so the reel sits near the centre line at any
-            // height instead of riding in the upper third. The stage lives in the
-            // lower flexible row and top-aligns inside it, so the result appears
-            // directly under the reel rather than drifting to the bottom of the
-            // page.
-            //
-            // This paragraph used to say the two rows were "equal" and split the
-            // slack "evenly". They are not and it does not — see the 0.34fr note
-            // below, which is the newer and correct account. Left corrected rather
-            // than deleted because the symmetric version is the obvious thing to
-            // reach for and the ratio underneath it looks arbitrary without this.
-            //
-            // One column now. Both sidebars have left this axis — the feed is the
-            // ticker in row 2, the leaderboard is a pill in the topbar — which is
-            // the whole reason the reel can be the full width of the screen and
-            // still be the thing in the middle of it.
+            // HUD shell: a grid, so the reel is a full-width row by construction. `100dvh`, not `100vh` (mobile address bar), and `minmax(0, 1fr)` on the centre column so a wide result cannot push the grid past the viewport.
+            // Rows: topbar, ticker, spacer, reel, stage, nav; the two flexible rows around the reel centre it (see the 0.34fr note). One column: the sidebars have left this axis.
             height: '100dvh',
             display: 'grid',
-            // 0.34fr above, 1fr below. Not symmetric on purpose: an even split
-            // reads as centred but gives the empty gap the same height as the
-            // stage, and the stage has the result panel and the spin CTA in it
-            // while the gap has nothing. This ratio is tuned, not guessed — it is
-            // what lands the band's midpoint on the viewport's midpoint while
-            // leaving the stage enough for the idle block at its tallest.
-            //
-            // Sensitive to the rows above it: if the topbar or the ticker change
-            // height, re-measure. The band's centre should land within a few px of
-            // `innerHeight / 2`.
-            // On a phone the whole surface is one flex column inside a single grid
-            // cell (WheelSpinner's mobile wrapper spans rows 2–6), so the desktop
-            // row ratios do not apply and the tuned 0.34fr gap would just be dead
-            // space above a shaft that wants every pixel.
-            // Phone: topbar, ticker, banner/meter slot, then the surface taking
-            // everything left. The desktop template's 0.34fr breathing gap is
-            // dropped — on a phone that is dead space above a shaft that wants
-            // every pixel — and the two stage rows collapse into one, because the
-            // phone renders band and stage as a single flex column.
-            //
-            // The row COUNT matters as much as the sizes: WheelSpinner's mobile
-            // wrapper and the ticker and banners all place themselves explicitly,
-            // and a template with fewer rows than they ask for silently creates
-            // implicit ones at the end. A two-row version of this put the
-            // milestone meter underneath the spin card.
-            // ── The stage's floor (desktop) ──────────────────────────────────
-            //
-            // `minmax(350px, 1fr)`, not `minmax(0, 1fr)`. The 0.34fr gap above
-            // the band is a *flexible* track and the stage was the only one with
-            // a zero minimum, so on a short viewport the gap kept its share and
-            // the stage absorbed the entire shortfall. Measured at 1080×820:
-            // rows came out 56 / 68 / 109.6 / 264 / 322 against an idle block of
-            // 350, so the spin card's keyboard hint sat past the bottom edge.
-            //
-            // The floor is the measured block, and it only ever binds when the
-            // viewport is genuinely too short. The tuned ratio is untouched
-            // wherever it fits: at 1080 tall the free space is 692, the stage
-            // takes 692/1.34 = 516 (well over the floor) and the gap keeps its
-            // 176 — exactly what the ratio gave before. At 820 the stage takes
-            // its 350 and the gap yields the difference, which is the right
-            // order: the gap is empty space and the stage has the control in it.
-            //
-            // Below ~790px tall the floor cannot be met either and the stage
-            // scrolls, which it is already set up to do.
+            // 0.34fr above the band, 1fr below: tuned so the band's midpoint lands on the viewport's midpoint; re-measure if the topbar or ticker height changes. The phone drops the gap.
+            // The row COUNT must match what WheelSpinner's wrapper, the ticker and banners place themselves in, or implicit rows land the meter under the spin card. Stage floor `minmax(350px, 1fr)` is the measured idle block.
             gridTemplateRows: isMobile
                 ? 'auto auto auto minmax(0, 1fr)'
                 : highRoller
@@ -1035,9 +744,7 @@ function WheelOfFortunePage({ onBack }) {
                         ? 'auto auto auto auto minmax(300px, 1fr)'
                     : 'auto auto 0.34fr auto minmax(350px, 1fr)',
             gridTemplateColumns: 'minmax(0, 1fr)',
-            // Room for the fixed bottom bar, plus the home indicator under it. The
-            // bar is `position: fixed` so it reserves no layout space of its own,
-            // and without this the shaft's last row would sit behind it.
+            // Room for the fixed bottom bar and the home indicator; the bar reserves no layout space.
             ...(isMobile
                 ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }
                 : null),
@@ -1054,55 +761,18 @@ function WheelOfFortunePage({ onBack }) {
             position: 'relative',
             overflow: isMobile ? 'hidden' : 'auto',
             boxSizing: 'border-box',
-            // KNOWN ISSUE, unchanged by this work: the four top banners (Gold
-            // Rush, KOTW, First Blood, Community Goal) are `position: fixed;
-            // top: 0` and reserve no layout space, so while one is showing it
-            // covers the topbar. They also stack on each other — two firing at
-            // once overlap, and z-index 9999 simply wins over 100.
-            //
-            // A reserved slot was drafted here (`padding-top: var(--fib-banner-h)`)
-            // and removed again: nothing published the variable, and each of the
-            // four banners decides its own visibility internally, so making it real
-            // means touching all four. Left as a follow-up rather than shipped as a
-            // variable that is always 0px and looks like it works.
         }}>
             <AnimationStyles />
             <CanvasNocturneField />
             <KotwArenaAtmosphere visible={arenaVisible} />
             <FirstBloodRoom visible={firstBloodRoomVisible} />
-            {/* Keyed on the table for ParlourAtmosphere's reason below: the
-                room carries the bed, and a second table must be a fresh mount
-                to get a fresh take rather than inherit the first one's. */}
+            {/* Keyed on the table so a second table gets a fresh mount and a fresh take. */}
             {highRoller && <HighRollerAtmosphere key={highRoller.openedAt || 'high-roller'} openedAt={highRoller.openedAt} />}
             <CommunityForgeAtmosphere visible={forgeVisible} />
 
-            {/* THE PARLOUR's light, over the whole surface.
-
-                Mounted at the page and not inside WheelSpinner because it is the
-                ROOM, not a layer on the reel: the topbar, the ticker, the
-                boards, the chat and the collection panel are all inside it and
-                all lit by it. It sits directly on top of the Nocturne field it
-                tints and underneath everything else, so nothing it warms becomes
-                harder to read — and it takes no pointer events, so the site is
-                fully usable for the whole three quarters of a minute. See
-                ParlourAtmosphere.jsx and DESIGN.md §9b. */}
-            {/* The pocket's colour reaches the room only so the deck can shower
-                in it AFTER the band has landed. It is not a second readout —
-                the room agrees with the result a beat late, and cannot be asked
-                anything the strip has not already answered. */}
-            {/* Keyed on the table, for the reason `CanvasRouletteStrip` is
-                keyed on it a few files over — and this one was caught the same
-                way, by watching a second event.
-
-                The room's wheel and its deck are rAF loops that PARK a second
-                after `T_END`, so they cost nothing once the event is over
-                (§10's rule: a loop with no park condition is a permanent cost).
-                A parked loop restarts on a fresh mount and on nothing else, and
-                `roulette` being replaced by the next table is not a mount — so
-                the second table of a session opened into a room that had gone
-                still: a frozen wheel in the corner and a deck of cards hanging
-                in mid-air. It reads as broken rather than as calm, and it is
-                invisible in testing unless you trigger two events in a row. */}
+            {/* The Parlour's light, over the whole surface: mounted at the page because it is the ROOM, not a layer on the reel. Under everything else and takes no pointer events (ParlourAtmosphere.jsx, DESIGN.md §9b). */}
+            {/* The pocket colour reaches the room only so the deck can shower in it after the band lands; it is not a second readout. */}
+            {/* Keyed on the table: the room's rAF loops park after T_END and restart only on a fresh mount, so without the key a second table opens into a frozen room. */}
             {roulette && (
                 <ParlourAtmosphere
                     key={roulette.openedAt || 'parlour'}
@@ -1111,52 +781,22 @@ function WheelOfFortunePage({ onBack }) {
                 />
             )}
 
-            {/* Topbar — row 1.
-
-                Replaces a 52px gradient-filled `Wheel of Fortune` headline, a
-                decorative divider, a subtitle, a floating user chip and a
-                fixed-position Back button, which between them cost about 210px of
-                vertical space at the top of a surface that had none to spare. They
-                also lost the page its own squint test: blurred, the gold headline
-                and the gold wheel sprite ten pixels below it read as one mass with
-                the type on top, so the largest thing on the page was its caption
-                rather than the wheel.
-
-                What is left says the same things in one 56px row: where you are,
-                who you are, and how to leave. The headline's `background-clip:
-                text` gradient went with it — decorative, encoding nothing the
-                weight and colour do not, and a flat ban in the design system.
-
-                The row's bottom border is a soft rule, the one frame the topbar
-                keeps. THE NOCTURNE (WheelSpinner.jsx) removed it and let the
-                rooftop silhouette (`CityCrown`) end the row instead; the owner's
-                review on 2026-08-18 reversed that — the crown is gone and the
-                rule is back. The Nocturne's borderless world starts below this
-                row. */}
+            {/* Topbar, row 1: where you are, who you are, how to leave, in one 56px row. Its soft bottom rule is the one frame it keeps; the Nocturne's borderless world starts below it. */}
             <header style={{
                 gridRow: 1,
                 gridColumn: '1 / -1',
                 display: 'flex',
                 alignItems: 'center',
                 borderBottom: `1px solid ${COLORS.border}44`,
-                // No `space-between`: the wordmark's `margin-right: auto` is what
-                // splits the row, and with both in play the leftover width was
-                // being distributed twice — the gap between Back and the wordmark
-                // grew with the viewport instead of staying a gap.
+                // No `space-between`: the wordmark's `margin-right: auto` splits the row, and both would distribute the leftover twice.
                 gap: `${SPACE.md}px`,
                 padding: `${SPACE.xs}px ${SPACE.lg}px`,
-                // The row's height is the tallest control plus its padding. Stated
-                // so the 56px the comment above claims is actually true and does
-                // not drift the moment a control changes size.
                 minHeight: '56px',
                 boxSizing: 'border-box',
                 position: 'relative',
                 zIndex: Z.content,
             }}>
-                {/* Leave. The one control on the row that is not about the wheel,
-                    so it is the one control that keeps a visible container — and it
-                    no longer slides 2px left on hover, which in a row of buttons
-                    that hold still read as the layout twitching. */}
+                {/* Leave: the one control not about the wheel, so it keeps a visible container; no hover slide. */}
                 <BackButton onBack={onBack} />
 
                 {/* Wordmark */}
@@ -1182,34 +822,9 @@ function WheelOfFortunePage({ onBack }) {
                     </h1>
                 </div>
 
-                {/* The right-hand cluster: everything that is about you.
-
-                    The redesign moved three things up here — the nav grid that
-                    used to float under the stage, the 380px leaderboard board, and
-                    the user chip — and for a while that was literally all it did.
-                    They landed in a row, each still wearing the container and the
-                    button sizes it had in its old home, so the right end of the bar
-                    read as one undifferentiated run of a dozen controls in three
-                    styles rather than three groups of related ones.
-
-                    What makes it legible is not more spacing, it is stated
-                    structure: one flex row, one button vocabulary
-                    (`TopbarIconButton`), and hairline dividers marking the three
-                    questions the cluster answers, in order —
-
-                        where can I go  |  where do I stand  |  who am I
-
-                    Tooltips hang below; there is nothing above them here. */}
+                {/* Right-hand cluster, grouped by question with hairline dividers: where can I go | where do I stand | who am I. One button vocabulary (`TopbarIconButton`). */}
                 {!user ? (
-                    /* Signed out, and the release notes still get a way back in.
-
-                       The whole control cluster below lives in the signed-in branch,
-                       so putting "What's new" only there would have given a
-                       logged-out visitor the popup and then no way to reopen it —
-                       which is most of this feature's audience, since /wheel is
-                       readable without an account and the popup is deliberately
-                       shown to everyone. An entry point gated differently from the
-                       thing it opens is the bug, not the layout. */
+                    // Signed out, "What's new" still needs an entry point: the cluster below is signed-in only and the popup is shown to everyone.
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                     <TopbarIconButton
                         onClick={openChangelog}
@@ -1247,10 +862,6 @@ function WheelOfFortunePage({ onBack }) {
                         flexShrink: 0,
                         transition: 'filter 0.2s ease',
                     }}
-                        // Was 14px/28px with a lift and a coloured 24px shadow —
-                        // sized for the centre of an empty page, which is where it
-                        // used to sit. In a 56px bar it was taller than the bar's
-                        // content box and the only thing on the row that moved.
                         onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.12)'; }}
                         onMouseLeave={e => { e.currentTarget.style.filter = 'none'; }}
                     >
@@ -1264,29 +875,13 @@ function WheelOfFortunePage({ onBack }) {
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        // 2px inside a group, a divider between groups. The old row
-                        // used one 6px gap for everything, which spaced unrelated
-                        // controls exactly as far apart as related ones.
+                        // 2px inside a group, a divider between groups.
                         gap: '2px',
                         flexShrink: 0,
                         minWidth: 0,
                     }}>
-                        {/* ── Where can I go ───────────────────────────────────
-
-                            Collection and the leaderboard moved into the stage
-                            flanks, which show your actual progress and the current
-                            top five rather than a 19px glyph, and which are on
-                            screen in every state. Keeping them here as well would
-                            have been the duplication the Trophy button was deleted
-                            for.
-
-                            But only on desktop. The flanks need width beside a
-                            centred stage and do not render on a phone, so on mobile
-                            these are still the only way in and they stay. */}
-                        {/* Collection left the topbar on a phone too. The bottom
-                            bar carries it now, and two entry points to one view is
-                            the duplication this row has already been trimmed for
-                            twice. The desktop flanks still own it above 1200px. */}
+                        {/* Where can I go: Collection and the leaderboard live in the stage flanks on desktop, so they stay here only on mobile, where the flanks do not render. */}
+                        {/* No Collection here on a phone either: the bottom bar carries it; the desktop flanks own it above 1200px. */}
                         {!isMobile && (
                             <TopbarIconButton
                                 onClick={() => setShowHistory(true)}
@@ -1294,14 +889,7 @@ function WheelOfFortunePage({ onBack }) {
                                 label="History"
                             />
                         )}
-                        {/* No Trophy button here.
-
-                            The leaderboard pill one group to the right opens the
-                            same modal and says more while doing it — your rank and
-                            the current podium — so a second, blanker entry point to
-                            the identical view was just a duplicate. It became one
-                            when the standalone leaderboard was folded into the
-                            pill; before that they were different destinations. */}
+                        {/* No Trophy button: the leaderboard pill opens the same modal and says more. */}
                         {!isMobile && (
                             <TopbarIconButton
                                 onClick={() => setShowAchievements(true)}
@@ -1309,22 +897,7 @@ function WheelOfFortunePage({ onBack }) {
                                 label="Achievements"
                             />
                         )}
-                        {/* THE EVENT LOG.
-
-                            A third destination in this group rather than a
-                            register on the odds board, which is where it was
-                            drafted. The odds board is a document — every figure
-                            on it is derived from the weight table and is as true
-                            tomorrow as today — and a log is the opposite kind of
-                            thing. Two registers with the same shape and opposite
-                            lifetimes on one board is how a reader stops knowing
-                            which numbers are facts and which are news.
-
-                            It survives this row's own duplication rule because
-                            nothing else opens it: the odds board describes what
-                            the five events ARE, the ticker shows drops rather
-                            than events, and neither can say who won the last
-                            King of the Wheel. */}
+                        {/* THE EVENT LOG: its own destination, not a register on the odds board (a document of facts versus a log of news). Nothing else opens it; the odds board, ticker and bell cannot say who won the last King of the Wheel. */}
                         {!isMobile && (
                             <TopbarIconButton
                                 onClick={() => setShowEventLog(true)}
@@ -1332,24 +905,7 @@ function WheelOfFortunePage({ onBack }) {
                                 label="Event log"
                             />
                         )}
-                        {/* WHAT'S NEW.
-
-                            A fourth destination in this group, and it clears the
-                            row's no-two-entry-points rule on the same test the
-                            event log did: nothing else opens it. The bell two
-                            groups right looks like it should — it is the other
-                            "the site wants to tell you something" control — but
-                            it cannot carry this. Notifications are a TEXT column
-                            authored in the admin panel; a rarity change is a
-                            picture, and the whole point of this surface is that
-                            it draws the ladder. The bell also needs an account
-                            and this page does not.
-
-                            The dot is the only badge in the row that is not a
-                            count, deliberately: there is exactly one unread
-                            release at a time, so a number would always read "1"
-                            and a "1" invites you to wonder what the other ones
-                            were. It goes out for good once the modal is closed. */}
+                        {/* WHAT'S NEW: nothing else opens it; the bell carries text only and needs an account, while this draws the rarity ladder. The dot is not a count on purpose: only one release is unread at a time. */}
                         {!isMobile && (
                             <TopbarIconButton
                                 onClick={openChangelog}
@@ -1372,38 +928,15 @@ function WheelOfFortunePage({ onBack }) {
                                 ) : null}
                             />
                         )}
-                        {/* History, Achievements and Live activity are in the
-                            overflow sheet on a phone — see MobileMoreSheet.jsx for
-                            the three-way split and the count that forced it. */}
+                        {/* History, Achievements and Live activity are in the phone's overflow sheet (MobileMoreSheet.jsx). */}
 
-                        {/* ── Where do I stand ─────────────────────────────────
-
-                            Mobile only, for the same reason as Collection above:
-                            the right-hand stage flank carries the top five and your
-                            rank on desktop, and two boards on one screen is what
-                            this group has already been trimmed for twice. */}
-                        {/* The leaderboard pill is gone from the phone as well —
-                            the bottom bar's Board tab is the way in now, and the
-                            pill was 150px of a 390px bar. */}
+                        {/* Where do I stand: mobile only; the right-hand stage flank carries the top five and your rank on desktop. */}
+                        {/* No leaderboard pill on the phone: the bottom bar's Board tab is the way in. */}
 
                         {!isMobile && <TopbarDivider />}
 
-                        {/* ── Who am I ───────────────────────────────────────────
-
-                            This group used to be a single bordered 32px-radius
-                            capsule with six controls inside it, parked immediately
-                            next to the leaderboard's 999px-radius capsule — two
-                            pills of different roundness touching, which is what made
-                            the end of the bar look assembled rather than designed.
-
-                            The container is now only around the identity itself.
-                            The actions next to it are plain topbar buttons like
-                            every other button on the row, which is what they always
-                            were behaviourally. */}
-                        {/* The identity chip is desktop-only: the bottom bar's
-                            "You" tab is the phone's profile entry, and the chip is
-                            an avatar plus a name plus an approval badge — the
-                            widest single thing on the row. */}
+                        {/* Who am I: the container is only around the identity; the actions beside it are plain topbar buttons. */}
+                        {/* The identity chip is desktop-only: the bottom bar's "You" tab is the phone's profile entry. */}
                         {!isMobile && (
                             <>
                                 <TopbarUserChip
@@ -1411,9 +944,6 @@ function WheelOfFortunePage({ onBack }) {
                                     name={user.customUsername || 'Player'}
                                     approved={!!user.usernameApproved}
                                     pending={!!user.customUsername && !user.usernameApproved}
-                                    // The state this page already holds for the
-                                    // collection panel's lens, read through the
-                                    // same helper every other surface uses.
                                     standing={prestigeStanding(prestige)}
                                     onClick={() => setShowProfile(true)}
                                 />
@@ -1470,10 +1000,7 @@ function WheelOfFortunePage({ onBack }) {
                             />
                         )}
 
-                        {/* The phone's one overflow control. Everything the bar
-                            cannot hold is one tap behind it, and nothing is
-                            unreachable — which is what the row's right-hand end
-                            actually was before, running off the screen edge. */}
+                        {/* The phone's one overflow control: everything the bar cannot hold is one tap behind it. */}
                         {isMobile && (
                             <TopbarIconButton
                                 onClick={() => setShowMore(true)}
@@ -1488,15 +1015,7 @@ function WheelOfFortunePage({ onBack }) {
             </header>
             {/* End topbar */}
 
-            {/* Rows 2 and 3 are emitted by WheelSpinner itself.
-
-                Its root is `display: contents` on desktop, so its children become
-                direct children of this grid and can be placed in different rows —
-                the reel spanning the full width, the stage sitting between the two
-                sidebars. That is what lets the reel be a genuine grid row without
-                lifting the spin state out of the component: nothing crosses a
-                component boundary, so the rAF offset refs and the 60fps
-                spinProgress tick stay exactly where they were. */}
+            {/* Rows 2 and 3 come from WheelSpinner, whose root is `display: contents` on desktop so its children become grid children; spin state and the rAF refs stay inside it. */}
             <WheelSpinner
                 arenaVisible={arenaVisible}
                 firstBloodVisible={firstBloodRoomVisible}
@@ -1513,9 +1032,7 @@ function WheelOfFortunePage({ onBack }) {
                 kotwLuckySpins={kotwLuckySpins}
                 kotwLuckySpinsRef={kotwLuckySpinsRef}
                 onKotwLuckySpinsUpdate={handleKotwLuckySpinsUpdate}
-                // Both viewport answers, passed down and actually read. `isMobile`
-                // was already being passed here and WheelSpinner's signature never
-                // destructured it, so the page and the reel disagreed by 800px.
+                // Both viewport answers are passed down and read; they once disagreed by 800px.
                 isMobile={isMobile}
                 hasFlanks={hasFlanks}
                 stageColumn={1}
@@ -1527,30 +1044,7 @@ function WheelOfFortunePage({ onBack }) {
                 onOpenLeaderboard={() => setShowLeaderboard(true)}
             />}
 
-            {/* Live activity — row 2, a horizontal ticker.
-
-                It was a 380px column beside the reel. That column was width the
-                reel could not have, on the one page where width is the whole
-                point, and it was buying vertical history nobody reads mid-spin.
-                As a strip it costs ~86px of height, which this layout has, and
-                returns 380px of width, which it did not.
-
-                The vertical ActivityFeedSidebar is still what the Live drawer
-                opens on narrow viewports — see ActivityTicker's note on why there
-                are two presentations rather than one responsive component.
-
-                **Desktop only since the phone pass.** The strip costs 68px of
-                height, and on an 800px phone that was the largest remaining piece
-                of chrome above the reel — a twelfth of the surface spent on an
-                ambient readout, while the shaft it sat on top of could only show
-                three rows. The feed is a bottom-bar destination on a phone now
-                (`Live`), which is where the strip's own "All drops" control went
-                anyway, so nothing became unreachable — it moved from a glance
-                surface to a tap.
-
-                This needs no change to the grid: row 2 is an `auto` track, so
-                with nothing rendered into it the row collapses to zero and the
-                68px falls through to the shaft. */}
+            {/* Live activity, row 2: a horizontal ticker, desktop only. On a phone the feed is the bottom bar's Live destination. Row 2 is an `auto` track, so it collapses to zero when empty (ActivityTicker notes why there are two presentations). */}
             {user && !isMobile && (
                 <div style={{
                     gridRow: 2,
@@ -1565,18 +1059,7 @@ function WheelOfFortunePage({ onBack }) {
 
 
 
-            {/* The `.sidebar-left / .sidebar-right` media query that used to live
-                here is gone. The sidebars were rendered always and then hidden by
-                a `@media (min-width: 1400px) { display: flex !important }`, while
-                a separate `isMobile` state watched the same 1400px threshold to
-                decide whether to show the Live button that replaces the folded
-                feed. Two mechanisms tracking one number is how they drift, and
-                they did: an earlier pass moved the media query without moving
-                isMobile, opening a 300px band of widths with no sidebar and no
-                button to reach it either.
-
-                The grid needs the breakpoint in JS anyway — it decides the column
-                template — so `isMobile` is now the only place it is written. */}
+            {/* `isMobile` is the only place the 1400px breakpoint is written: a second mechanism (a media query) drifted from it and left widths with no sidebar and no button. */}
 
             {/* Modals */}
             {showUsernameModal && (
@@ -1586,32 +1069,19 @@ function WheelOfFortunePage({ onBack }) {
                 />
             )}
 
-            {/* The full leaderboard is LeaderboardSidebar in modal mode.
-                
-                It used to be features/Leaderboard.jsx, a second implementation that
-                had drifted behind the panel: the panel had grown the entire King of
-                the Wheel mode — live standings, your points and rank, the countdown
-                — and the modal had none of it, so "open the full leaderboard"
-                showed you fewer features than the panel beside the reel did. The
-                modal's one advantage, the global totals strip, moved across, so
-                nothing was lost in the fold. */}
+            {/* The full leaderboard is LeaderboardSidebar in modal mode: one implementation, so it carries King of the Wheel too; its global totals strip moved across. */}
             {showLeaderboard && (
                 <div
                     onClick={(e) => { if (e.target === e.currentTarget) setShowLeaderboard(false); }}
                     style={{
                         position: 'fixed',
                         inset: 0,
-                        // The scrim ladder's middle step, matching the collection
-                        // board: this pushes the stage back behind a plaque rather
-                        // than blacking it out.
+                        // The scrim ladder's middle step, matching the collection board.
                         background: 'rgba(0,0,0,0.8)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        // Full-bleed on a phone, inset on a desktop — the same
-                        // arrangement the collection board uses. The inset was
-                        // costing the phone 48px of a 390px row, which the board's
-                        // own padding then doubled.
+                        // Full-bleed on a phone, inset on desktop, like the collection board.
                         padding: isMobile ? 0 : `${SPACE.lg}px`,
                         zIndex: 1100,
                         animation: 'fadeIn 0.25s ease-out',
@@ -1691,34 +1161,11 @@ function WheelOfFortunePage({ onBack }) {
                 (after the winning reel lands); this only draws it. */}
             <BountyCelebration currentUserId={user?.id} />
 
-            {/* Live events — row 3, the gap between the ticker and the reel.
-                
-                The banners are unchanged: same countdowns, progress bars, counters
-                and detail they always had. Only where they sit changed. They used
-                to be `position: fixed; top: 0`, which on a HUD with a permanent
-                topbar covered it for the whole event and let two simultaneous
-                events overlap each other.
-                
-                A brief attempt at replacing them with a single minimal bar is
-                what this reverts. It fixed the overlap and lost everything that
-                made the banners worth looking at — the timer, the progress, the
-                per-event detail. The gap above the reel is roughly 118px of space
-                the layout already keeps spare in order to centre the reel, which
-                is enough to hold a real banner. Fix the position, keep the design.
-                
-                They stay mounted whether or not an event is running: each owns its
-                event's countdown, soundtrack, settle/winner handling and updates to
-                the global event status, so unmounting one would switch the event
-                off rather than hide it. Each renders null on its own when idle. */}
+            {/* Live events, row 3: the banners sit in the gap above the reel (they were `position: fixed` and covered the topbar). They stay mounted while idle: each owns its event's countdown, soundtrack, settle handling and global event status, and renders null itself. */}
             <div style={{
                 gridRow: 3,
                 gridColumn: 1,
-                // Bottom-aligned, so the banner always sits flush on top of the
-                // reel rather than floating in the middle of the gap. Community
-                // Goal happened to do this already because it is taller than the
-                // gap; this makes it true of all four, and the banner reads as
-                // attached to the reel instead of hovering near it — which matters
-                // now that the reel takes the event's colour underneath it.
+                // Bottom-aligned so the banner sits flush on the reel, which takes the event's colour.
                 alignSelf: !isMobile && (firstBloodRoomVisible || forgeVisible) ? 'stretch' : 'end',
                 justifySelf: 'stretch',
                 minWidth: 0,
@@ -1733,69 +1180,17 @@ function WheelOfFortunePage({ onBack }) {
                     containerName: forgeVisible ? 'forge-banner-slot' : 'fb-banner-slot',
                 } : null),
             }}>
-                {/* Recursion joined this row on 2026-08-20. It was mounted
-                    above, outside the layout, still `position: fixed; top: 0` —
-                    the one live-event banner that never made the move the note
-                    above describes, because it was in a different part of the
-                    tree and the sweep did not reach it. So it covered the topbar
-                    for the whole event and stacked on top of whichever global
-                    event was already running, which is precisely the pair of
-                    failures that move was made to fix. Same slot, same rules,
-                    same flush-on-the-reel alignment as the other four. */}
+                {/* Recursion uses the same slot, rules and flush-on-the-reel alignment as the other four. */}
                 <RecursionOverlay inline />
-                {/* Gold Rush is gone. This slot held a note saying the banner
-                    stayed mounted-but-dead alongside `applyGoldRushOdds`, on the
-                    grounds that retiring an event is not the same as rewriting
-                    what happened while it ran.
-
-                    Half of that held up and half did not. The DATA argument was
-                    right and still stands: every `is_gold_rush` flag on
-                    collections, spin history and the activity feed is untouched,
-                    and the collection plaque and the feed still read them. Nothing
-                    can set one again.
-
-                    The CODE argument did not. An event that cannot fire, whose
-                    banner renders null on every frame, whose odds pipeline still
-                    runs on every spin and whose restore path and admin trigger
-                    both still have to be read as live, is the most expensive
-                    version of retired there is. All of it is deleted — here, in
-                    services/globalEvents.js, in spin.js, and out of the reel's
-                    prop chain. */}
-                {/* The arrival is NOT in this row any more, and it is the one
-                    event that is not.
-
-                    It used to be: a 440px manifest card in the banner slot with
-                    the train running in the band underneath it, which is two
-                    objects on a page rather than one thing happening — the
-                    owner's note was that it "shifts the strip down and shows the
-                    lucky spin distribution above". The board is now signage hung
-                    inside the station itself and the whole event plays in one
-                    frame that grows out of the reel band, so this slot stays
-                    empty for the duration and nothing on the page moves. See
-                    effects/ArrivalTheatre.jsx; it is mounted in WheelSpinner,
-                    inside the reel mount, because the frame measures itself
-                    against that rectangle.
-
-                    The rule it does still keep is the one that matters: it never
-                    steals a spin in progress, which is why ActivityContext holds
-                    it back until the wheel lands. */}
+                {/* Gold Rush is retired: its `is_gold_rush` flags on collections, history and the feed remain as data and are still read by the collection plaque and feed. */}
+                {/* The arrival is not in this row: it plays in one frame growing from the reel band (effects/ArrivalTheatre.jsx, mounted in WheelSpinner), so this slot stays empty. ActivityContext holds it until the wheel lands. */}
                 <KingOfWheelBanner arena onArenaVisibility={setArenaVisible} isMobile={isMobile} isAdmin={user?.isAdmin} currentUserId={user?.id} inline />
                 <FirstBloodBanner isMobile={isMobile} isAdmin={user?.isAdmin} inline room onRoomVisibility={setFirstBloodRoomVisible} />
                 <CommunityGoalBanner forge onForgeVisibility={setForgeVisible} isMobile={isMobile} isAdmin={user?.isAdmin} inline />
-                {/* The roll, in the same slot the meter counts down in and the
-                    banners open in. It used to be a full-screen scrim at z-index
-                    10000 — see EventSelectionWheel.jsx for why it moved here. */}
+                {/* The roll, in the same slot as the meter and banners (see EventSelectionWheel.jsx). */}
                 <EventSelectionWheel isMobile={isMobile} />
 
-                {/* What this slot says when none of the above are firing, which is
-                    most of the time. It renders null during an event and during the
-                    roll, so it never shares the space with them.
-
-                    Two plinths now: the day's bounty beside the meter on a wide
-                    stage, above it on a phone. Both yield to an event on the same
-                    rule (useEventSlotBusy), so the slot still holds one kind of
-                    news at a time. The meter is the one that carries the
-                    bottom padding, so the bounty's row takes it on the phone. */}
+                {/* Shown when no event or roll is firing; both plinths yield via useEventSlotBusy. The meter carries the bottom padding, so the bounty row takes it on the phone. */}
                 {!eventSlotBusy && (
                     <div style={{
                         display: 'flex',
@@ -1831,9 +1226,6 @@ function WheelOfFortunePage({ onBack }) {
                 <SoundSettingsPanel onClose={() => setShowSoundSettings(false)} />
             )}
 
-            {/* The release notes. Rendered alongside the other overlays rather than
-                above the page tree: it is a modal like any other here, and the only
-                thing unusual about it is that it can open itself once. */}
             {showChangelog && (
                 <ChangelogModal onClose={closeChangelog} isMobile={isMobile} />
             )}
@@ -1862,21 +1254,7 @@ function WheelOfFortunePage({ onBack }) {
                         position: 'relative',
                         width: '100%',
                         maxWidth: '380px',
-                        // A definite height, not just a maxHeight.
-                        //
-                        // ActivityFeedSidebar is `height: 100%` so it can fill the
-                        // HUD's flexible row. A percentage height resolves against
-                        // a parent that HAS a height — against an auto-height
-                        // parent it collapses to `auto`, so in here the feed grew
-                        // to its full content length, ran off the bottom of the
-                        // screen, and could not be scrolled because the element
-                        // that would have scrolled was the one doing the growing.
-                        // `maxHeight` alone does not fix that: it caps this box
-                        // without giving the child anything to measure against.
-                        //
-                        // Capped at 640px as well as 90vh so the panel does not
-                        // become a full-height column on a tall monitor, which is
-                        // not what a drawer over a dimmed page should look like.
+                        // A definite height, not just maxHeight: ActivityFeedSidebar is `height: 100%`, which collapses against an auto-height parent and the feed would overflow unscrollably. Capped at 640px.
                         height: 'min(90vh, 640px)',
                         minHeight: 0,
                         animation: 'slideUp 0.3s ease-out'
@@ -1909,12 +1287,7 @@ function WheelOfFortunePage({ onBack }) {
                 </div>
             )}
 
-            {/* Live Chat.
-
-                On a phone the bottom bar opens it and the chat's own floating
-                launcher is suppressed — see MobileTabBar.jsx for why the flanks'
-                job becomes a bar down there, and LiveChat.jsx for why this is a
-                signal counter rather than a controlled `open` prop. */}
+            {/* On a phone the bottom bar opens chat and LiveChat's own launcher is suppressed (MobileTabBar.jsx; LiveChat.jsx for the signal counter). */}
             {user && (
                 <LiveChat
                     user={user}
@@ -1925,27 +1298,18 @@ function WheelOfFortunePage({ onBack }) {
                 />
             )}
 
-            {/* The phone's four destinations, in the thumb zone. This is where the
-                stage flanks go when there is no room to flank anything, and where
-                the topbar's overflowing icon row goes when the bar is 390px wide. */}
+            {/* The phone's four destinations, in the thumb zone. */}
             {isMobile && (
                 <MobileTabBar
                     active={
                         showCollection ? 'collection'
                             : showLeaderboard ? 'leaderboard'
                                 : showProfile ? 'profile'
-                                    // `onSelect` has always answered 'activity';
-                                    // nothing here ever produced it, so tapping Live
-                                    // opened the drawer and left the tab dark. Last in
-                                    // the chain so the existing precedence is untouched.
+                                    // 'activity' is last in the chain so existing precedence is untouched.
                                     : showMobileActivity ? 'activity'
                                         : null
                     }
-                    // 'chat' is deliberately absent: LiveChat owns whether it is open
-                    // and WheelPage only pokes it through `chatOpenSignal`, which is a
-                    // counter rather than a state. Marking that tab active means
-                    // lifting LiveChat's own open state, which is a bigger change than
-                    // this line.
+                    // 'chat' is absent on purpose: LiveChat owns its open state and is poked via `chatOpenSignal`, a counter.
                     unreadChat={chatUnread}
                     onSelect={(id) => {
                         if (id === 'collection') setShowCollection(true);
@@ -1964,22 +1328,11 @@ function WheelOfFortunePage({ onBack }) {
                     open={showMore}
                     onClose={() => setShowMore(false)}
                     items={[
-                        // Live activity is a bottom-bar destination now, not a
-                        // sheet row — one entry point, the rule this page has
-                        // already applied to the Trophy button, the leaderboard
-                        // pill and the chat launcher.
+                        // Live activity is a bottom-bar destination, not a sheet row.
                         { id: 'history', label: 'Spin history', Icon: ScrollText, onSelect: () => setShowHistory(true) },
-                        // Directly under the spin history, because the pairing is
-                        // the explanation: one is what YOU pulled, the other is
-                        // what the SERVER did. Neither is the other's summary.
                         { id: 'eventlog', label: 'Event log', Icon: Radio, onSelect: () => setShowEventLog(true) },
                         { id: 'achievements', label: 'Achievements', Icon: Award, onSelect: () => setShowAchievements(true) },
-                        // The phone's only way back to the release notes — there is
-                        // no room for a fifth nav button on the bar, and this is a
-                        // read-once destination rather than a place you return to.
-                        // `value` carries the unseen mark, because the sheet's rows
-                        // have no badge slot and a word does the job a dot does in
-                        // the topbar without inventing one.
+                        // The phone's only way back to the release notes; `value` carries the unseen mark since sheet rows have no badge slot.
                         {
                             id: 'changelog',
                             label: "What's new",
@@ -1989,21 +1342,13 @@ function WheelOfFortunePage({ onBack }) {
                         },
                         { id: 'name', label: 'Edit name', Icon: Edit3, onSelect: () => setShowUsernameModal(true) },
                         { id: 'sound', label: 'Sound', Icon: Volume2, onSelect: () => setShowSoundSettings(true) },
-                        // Directly under Sound, and that pairing is the point:
-                        // these are the two rows that change how the surface
-                        // behaves rather than where you are, and a player
-                        // hunting for "make this stop" looks in the same place
-                        // for both.
                         {
                             id: 'saver',
                             label: 'Battery saver',
                             Icon: saverMode ? BatteryLow : Battery,
                             value: saverMode ? 'On' : 'Off',
                             valueActive: saverMode,
-                            // The sheet stays up: this is the one row that
-                            // reports rather than navigates, and its On/Off is
-                            // the confirmation. It matches the nav drawer's copy
-                            // of the same toggle, which never closed either.
+                            // The sheet stays up: this row reports rather than navigates, matching the nav drawer's toggle.
                             keepOpen: true,
                             onSelect: toggleSaverMode,
                         },

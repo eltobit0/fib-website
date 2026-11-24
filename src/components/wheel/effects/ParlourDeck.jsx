@@ -3,9 +3,7 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { prefersCalm } from '../../../config/power.js';
 import { serverNow } from '../../../utils/serverClock.js';
-// The shaft's row pitch, so the detent's clearance below is one POCKET wide
-// rather than a guess at one. CanvasRouletteStrip imports it from here for the
-// same reason; the module is already on this route's bundle.
+// The shaft's row pitch, so the detent's clearance is one POCKET wide; CanvasRouletteStrip imports it from here.
 import { MOBILE_ROW_PITCH } from '../canvas/CanvasSpinningStrip.jsx';
 import {
     T_CALL, T_SPIN, T_REVEAL, T_FALL, T_END,
@@ -22,73 +20,26 @@ const bell = (t, c, w) => Math.exp(-Math.pow((t - c) / w, 2));
 const SUIT_INK = ['#B4111F', '#14171F', '#B4111F', '#14171F'];
 
 /**
- * How busy the air is at time `t`, 0 to 1. The event's four beats, as one curve.
- *
- *   0.0–2.0   the deck is thrown as the slots turn over
- *   2.0–16    a bed, low enough to bet through
- *   16–18     the hush: the room goes still while the croupier calls
- *   21.4–24   the shower, in the winning colour
- *   28.2–29.6 the air clears with the room
- */
+* How busy the air is at time `t`, 0 to 1: thrown 0-2s, a bed to 16s, the hush 16-18s,
+* the winning-colour shower 21.4-24s, clearing 28.2-29.6s.
+*/
 function density(t) {
     if (t < -0.4 || t >= T_END) return 0;
     const surge = bell(t, 0.6, 1.5);
-    /*
-     * ── THE REFILL, AND THE BEAT IT RESCUES ─────────────────────────────────
-     *
-     * The shower used to be a bell on T_REVEAL, and on screen the reveal came
-     * out THINNER than the betting window — the opposite of what the event
-     * promises. The cause is that this envelope is sampled at a piece's BIRTH,
-     * which is the top of the screen, and a card takes most of ten seconds to
-     * fall: at the reveal the only pieces allowed to exist were ones born a
-     * second earlier, still entering, while everything born during the hush had
-     * been excluded. The room emptied for the call and had no time to refill
-     * before the ball landed.
-     *
-     * So the refill starts when the WHEEL does, not when the pocket lights. A
-     * piece born at T_SPIN is halfway down the screen by the reveal, which is
-     * where the shower needs to be seen. The hush is also shallower and
-     * narrower than it was — it should read as the room holding its breath,
-     * not as the deck being taken away.
-     */
+    // The envelope is sampled at a piece's BIRTH (top of screen) and a card takes ~10s to fall, so the refill
+    // starts with the wheel (T_SPIN), not the pocket lighting, or the reveal comes out thinner than the betting window.
     const refill = bell(t, T_SPIN + 1.0, 3.4);
-    /*
-     * The bed was 0.34, then 0.44, and is 0.58 because the first two numbers
-     * were reasoned and the third was counted.
-     *
-     * The arithmetic said 0.44 of thirty pieces is thirteen in the air, which
-     * sounded ample. On a 1568x733 capture it was **three**, and the reason is
-     * that the field is not the viewport: this canvas sits under the interface
-     * (§9b's rule — the room lights the things in it, it is not painted over
-     * them), so the topbar, the drops rail, the HUD row, the reel band, the
-     * collection card and the standings between them hide well over half the
-     * screen. A piece behind any of those is a piece that costs a draw and
-     * shows nothing.
-     *
-     * So the density is now set against what is VISIBLE rather than what is
-     * drawn. The reveal shower, at ~9 pieces on screen, is the reading the
-     * ambient beat should sit just under — not an order of magnitude above.
-     */
+    // Density is set against what is VISIBLE: the canvas sits under the interface, which hides over half the
+    // screen (3 pieces seen at 0.44 on a 1568x733 capture), so the bed is 0.58 to sit just under the reveal shower.
     const bed = 0.58 * (1 - 0.58 * bell(t, T_CALL + 0.4, 1.6));
     const clearing = clamp01((T_END - t) / (T_END - T_FALL));
     return clamp01(Math.max(bed, surge, refill)) * clearing;
 }
 
 /**
- * Whether the room is wearing the winning colour, at time `t`.
- *
- * Asked of the CLOCK and not of a piece's birth, which is the other half of the
- * fix above. Tinting by birth meant only pieces thrown after the pocket lit
- * could carry its colour — a handful of cards at the top of the screen — and
- * every card already in the air stayed neutral through the one beat the colour
- * exists for. Asking the clock turns the whole field at once, which is both
- * more legible and the truer picture: the room does not deal a new deck when
- * the ball drops, the light in it changes.
- *
- * It cannot spoil anything. `pocketColour` is null until the server has
- * broadcast the result and the band has already announced it; this is the room
- * agreeing a beat late, never a second copy of the answer.
- */
+* Whether the room wears the winning colour at `t`. Asked of the clock, not a piece's birth, so the whole
+* field turns at once. Cannot spoil anything: `pocketColour` is null until the server has broadcast the result.
+*/
 const showering = t => t >= T_REVEAL - 0.15 && t < T_REVEAL + 4.5;
 
 /** Seeded once from the index, so nothing teleports when the room re-renders. */
@@ -101,11 +52,7 @@ function buildPieces(n) {
         const layer = i % 3;
         return {
             chip: rnd(i, 12.9898) < 0.42,
-            /*
-             * The near layer is twice the far one. A tighter spread was tried
-             * and the field read as noise at a single distance — parallax needs
-             * the sizes to be obviously different, not slightly.
-             */
+            // The near layer is twice the far one; parallax needs obviously different sizes.
             scale: [1.05, 1.65, 2.35][layer],
             // Most of the deck lives in the room's shadows. Larger foreground
             // pieces catch more light, without becoming bright UI elements.
@@ -349,12 +296,7 @@ function ParlourDeck({ openedAt, pocketColour = null, isMobile = false }) {
         const pieces = buildPieces(isMobile ? 20 : 46).sort((a, b) => a.scale - b.scale);
         let W = 0, H = 0, raf = 0, parked = false;
 
-        /*
-         * The field is the WRAPPER, not the window. On the room it is the
-         * fixed full-surface layer and the two are the same; in the shaft's
-         * band it is the band, and measuring the window there would draw a
-         * viewport-tall field into a 420px box and put every card off screen.
-         */
+        // The field is the WRAPPER, not the window: in the shaft's band, measuring the window would put every card off screen.
         const size = () => {
             const r = wrap.getBoundingClientRect();
             W = Math.max(1, r.width);
@@ -390,26 +332,8 @@ function ParlourDeck({ openedAt, pocketColour = null, isMobile = false }) {
 
                 const showered = Boolean(winnerStyle) && showering(t);
 
-                /*
-                 * ── THE DETENT'S COLUMN STAYS CLEAR ──────────────────────────
-                 *
-                 * Only in the shaft, where the deck is mounted INSIDE the band
-                 * and therefore paints over the pockets. While bets are open
-                 * that is fine — the band is scenery and a card across it is
-                 * the room. From the moment the wheel runs it stops being
-                 * scenery and becomes the result, and a card lying over the
-                 * bracketed winning pocket at the one moment it must be legible
-                 * is the room contradicting the announcement.
-                 *
-                 * Seen, not predicted: at T_REVEAL+1.5 on a 390px capture a
-                 * card back sat across the winning pocket's top-left corner. It
-                 * missed the numeral by luck.
-                 *
-                 * The clearance is one pocket wide because it is measured from
-                 * the band's own pitch, not from a constant that would drift
-                 * the first time the shaft was re-spaced. Pieces fade rather
-                 * than vanish, so nothing pops as it crosses.
-                 */
+                // Shaft only: the deck paints over the pockets, so from the moment the wheel runs the detent's column stays
+                // clear (one pocket wide, from the band's own pitch) so no card lies over the winning pocket. Pieces fade.
                 let clearance = 1;
                 if (isMobile && t >= T_SPIN) {
                     const half = MOBILE_ROW_PITCH * 0.60;
@@ -462,12 +386,7 @@ function ParlourDeck({ openedAt, pocketColour = null, isMobile = false }) {
             : 0);
 
         if (calm) {
-            /*
-             * Calm keeps the room's identity and drops its motion — §10's rule.
-             * One still frame of the busiest beat: the air is full of cards,
-             * they are simply not falling. A cleared canvas here would delete
-             * the idea rather than calm it.
-             */
+            // Calm keeps one still frame of the busiest beat (§10); a cleared canvas would delete the idea.
             const paint = () => draw(0.6);
             paint();
             const ro = new ResizeObserver(() => { size(); paint(); });
@@ -489,32 +408,8 @@ function ParlourDeck({ openedAt, pocketColour = null, isMobile = false }) {
         return () => { if (!parked) cancelAnimationFrame(raf); ro.disconnect(); };
     }, [isMobile]);
 
-    /*
-     * ── WHERE THIS IS MOUNTED, AND THE RULE THAT DECIDES IT ──────────────────
-     *
-     * The deck fills whatever box it is given, and it is given two different
-     * boxes because the two breakpoints are two different machines.
-     *
-     * On a desktop it is a layer of the ROOM: `ParlourAtmosphere` renders it
-     * inside `.fib-parlour-air`, under the whole interface, and the cards fall
-     * through the margins the layout leaves. Nothing you read is touched.
-     *
-     * On a phone there are no margins — §8's shaft runs the reel vertically and
-     * fills the viewport — so the room was entirely behind one opaque canvas
-     * and the event arrived as a red trim on the existing reel. The fix is to
-     * mount the deck INSIDE the reel's own band, beside `CanvasRouletteStrip`,
-     * where it paints over the reel and nothing else.
-     *
-     * **The first attempt portalled it to `document.body` at `z-index: 11` and
-     * that was wrong**, in a way worth keeping: it did put the cards in front
-     * of the reel, and it also put them in front of the topbar and the help
-     * control, which breaks the one rule this room has — the room lights the
-     * things in it and never rises above `Z.content`. A control may portal out
-     * of a stacking context to be reachable; the room may not portal out of the
-     * interface to be seen. Bounding it to the band gets the picture without
-     * the trade, because the band is the one region on a phone that is scenery
-     * rather than something you read.
-     */
+    // Mounted in two places: on desktop inside `.fib-parlour-air` under the interface; on a phone inside the reel's
+    // band beside `CanvasRouletteStrip`. Do not portal it to `document.body`: the room must never rise above `Z.content`.
     return (
         <div
             ref={wrapRef}
@@ -523,9 +418,7 @@ function ParlourDeck({ openedAt, pocketColour = null, isMobile = false }) {
                 position: 'absolute',
                 inset: 0,
                 pointerEvents: 'none',
-                // Above the pockets, inside the band's own stacking context.
-                // Only meaningful in the shaft; in the room it is a layer among
-                // the room's layers and the order is the DOM's.
+                // Above the pockets inside the band's stacking context; only meaningful in the shaft.
                 ...(isMobile ? { zIndex: 7 } : null),
             }}
         >

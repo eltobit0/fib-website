@@ -1,20 +1,10 @@
-// ============================================
-// Achievement Icon Whitelist
-// ============================================
-// Instead of importing all 1000+ lucide-react icons with `import * as LucideIcons`,
-// we explicitly import only the icons used by achievements.
-// This reduces bundle size by ~150-200KB.
-//
-// NOTE: If an icon doesn't exist in your lucide-react version,
-// the AchievementIcon component will fall back to Award.
+// Whitelist instead of `import * as LucideIcons` (~150-200KB). Unknown names fall back to Award.
 
 import {
-    // Beginner/General
     Disc3,
     CircleDot,
     HelpCircle,
 
-    // Collection
     Gem,
     Sparkles,
     Crown,
@@ -23,14 +13,10 @@ import {
     Trophy,
     Eclipse,
     Sparkle,
-    // Atom for Exotic Collector (the exotic tier is antimatter-themed), Medal for
-    // Encore. Added to the whitelist rather than left to the Award fallback:
-    // this map exists to keep the bundle off all 1000+ lucide icons, so a new
-    // achievement icon is two lines here, not a missing one.
+    // New achievement icons are added here, not left to the Award fallback.
     Atom,
     Medal,
 
-    // Spins
     RefreshCw,
     Zap,
     Orbit,
@@ -44,7 +30,6 @@ import {
     Skull,
     Ghost,
 
-    // Events
     Gift,
     PartyPopper,
     Target,
@@ -52,7 +37,6 @@ import {
     Layers3,
     Clover,
 
-    // Duplicates
     Layers,
     Castle,
     Copy,
@@ -62,7 +46,6 @@ import {
     CopyPlus,
     House,
 
-    // Special/Hidden
     RotateCcw,
     RefreshCcw,
     Coins,
@@ -70,20 +53,15 @@ import {
     Sunrise,
     HeartCrack,
 
-    // Fallback
     Award
 } from 'lucide-react';
 
-// Explicit mapping of icon names to components
-// Only icons actually used in achievements are included
-// FolderCopy doesn't exist in lucide-react, so we map it to Files
+// FolderCopy doesn't exist in lucide-react, so it maps to Files.
 export const ACHIEVEMENT_ICON_MAP = {
-    // Beginner/General
     Disc3,
     CircleDot,
     HelpCircle,
 
-    // Collection
     Gem,
     Sparkles,
     Crown,
@@ -95,7 +73,6 @@ export const ACHIEVEMENT_ICON_MAP = {
     Atom,
     Medal,
 
-    // Spins
     RefreshCw,
     Zap,
     Orbit,
@@ -109,7 +86,6 @@ export const ACHIEVEMENT_ICON_MAP = {
     Skull,
     Ghost,
 
-    // Events
     Gift,
     PartyPopper,
     Target,
@@ -117,17 +93,15 @@ export const ACHIEVEMENT_ICON_MAP = {
     Layers3,
     Clover,
 
-    // Duplicates
     Layers,
     Castle,
     Copy,
-    FolderCopy: Files,  // FolderCopy doesn't exist, use Files as substitute
+    FolderCopy: Files,
     Database,
     HardDrive,
     CopyPlus,
     House,
 
-    // Special/Hidden
     RotateCcw,
     RefreshCcw,
     Coins,
@@ -135,26 +109,15 @@ export const ACHIEVEMENT_ICON_MAP = {
     Sunrise,
     HeartCrack,
 
-    // Fallback
     Award
 };
 
-// Default fallback icon
 export const DEFAULT_ACHIEVEMENT_ICON = Award;
 
-/**
- * Get an achievement icon component by name
- * @param {string} name - The icon name (e.g., 'Trophy', 'Star')
- * @returns {React.ComponentType} The icon component or fallback
- */
 export function getAchievementIcon(name) {
     return ACHIEVEMENT_ICON_MAP[name] || DEFAULT_ACHIEVEMENT_ICON;
 }
 
-/**
- * AchievementIcon component - renders an icon by name from the whitelist
- * Use this instead of dynamically accessing LucideIcons[name]
- */
 export function AchievementIcon({ name, size = 16, color, style = {} }) {
     const IconComponent = ACHIEVEMENT_ICON_MAP[name] || DEFAULT_ACHIEVEMENT_ICON;
     return <IconComponent size={size} color={color} style={style} />;

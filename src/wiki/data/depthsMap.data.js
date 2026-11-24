@@ -1,22 +1,4 @@
-/**
- * The Antimatter Depths render (public/fib-relics/antimatter_depths.png, 256px) as a map:
- * the outline of each room as it shows in the render, and a point inside it for its name.
- *
- * Measured, not traced by hand. The Depths is a jigsaw structure, but every connector in
- * the datapack targets exactly one other piece, so it always assembles the same way
- * (only the whole is turned): storage at the root; the mines west through a corridor;
- * a T-section south to the main corridor, which leads to the nature room, the start and
- * the vault room; the stairway north to the End Portal room. That assembly, block by
- * block from the datapack's structure files, was fitted to the render's silhouette
- * (2:1 isometric, 1.32px a block, 97.5% overlap), drawn back to front so each pixel
- * belongs to the room in front, and each room's visible region traced and simplified.
- *
- * If the render is ever redrawn, these must be measured again against it; the datapack
- * alone cannot say where the camera stood.
- *
- *   at  where the room's name sits: the centre of its visible region, in the render's px
- *   d   the room's visible outline, an SVG path in the render's 256px
- */
+// Rooms measured against public/fib-relics/antimatter_depths.png (render px, 256px). Re-measure if the render is redrawn.
 
 export const DEPTHS_MAP = {
     storage: { at: [113.8, 123.0], d: 'M114.5 97.5 L153.5 116.5 L153.5 138 L146 135 L143.5 133 L140.5 133.5 L140 134.5 L137 135.5 L137 136.5 L132.5 137.5 L130.5 139 L130.5 152 L123 148 L121.5 148 L121 147 L116.5 148.5 L116.5 145 L111.5 142.5 L109.5 143 L109.5 141.5 L104.5 139 L95 143.5 L94.5 146 L80.5 139 L80.5 121 L79 120.5 L79 109 L93 102.5 L93.5 101.5 L99 104.5 L103.5 101.5 L106.5 102Z' },

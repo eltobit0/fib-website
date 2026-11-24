@@ -1,45 +1,15 @@
-// ============================================
-// CanvasNocturneField.jsx
-// ============================================
-// The page field behind the spin surface.
-//
-// This used to be CanvasCosmicBackground — a purple-and-gold "cosmic casino"
-// wash with a twinkling star field, the old surface's identity. THE NOCTURNE
-// replaced that world and left this behind: the band's ground is the blue-hour
-// ramp (#0d1322 → #0a0d18 → #05060a) while the page around it kept glowing
-// purple and gold — two tiers' colours, spent as a page wash, on a field that
-// was supposed to be the night city around the viaduct. It read as empty
-// because its material disagreed with the world above it.
-//
-// The field is now the night air the deck sits in, light-first and barely
-// there (owner-ratified 2026-08-19, "wet night / light-first", sub-4% alpha):
-//   - sky light from above: the blue hour's own cool cobalt, pooling at the
-//     top of the viewport and dying before the band;
-//   - street haze under the deck: station amber on the wet street, pooled
-//     just below the band's centre line, the same light as the band's own
-//     curb pool;
-//   - darkness at the bottom: the platform falls away below the stage.
-// The grain is SURFACE_NOISE, the same material as the plinths.
-//
-// The stars stayed, dimmed to evening: a city sky at blue hour has stars just
-// appearing. They are ambient by the Ambient-Off Rule and freeze under
-// reduced motion (they draw once, statically, instead of twinkling).
+// The page field behind the spin surface: barely-there night air (sub-4% alpha), so the reel stays the brightest thing.
+// Stars are ambient and draw once, statically, under reduced motion and saver mode.
 
 import React, { useEffect, useRef } from 'react';
 import { COLORS, SURFACE_NOISE } from '../config/constants';
 import { useCalm } from '../../../config/power.js';
 
-// ============================================
-// CANVAS STAR FIELD - Low FPS, Low DPR
-// ============================================
 export function CanvasStarField({ starCount = 40 }) {
     const canvasRef = useRef(null);
     const animationRef = useRef(null);
     const timeRef = useRef(0);
-    // Saver mode arrives through the same door reduced motion already used, and
-    // wants the same outcome: a sky that is drawn once. It is state rather than
-    // a live read because it has to re-run this effect — a toggle mid-session
-    // must actually cancel the loop, and nothing else here ever re-runs.
+    // State rather than a live read: toggling saver mode mid-session must re-run this effect to cancel the loop.
     const calm = useCalm();
 
     useEffect(() => {
@@ -48,9 +18,7 @@ export function CanvasStarField({ starCount = 40 }) {
 
         const ctx = canvas.getContext('2d');
 
-        // Generate the stars once, here, where impurity is allowed — a
-        // render-phase `Math.random` is a component that redraws differently
-        // on every re-render (react-hooks/purity).
+        // Generated here, not in render: render-phase Math.random redraws differently every render (react-hooks/purity).
         const stars = Array.from({ length: starCount }, () => ({
             x: Math.random(),
             y: Math.random(),
@@ -60,19 +28,13 @@ export function CanvasStarField({ starCount = 40 }) {
             duration: 2 + Math.random() * 3,
         }));
 
-        // OPTIMIZATION: Cap DPR at 1 for background - it's subtle anyway
         const dpr = 1;
 
-        // OPTIMIZATION: Throttle to 15fps
         let lastRenderTime = 0;
         const TARGET_FPS = 15;
         const FRAME_TIME = 1000 / TARGET_FPS;
 
-        // The Ambient-Off Rule: the stars twinkle (ambient) and freeze under
-        // reduced motion — a static sky, drawn once at a fixed phase, not a
-        // sky that keeps pulsing for somebody who asked the page to stop.
-        // Saver mode wants the identical still sky for a different reason, so
-        // the two share this branch rather than each getting their own.
+        // Reduced motion and saver mode both get one static sky drawn at a fixed phase.
         const reduceMotion = calm;
 
         const resize = () => {
@@ -83,10 +45,7 @@ export function CanvasStarField({ starCount = 40 }) {
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         };
 
-        // Resize redraws too: under reduced motion the canvas holds one static
-        // sky, and a resize that clears the canvas without repainting it would
-        // leave the sky blank until the next rAF tick — which, under reduced
-        // motion, never comes.
+        // Resize must repaint: under reduced motion there is no next rAF tick to fill a cleared canvas.
         const onResize = () => {
             resize();
             if (reduceMotion) drawStars(0);
@@ -101,9 +60,6 @@ export function CanvasStarField({ starCount = 40 }) {
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, width, height);
 
-            // Evening stars: dimmer than the old cosmic field's, and cooler.
-            // They are the first stars of blue hour, not a night sky at
-            // midnight — the band's cobalt ramp is still lighter than them.
             for (const star of stars) {
                 const x = star.x * width;
                 const y = star.y * height;
@@ -133,9 +89,6 @@ export function CanvasStarField({ starCount = 40 }) {
             }
         };
 
-        // Reduced motion: draw the sky once and stop. There is no rAF loop to
-        // keep warm, and nothing to cancel on unmount but the listener (the
-        // onResize handler above redraws on resize).
         if (reduceMotion) {
             drawStars(0);
             return () => {
@@ -144,7 +97,6 @@ export function CanvasStarField({ starCount = 40 }) {
         }
 
         const render = (timestamp) => {
-            // Throttle to target FPS
             const elapsed = timestamp - lastRenderTime;
             if (elapsed < FRAME_TIME) {
                 animationRef.current = requestAnimationFrame(render);
@@ -183,9 +135,6 @@ export function CanvasStarField({ starCount = 40 }) {
     );
 }
 
-// ============================================
-// THE NOCTURNE FIELD
-// ============================================
 export function CanvasNocturneField() {
     return (
         <div style={{
@@ -198,11 +147,6 @@ export function CanvasNocturneField() {
             pointerEvents: 'none',
             zIndex: 0
         }}>
-            {/* The night air — light, not paint (owner-ratified 2026-08-19).
-                Sky-light from above, station amber pooling under the deck,
-                darkness at the platform. Every stop is ~4% or less: the field
-                is felt, never looked at, and the reel stays the brightest
-                thing on the surface. */}
             <div style={{
                 position: 'absolute',
                 inset: 0,
@@ -213,20 +157,14 @@ export function CanvasNocturneField() {
                 `,
             }} />
 
-            {/* Canvas: star field (15fps, DPR capped at 1, frozen under
-                reduced motion) */}
             <CanvasStarField starCount={40} />
 
-            {/* The material grain, shared with the plinths (SURFACE_NOISE).
-                Static by definition — motion freezes, material never does. */}
             <div style={{
                 position: 'absolute',
                 inset: 0,
                 backgroundImage: SURFACE_NOISE,
             }} />
 
-            {/* Vignette (static) — the deck's light dies into the field at
-                the edges, the same fade the band's own hairlines use. */}
             <div style={{
                 position: 'absolute',
                 inset: 0,

@@ -11,20 +11,12 @@ import './DailyBounty.css';
 import './BountyRoom.css';
 
 /*
- * THE DAILY BOUNTIES - the plaque that names what is being hunted, or when the
- * next hunt opens, and the moment somebody pulls one.
- *
- * The rules live in wheel-backend services/dailyBounty.js: five a day, each
- * opening at a random time inside its own fifth of the day, the first player
- * to pull one takes a mystery box, two per player per day. This file only says
- * so. What it deliberately does NOT do is hold any of that state -
- * ActivityContext owns it, and in particular owns WHEN a claim becomes visible,
- * which is after the winning reel has landed and never on arrival.
- *
- * The identity is a sight, not a colour: four corners around the item and the
- * word, in `COLORS.bounty`, the same mark the reel draws on the tile itself.
- * See that token's note for why the bounty takes no hue of its own.
- */
+* THE DAILY BOUNTIES - the plaque naming what is hunted (or when the next hunt opens) and the moment somebody pulls one.
+*
+* The rules live in wheel-backend services/dailyBounty.js; this file only says so and holds no state.
+* ActivityContext owns it, and owns WHEN a claim becomes visible: after the winning reel has landed.
+* The identity is a sight (four corners in `COLORS.bounty`, the same mark the reel draws on the tile), not a hue.
+*/
 
 const bountyVar = {
     '--bounty': COLORS.bounty,
@@ -73,11 +65,7 @@ function Sight({ texture, name, rarity = 'regular', imageUrl = null, size, claim
     );
 }
 
-/**
- * The box, closed: a gilt block with the gift mark cut into it. The gilt is the
- * ramp, drifting (fib-mystery-box in DailyBounty.css), because the box's metal
- * is never flat - see COLORS.mysteryGilt.
- */
+/** The box, closed: a gilt block with the gift mark. The gilt is the ramp, drifting (fib-mystery-box in DailyBounty.css); see COLORS.mysteryGilt. */
 function MysteryBoxGlyph({ size }) {
     return (
         <span className="fib-mystery-box" style={{ width: size, height: size, borderRadius: Math.round(size * 0.18) }} aria-hidden="true">
@@ -87,23 +75,14 @@ function MysteryBoxGlyph({ size }) {
 }
 
 /**
- * Where the day stands, worked out once for both layouts.
- *
- *   hunting  a bounty is open. The plaque leads with the newest, and lists
- *            any others still open beside it.
- *   waiting  nothing open, the next one sealed: the plaque counts down to it.
- *   done     every slot has opened and none is left to hunt.
- *
- * "Next" is always the next OPENING, never the next day, until the day has no
- * openings left - then it is the reset.
- */
+* Where the day stands: `hunting` (a bounty is open), `waiting` (the next is sealed, the plaque counts down) or
+* `done` (every slot has opened). "Next" is the next OPENING until none are left, then the reset.
+*/
 function readBoard(board, winsToday) {
     const bounties = board.bounties || [];
     const lead = board.bounty || null;
-    // A bounty closes when the next one opens (wheel-backend services/dailyBounty.js),
-    // so an expired one is out of the hunt as surely as a claimed one - and since the
-    // server leads with the live one, `others` is empty in practice now. It is kept
-    // for an older server, which could still have several open at once.
+    // A bounty closes when the next one opens (wheel-backend services/dailyBounty.js), so an expired one is out of the
+    // hunt; `others` is empty in practice and kept for an older server that could have several open.
     const hunting = bounties.filter(b => !b.winner && !b.expired);
     const state = lead && !lead.winner && !lead.expired ? 'hunting' : board.next ? 'waiting' : 'done';
     const now = serverNow();
@@ -130,13 +109,7 @@ function readBoard(board, winsToday) {
     };
 }
 
-/**
- * The top-right line: when the next one opens, or when the day turns over.
- *
- * While waiting, the headline is already the countdown, so this line gives the
- * other half - the clock time, in the viewer's own zone, since "02:46 UTC" is
- * arithmetic for nearly everyone who reads it.
- */
+/** The top-right line: when the next one opens, or the day turns over, in the viewer's own zone. */
 function whenLabel(view, compact = false) {
     // While one is live, the clock that matters is ITS: it goes when the next opens.
     if (view.state === 'hunting' && view.closesIn !== null) {
@@ -180,17 +153,9 @@ function plaqueTitle(view) {
 }
 
 /**
- * The plaque, in the banner slot beside the milestone meter.
- *
- * It shares that slot's one rule: when an event owns the slot, this steps aside
- * with the meter (`useEventSlotBusy`). The bounties are still live underneath -
- * the reel keeps marking them - only the plaque yields, because the slot holds
- * one kind of news at a time and an event is louder news than an all-day hunt.
- *
- * Not a control. There is nowhere for it to go that is worth a click, and a
- * plinth that lights on hover promises a destination; the full rules sit in the
- * tooltip instead, where whoever wonders can find them.
- */
+* The plaque, in the banner slot beside the milestone meter. When an event owns the slot it steps aside with the
+* meter (`useEventSlotBusy`); the bounties stay live underneath. Not a control: the full rules sit in the tooltip.
+*/
 export function DailyBountyPlaque({ isMobile }) {
     const { bountyBoard, bountyWinsToday } = useActivity();
     const busy = useEventSlotBusy();
@@ -273,10 +238,7 @@ export function DailyBountyPlaque({ isMobile }) {
     if (hunting && view.capped) {
         detail = <>you have taken your <span style={{ color: COLORS.text, fontWeight: 700 }}>{view.winsPerDay}</span> today</>;
     } else if (hunting && view.others.length > 0) {
-        // The others still open, small, in place of the prize line: the plaque
-        // leads with one, but a player chasing any of them should see them all,
-        // and a fourth line would outgrow the plinth the meter sets. The prize
-        // is the same for every one of them and the tooltip still says it.
+        // The others still open, small, in place of the prize line; a fourth line would outgrow the plinth the meter sets.
         detail = (
             <span className="fib-bounty-others">
                 <span>also open</span>
@@ -344,10 +306,7 @@ export function DailyBountyPlaque({ isMobile }) {
     );
 }
 
-/**
- * The motes for the room's celebration: small points of light that rise off
- * the claimed item and go out. Drawn once per claim.
- */
+/** The motes for the room's celebration: small points of light that rise off the claimed item. Drawn once per claim. */
 function makeMotes(count) {
     const colors = [COLORS.bounty, COLORS.bounty, ...COLORS.mysteryGilt.slice(0, 2)];
     return Array.from({ length: count }, (_, i) => {
@@ -368,36 +327,13 @@ function makeMotes(count) {
 }
 
 /**
- * The claim, for the room.
- *
- * Raised by ActivityContext once the winning reel has landed, and cleared by
- * it too; this renders whatever `bountyCelebration` holds and nothing else.
- *
- * History, because the next person will want to put a card back:
- *   1. A card that dropped in under the topbar. The owner's note: nobody
- *      noticed it - a claim read as the plaque's text changing.
- *   2. A takeover built around a framed plate, with rectangular gilt confetti
- *      falling over the page. Noticed, and turned down as blocky: a rectangle
- *      in the middle of the screen with rectangles raining on it.
- *   3. This: no plate at all. A beam of light comes down from the top of the
- *      screen onto the item, which hangs in it with the sight locking on; a
- *      ring of light goes out from it; the words sit under it on a soft scrim
- *      that has no edge; and points of light rise off it rather than paper
- *      falling. Nothing on screen has a corner except the sight - which is the
- *      bounty's mark, and the one shape that is meant to.
- *
- * The sight's corners still take no glow (see DailyBounty.css): the light is
- * the beam's, the halo's and the motes', never the mark's.
- *
- * Pointer-transparent throughout: this is news about somebody else's spin and
- * must never cost the viewer theirs.
- *
- * The winner does not see this. Theirs is the box itself, on their own screen
- * - MysteryBoxOpening, mounted by WheelSpinner.
- *
- * Reduced motion keeps the item, the lit ground and the words, and drops
- * everything that moves.
- */
+* The claim, for the room. Raised and cleared by ActivityContext once the winning reel has landed; this renders
+* `bountyCelebration` and nothing else. No plate: a beam of light onto the item with the sight locking on, a ring,
+* a scrim without an edge and rising motes. The sight's corners take no glow (see DailyBounty.css).
+*
+* Pointer-transparent throughout: this is news about somebody else's spin and must never cost the viewer theirs.
+* The winner sees MysteryBoxOpening (mounted by WheelSpinner) instead. Reduced motion keeps the item, ground and words.
+*/
 export function BountyCelebration({ currentUserId }) {
     const { bountyCelebration } = useActivity();
     const calm = useCalm();

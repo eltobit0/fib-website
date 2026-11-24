@@ -2,27 +2,8 @@ import React from 'react';
 import { Crown, Layers, Repeat, Zap } from 'lucide-react';
 import { COLORS, SURFACE_NOISE, BONUS_IDENTITY, BONUS_IDENTITY_FALLBACK } from '../config/constants';
 
-/**
- * The event the bonus board just selected, as a signboard on the stage.
- *
- * The old design answered with a second card — icon tile, gradient, particles —
- * a second box below the first one the strip was in. This is the signboard the
- * station posts: square, the deck's grain and ground, a lit rail on top in the
- * event's own identity colour, and that light rising through the face. It is
- * the destination sign carried from the board, not a receipt.
- *
- * Each event owns one icon, the same one the board draws: Zap for the lucky
- * family, Layers for the 5x's parallel lines, Crown for triple lucky, Repeat
- * for recursion — which the board never draws, because recursion is triggered
- * by a pull rather than selected, but which answers on this same signboard.
- */
-/**
- * Only the glyph lives here. The colours come from BONUS_IDENTITY in
- * config/constants, because this plaque, the board that selected the event and
- * the lamp the spin then runs under are three views of one thing and had three
- * private colour tables between them — this one said gold for a triple-lucky
- * that executes green.
- */
+// The event the bonus board just selected, as a signboard on the stage: square, deck grain, a lit rail in the event's identity colour. Each event owns one icon, the board's own: Zap (lucky family), Layers (5x), Crown (triple lucky), Repeat (recursion, which the board never draws because a pull triggers it).
+// Only the glyph lives here; colours come from BONUS_IDENTITY in config/constants, shared with the board and the lamp.
 const EVENT_ICON = {
     lucky_spin: Zap,
     triple_spin: Layers,
@@ -59,9 +40,7 @@ export function BonusEventPlaque({ event, isMobile = false }) {
                 width: isMobile ? '56px' : '64px',
                 height: isMobile ? '56px' : '64px',
                 borderRadius: 0,
-                // The icon seat takes the icon's colour, not the sign's, so the
-                // triple-lucky's gold crown sits in gold light on a green plaque
-                // — the same split the board draws.
+                // The icon seat takes the icon's colour, not the sign's: triple-lucky's gold crown sits in gold light on a green plaque, as the board draws it.
                 background: `${identity.iconColor}10`,
                 boxShadow: `inset 0 1px 0 ${identity.iconColor}40`,
             }}>

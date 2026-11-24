@@ -1,41 +1,9 @@
-/**
- * MiniMessage → React.
- *
- * The plugin stores achievement titles and descriptions as MiniMessage — `<gold>First</gold>
- * <bold>Blood</bold>` — and the service forwards them verbatim, deliberately: the plugin is the one
- * source of truth for how an achievement is named, and stripping or rewriting the tags downstream
- * would be a second place that decides what the name looks like. So the rendering is the consumer's
- * job, and this is the consumer doing it.
- *
- * ## Scope: a deliberately small subset
- *
- * MiniMessage is a large format — gradients, hover events, click actions, fonts. This renders the
- * part that appears in an achievement title and ignores the rest: named colours and the common
- * decorations (bold, italic, underline, strikethrough). A tag it does not recognise is dropped, not
- * shown raw, so an unhandled `<hover:...>` degrades to plain text rather than leaking angle
- * brackets onto the page. That is the safe direction: a title that loses a colour still reads; a
- * title showing `<hover:show_text:...>` does not.
- *
- * It is intentionally NOT a general MiniMessage parser. Achievement titles are short and use a
- * handful of tags; a full parser would be a dependency and an attack surface for a decorative
- * string. If titles ever start carrying gradients or events, revisit — but do not pre-build for it.
- *
- * ## Why colours map to CSS variables, not hex
- *
- * The sixteen Minecraft named colours have canonical hex values, but dropping those in raw would
- * put `#55FF55` next to a design system built on OKLCH tokens, and the greens would not match. Each
- * colour maps to the nearest existing token where one fits the meaning, and to a tuned OKLCH value
- * where none does, so a rendered title sits in the palette rather than beside it.
- */
+/* Renders only named colours and the common decorations; an unknown tag is dropped, never shown raw.
+   Colours map to design tokens rather than vanilla hex so a title sits in the palette. */
 
 import React from 'react';
 
-/*
- * The sixteen named colours, as CSS values. Where the design system already has the right idea
- * (gold means rank/prestige; the rarity ramp owns the purples and blues) the colour points at that
- * token so a title cannot drift from it. The rest are OKLCH renderings of the vanilla colours,
- * tuned to sit in an OKLCH palette rather than the raw sRGB the client uses.
- */
+/* Existing tokens where the meaning fits; the rest are OKLCH renderings of the vanilla colours. */
 const NAMED_COLORS = {
     black: 'oklch(0.15 0 0)',
     dark_blue: 'oklch(0.35 0.13 265)',
@@ -55,7 +23,6 @@ const NAMED_COLORS = {
     white: 'oklch(0.98 0 0)',
 };
 
-/* Decoration tags → the style they apply. Closing tags pop the matching push. */
 const DECORATIONS = {
     bold: { fontWeight: 700 },
     b: { fontWeight: 700 },
@@ -67,12 +34,7 @@ const DECORATIONS = {
     st: { textDecoration: 'line-through' },
 };
 
-/*
- * A single pass over the string, maintaining a stack of open styles. Each tag pushes or pops; text
- * between tags is emitted as a span carrying the merged style of everything currently open. This is
- * not a validating parser — an unbalanced close is ignored rather than throwing, because a
- * decorative title is never worth failing a profile render over.
- */
+/* Not validating: an unbalanced close is ignored rather than failing a profile render. */
 const TAG = /<(\/?)([a-z_]+)(?::[^>]*)?>/gi;
 
 export function renderMiniMessage(input) {
@@ -113,15 +75,12 @@ export function renderMiniMessage(input) {
                     : DECORATIONS[name] ?? null;
 
         if (!style) {
-            // Unrecognised (reset, hover, unknown): drop the tag, keep rendering. A <reset> also clears
-            // the stack, which is the one unrecognised tag worth honouring since titles use it to end a
-            // run of colour.
+            // Unrecognised tags are dropped; <reset> also clears the stack, since titles use it to end a run of colour.
             if (name === 'reset' || name === 'r') stack.length = 0;
             continue;
         }
 
         if (closing) {
-            // Pop the nearest matching open tag. An unmatched close is ignored.
             for (let i = stack.length - 1; i >= 0; i--) {
                 if (stack[i].tag === name) {
                     stack.splice(i, 1);
@@ -137,10 +96,6 @@ export function renderMiniMessage(input) {
     return out;
 }
 
-/**
- * The same, flattened to plain text — every tag removed, the words kept. For the places a title
- * has to be a string rather than nodes: an aria-label, a document title, a search index.
- */
 export function stripMiniMessage(input) {
     if (input == null) return '';
     return String(input).replace(TAG, '');

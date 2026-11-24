@@ -30,8 +30,6 @@
 .rt-mark { flex-shrink: 0; width: 8px; height: 8px; margin-top: 3px; background: var(--wk-ink-3); transition: background 160ms var(--wk-ease), box-shadow 160ms var(--wk-ease); }
 .rt-rule .rt-mark { background: transparent; box-shadow: inset 0 0 0 2px var(--wk-ink-3); }
 
-/* ── The item: once, where every way arrives ─────────────────────────────── */
-
 .rt-dest {
   grid-column: out; grid-row: 1; align-self: center;
   display: grid; justify-items: start; gap: 8px;
@@ -59,8 +57,6 @@
   clip-path: var(--wk-arrowhead);
   transition: background 160ms var(--wk-ease);
 }
-
-/* ── Sources ─────────────────────────────────────────────────────────────── */
 
 .rt-src {
   --lane-slot: 56px;   /* the slot the lane's line is centred on */
@@ -92,8 +88,6 @@
 .rt-odds { display: block; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--wk-ink); }
 .rt-skipped { display: block; line-height: 0; opacity: 0.45; }
 
-/* ── What you use: a slot and its name, then the track on toward the item ─── */
-
 .rt-act { grid-column: act; display: flex; align-items: flex-start; }
 .rt-tool { flex: none; display: flex; align-items: center; gap: 12px; height: 56px; }
 .rt-tool-text { display: grid; gap: 2px; max-width: 112px; }
@@ -101,8 +95,6 @@
 .rt-tool-meta { font-size: 12.5px; line-height: 1.3; color: var(--wk-ink-3); }
 .rt-rule-first .rt-tool-meta { font-weight: 700; color: var(--wk-ink); }
 .rt-check { color: var(--found, var(--wk-s-early)); }
-
-/* ── Skip's own end: the next random item ────────────────────────────────── */
 
 .rt-out { grid-column: out; display: flex; justify-content: flex-start; }
 .rt-out .rt-node { justify-items: center; }
@@ -112,8 +104,6 @@
   font-weight: 700; font-size: 22px; color: var(--wk-ink-3);
   outline: 2px dashed var(--wk-ink-4); outline-offset: -8px;
 }
-
-/* ── Tracks ── */
 
 .rt-t1, .rt-bus { padding: 0; }
 /* Placed by name: on phones every cell shares the label's row. */
@@ -156,8 +146,6 @@
 .rt-rule-first { --pad-top: 26px; box-shadow: inset 0 1px 0 var(--wk-line); }
 .rt-skip .rt-lane { --pad-top: 18px; }
 
-/* ── The collector ── */
-
 .rt-ways .rt-bus::before {
   content: ""; position: absolute; left: var(--bus-x); top: 0; bottom: 0; width: 2px;
   background: var(--wk-ink-3);
@@ -167,8 +155,6 @@
   bottom: auto; height: calc(var(--pad-top) + 29px);
   background: repeating-linear-gradient(to bottom, var(--wk-ink-2) 0 4px, transparent 4px 8px);
 }
-
-/* ── Tracing one lane ── */
 
 .rt:has(.rt-lane:hover) .rt-lane:not(:hover),
 .rt:has(.rt-skip .rt-lane:hover) .rt-dest { opacity: 0.4; }
@@ -189,8 +175,6 @@
 .rt-lanes .rt-cell { animation: rt-in 260ms var(--wk-ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
 .rt-lanes[data-calm] .rt-cell { animation: none; }
 @keyframes rt-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
-
-/* ── Phones ── */
 
 /* The fixed desktop board is 774px at its narrowest. */
 @media (max-width: 840px) {

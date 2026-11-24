@@ -1,6 +1,4 @@
 
-/* ── The install board ────────────────────────────────────────────────────── */
-
 .hp-board { display: grid; gap: 28px; }
 .hp-group { display: grid; gap: 6px; }
 .hp-group .wk-label { padding-bottom: 6px; }
@@ -62,8 +60,6 @@
 
 .hp-version { font-size: inherit; color: var(--wk-ink); }
 
-/* ── Where it all lands ───────────────────────────────────────────────────── */
-
 .hp-setup {
   display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px;
   padding-top: 24px; box-shadow: inset 0 1px 0 var(--wk-line);
@@ -114,8 +110,6 @@
 .hp-finish-sub { font-size: 14px; line-height: 1.4; color: var(--wk-ink-3); max-width: 24ch; }
 .hp-nowrap { white-space: nowrap; }
 
-/* ── Joining ours ─────────────────────────────────────────────────────────── */
-
 .hp-join-body { display: grid; gap: 28px; }
 .hp-soon { color: var(--wk-ink-3); }
 
@@ -136,8 +130,6 @@
 .hp-step-text { display: grid; gap: 3px; font-size: 16px; line-height: 1.45; color: var(--wk-ink-2); max-width: 24ch; }
 .hp-step-link { font-size: 14px; justify-self: start; }
 .hp-note { max-width: 68ch; }
-
-/* ── Narrower screens ─────────────────────────────────────────────────────── */
 
 @media (max-width: 1280px) and (min-width: 1101px) {
   .hp-file { grid-template-columns: 56px 12rem 36px minmax(0, 1fr); }
@@ -169,8 +161,6 @@
   .hp-step:not(:last-child)::before { top: 60px; bottom: -18px; left: 27px; right: auto; width: 2px; height: auto; }
   .hp-step:not(:last-child)::after { top: auto; bottom: -20px; left: 25px; right: auto; transform: rotate(90deg); }
 }
-
-/* ── Calm ─────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .hp-track, .hp-track::after, .hp-file-name { transition: none; }

@@ -1,64 +1,5 @@
-/*
- * ═══════════════════════════════════════════════════════════════════════════
- * THE CONCOURSE — the collection board
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * DIRECTION CONTRACT (impeccable, surface seed b46e1386, assigned structure 5 of
- * 5 — "the station board" — fused with the dealt challenger
- * `signals-instruments-split-flap-concourse`). Recorded here rather than as an
- * HTML comment in the built markup because this repo's precedent is the header
- * comment — WheelSpinner.jsx carries THE NOCTURNE's contract exactly this way,
- * and DESIGN.md §8 quotes it from here.
- *
- * THESIS: the collection is a departure board, not a card full of tiles. THE
- * NOCTURNE already says the reel is "a main transit line arriving at its stop,
- * and everything around it is the city it moves through" — the collection book
- * is the one building in that city that was never built. It refuses the category
- * default this surface shipped for a year: a rounded modal, a thin progress bar,
- * an accordion hiding the numbers, and 1,559 neon-bordered tiles all shouting at
- * the same volume.
- *
- * OWN-WORLD: the deck's blue-hour ramp under SURFACE_NOISE, edges made of rail
- * light instead of borders, station amber as the one signal colour, Barlow
- * Condensed in caps on split-flap drums, and the seven locked tier hues. No
- * radius anywhere, no border anywhere, no card anywhere.
- *
- * STORY: the player reads the board top to bottom — what they hold, then which
- * tier is finished and which is overdue, then the platform of items themselves —
- * and leaves knowing the one number the old book never told them: how long they
- * have been waiting.
- *
- * FIRST VIEWPORT: the head's six figures on flap drums over the full-width
- * platform line; the register directly beneath it, one ruled row per tier,
- * rarest first, each row a door into the platform below.
- *
- * FORM: the station board (candidate 5 of 5 on the grounded list), seed
- * b46e1386, challenger fused for its grammar only — the identity stays THE
- * NOCTURNE's, which is what the seed's own rules require.
- *
- * FINISH: unreviewed and undocumented is unfinished; this build ends with the
- * finish review, the verdict, and DESIGN.md.
- *
- * ── THE TWO TIERS ────────────────────────────────────────────────────────────
- *
- * The owner's call, and it is the same split /stats already makes for
- * achievements in DESIGN.md §7: the case and the chase are different questions
- * and get different furniture. Here the register IS the chase — held, missing,
- * how long since, and whether the wait has run past its own expectation — and
- * the platform below it is the case. One surface, two registers, no tab.
- *
- * ── THE ONE CLAIM THIS BOARD MAKES ───────────────────────────────────────────
- *
- * A row lamp goes amber when a tier is OVERDUE, and that word is doing real
- * work, so it is computed rather than felt. Every special item carries its own
- * drop chance; summed across a tier that is the tier's chance per spin, and its
- * reciprocal is how many spins a pull from it costs on average. When the dry
- * streak has passed that number, the tier is overdue — counted, never asserted,
- * with both numbers in the row's title so the reader can check the arithmetic.
- * Insane is deliberately exempt: one item at 0.000001% means the expectation is
- * larger than anyone's lifetime spin count, so the board says nothing at all
- * rather than lighting a lamp that can never go out.
- */
+// THE CONCOURSE: the collection board, a departure board rather than a card of tiles. The register (held, missing, how long since, overdue) is the chase; the platform below it is the case.
+// A row lamp goes amber when a tier is OVERDUE, computed not felt: the reciprocal of the tier's summed chance is the expected wait, and a dry streak past it is overdue; both numbers are in the row title. Insane is exempt (its expectation exceeds any lifetime spin count).
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { IMAGE_BASE_URL, INSANE_ITEMS, MYTHIC_ITEMS, TEAM_MEMBERS, EXOTIC_ITEMS, RELIC_ITEMS, RARE_MEMBERS, API_BASE_URL } from '../../../config/constants.js';
@@ -72,9 +13,7 @@ import { prestigeLabel, prestigeName, prestigeColor, prestigeInk, prestigeIcon, 
 import { PrestigeAscension } from './collection/PrestigeAscension.jsx';
 import { useWheelViewport } from '../config/breakpoints.js';
 
-/* The board's register order. Common is on the board too, which the old tier
-   strip left off entirely — it is 1,536 of 1,559 items, so a register that
-   skipped it was describing 1.5% of the collection. */
+// Register order. Common is included: it is 1,536 of 1,559 items.
 const REGISTER_ORDER = ['insane', 'mythic', 'legendary', 'relic', 'exotic', 'rare', 'common'];
 
 /* A prestige level is worn as a numeral, not a digit: "II" reads as a rank where
@@ -83,17 +22,10 @@ const REGISTER_ORDER = ['insane', 'mythic', 'legendary', 'relic', 'exotic', 'rar
    does not invalidate a memo simply by being absent. */
 const EMPTY = Object.freeze({});
 
-/* The tiers that count as a special pull. Spelled out rather than derived as
-   "everything that is not common", because the pool's items reach this file
-   under two different names depending on where they were read from — 'regular'
-   from the wheel's own tables, 'common' from the roster this board assembles. */
+// Tiers that count as a special pull, spelled out: 'regular' (wheel tables) and 'common' (this board's roster) both name commons.
 const SPECIAL_TYPES = new Set(['insane', 'mythic', 'legendary', 'relic', 'exotic', 'rare']);
 
-/* Tiers with no dry streak to show. Insane is the decision the old book recorded
-   and it is still right: one item at 0.000001% makes the streak every player's
-   entire spin count, which tells nobody anything. Common is here for the duller
-   reason that the backend tracks no streak for it, and it would say nothing if
-   it did — most spins are a common. */
+// Tiers with no dry streak: insane (the streak is the whole spin count) and common (the backend tracks none).
 const NO_STREAK = new Set(['insane', 'common']);
 
 function fmt(n) {
@@ -109,16 +41,7 @@ function fmtDate(dateStr, withTime = false) {
     return `${date} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
 }
 
-/* ═════════════════════════════════════════════════════════════════════════════
- * THE PLAQUE — one item, opened
- * ═════════════════════════════════════════════════════════════════════════════
- *
- * The old detail view was a 16px-radius card with a radial tint behind the
- * sprite and two boxed stat cells. This is the same information as a board
- * plaque: the item stands on a lit plinth with its own tier light rising from
- * the floor — the reel's grammar at a single slot — and its facts sit under it
- * in the register's own ruled columns.
- */
+// THE PLAQUE: one item on a lit plinth with its tier light rising from the floor, as on the reel; facts in the register's ruled columns.
 function ItemPlaque({ item, details, onClose, lucky = false, luckyOdds = null }) {
     const collected = details && details.count > 0;
     const tone = getRarityColor(item.type);
@@ -133,10 +56,7 @@ function ItemPlaque({ item, details, onClose, lucky = false, luckyOdds = null })
         return () => window.removeEventListener('keydown', onKey, true);
     }, [onClose]);
 
-    // On the Lucky lens the plaque describes lucky pulls, so all three facts change
-    // subject with it: the count is lucky pulls, not copies held, and the drop rate
-    // is the flat table's - on a lucky spin every item is as likely as any other,
-    // so an insane's 0.000001% would be the wrong number by six orders of magnitude.
+    // On the Lucky lens all three facts change subject: the count is lucky pulls, and the drop rate is the flat table's (an insane's weighted rate would be wrong by six orders of magnitude).
     const facts = lucky
         ? [
             { label: 'Lucky pulls', value: collected ? String(details.count) : '0', tone: collected ? DECK.ink : DECK.inkDim },
@@ -167,10 +87,7 @@ function ItemPlaque({ item, details, onClose, lucky = false, luckyOdds = null })
                 boxShadow: `inset 0 1px 0 ${rail(0.12)}, 0 24px 60px rgba(0,0,0,0.6)`,
                 animation: 'slideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
             }}>
-                {/* The item on its plinth. The light is the tier — a wash rising
-                    from the floor line the sprite stands on, exactly as the reel
-                    draws a slot, so an item met in the strip and an item met here
-                    are lit by the same lamp. A common gets no light at all. */}
+                {/* The tier light rises from the floor line like a reel slot; a common gets none. */}
                 <div style={{
                     position: 'relative', height: '162px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -178,21 +95,12 @@ function ItemPlaque({ item, details, onClose, lucky = false, luckyOdds = null })
                 }}>
                     {isSpecial && collected && (
                         <>
-                            {/* A radial rather than a linear wash, and for the
-                                same reason the platform's cells draw theirs as
-                                nested widths: a gradient that runs along one axis
-                                only ends in two hard vertical edges, which is a
-                                rectangle in the tier's colour. The radial has both
-                                axes for free, so the light falls off toward the
-                                plaque's sides the way it falls off toward its
-                                ceiling. */}
+                            {/* A radial, not a linear wash: a one-axis gradient ends in two hard vertical edges. */}
                             <div aria-hidden="true" style={{
                                 position: 'absolute', inset: 0,
                                 background: `radial-gradient(ellipse 58% 78% at 50% 100%, ${tone}5E 0%, ${tone}1C 46%, ${tone}00 78%)`,
                             }} />
-                            {/* The emitter, at the width of the light it throws —
-                                never the full plaque, which would be the bottom
-                                edge of a box. */}
+                            {/* The emitter is the width of the light it throws, never the full plaque. */}
                             <div aria-hidden="true" style={{
                                 position: 'absolute', left: '22%', right: '22%', bottom: 0, height: '2px',
                                 background: tone, boxShadow: `0 0 16px ${tone}`,
@@ -243,9 +151,7 @@ function ItemPlaque({ item, details, onClose, lucky = false, luckyOdds = null })
                         {facts.map((f, i) => (
                             <div key={f.label} style={{
                                 padding: '0 12px',
-                                // Cells are divided by a rule, never boxed — the
-                                // same decision the stats module's record block
-                                // makes for the same reason.
+                                // Cells are divided by a rule, never boxed.
                                 boxShadow: i > 0 ? `inset 1px 0 0 ${rail(0.07)}` : undefined,
                                 ...(i === 0 ? { paddingLeft: 0 } : null),
                             }}>
@@ -257,15 +163,10 @@ function ItemPlaque({ item, details, onClose, lucky = false, luckyOdds = null })
                         ))}
                     </div>
 
-                    {/* How it arrived. Two lamps rather than two chips: this is
-                        the board's own vocabulary for "something about this row
-                        is special", and a pill with a tinted fill would be the
-                        one boxed object on the surface. */}
+                    {/* Two lamps rather than chips: a tinted pill would be the one boxed object on the surface. */}
                     {collected && (details?.isLucky || details?.is_lucky === 1 || details?.isGoldRush || details?.is_gold_rush === 1) && (
                         <div style={{ display: 'flex', gap: '16px', marginTop: '16px', paddingTop: '12px', boxShadow: `inset 0 1px 0 ${rail(0.07)}` }}>
-                            {/* A box pull is lucky too (is_lucky = 1, for the luck
-                                statistics' sake), so the box is named instead of the
-                                spin, never beside it. */}
+                            {/* A box pull is lucky too (is_lucky = 1, for the luck statistics), so the box is named instead of the spin, never beside it. */}
                             {(details?.isMystery || details?.is_mystery === 1) ? (
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: COLORS.mystery }}>
                                     <Gift size={12} />
@@ -291,44 +192,24 @@ function ItemPlaque({ item, details, onClose, lucky = false, luckyOdds = null })
     );
 }
 
-/* ═════════════════════════════════════════════════════════════════════════════
- * THE BOARD
- * ═════════════════════════════════════════════════════════════════════════════ */
-
 export function CollectionBook({ collection, collectionDetails, stats, dryStreaks: dryStreaksProp, allItems, dynamicItems, onClose, viewingUser, viewingUserId }) {
     const [tierFilter, setTierFilter] = useState(null);
     const [have, setHave] = useState('all');
     const [sort, setSort] = useState('rarity');
     const [search, setSearch] = useState('');
     const [selectedItem, setSelectedItem] = useState(null);
-    // What the pointer or the caret is currently over on the platform. The canvas
-    // only calls up when the index actually changes, so this is a handful of
-    // renders per sweep rather than one per mousemove.
+    // The canvas calls up only when the index changes, so this is a few renders per sweep.
     const [readout, setReadout] = useState(null);
 
-    /*
-     * PRESTIGE
-     *
-     * `scope` is which collection the register and the platform are reading — the
-     * main one, or a prestige run. It is a lens over the same board and not a
-     * second board: the head, the register's shape, the platform's cells and
-     * every control are identical, and only the numbers underneath them change.
-     * That is the whole reason prestige could be added to this surface without
-     * designing another one.
-     */
+    // `scope` is which collection the register and platform read: a lens over the same board, not a second board.
     const [prestige, setPrestige] = useState(null);
     const [scope, setScope] = useState('main');
     const [prestigeData, setPrestigeData] = useState(null);
     const [viewLevel, setViewLevel] = useState(null);
-    // The level currently detonating, or null. Named for what it is rather than
-    // for the animation, because the board's own state is what it gates: the
-    // register behind the overlay is already the new one.
+    // The level currently detonating, or null; the register behind the overlay is already the new one.
     const [ascending, setAscending] = useState(null);
     const [starting, setStarting] = useState(false);
-    // `null` until the fetch answers, and `null` again if it fails. The initial
-    // value used to be a row of zeros, which is the single most optimistic thing
-    // a dry-streak column can say: a failed request rendered "you just pulled
-    // one" for every tier, and no tier could ever be overdue.
+    // `null` until the fetch answers (and on failure), never zeros: zeros read as 'just pulled one' and no tier could be overdue.
     const [ownDryStreaks, setOwnDryStreaks] = useState(null);
     // The Lucky ledger (GET /api/lucky): every lucky spin's outcome, rolled up.
     // `null` until it answers, and the lens is not offered until it does.
@@ -337,36 +218,12 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
     const platformRef = useRef(null);
     const [platformHeight, setPlatformHeight] = useState(360);
 
-    /*
-     * The lens.
-     *
-     * Everything below reads `activeCollection` rather than `collection`, so the
-     * register, the platform, the head's figures, the search and the sort all
-     * work on whichever collection is in view without knowing which one it is.
-     * A prestige run is the same board reading a different table.
-     */
+    // The lens: everything below reads `activeCollection`, so register, platform, head, search and sort work on whichever collection is in view.
     const prestigeView = scope === 'prestige';
-    /*
-     * LUCKY
-     *
-     * The third lens, and the same argument as prestige: the board already knows
-     * how to show a collection, a register of tiers and a platform of items, so
-     * "what my lucky spins landed" is this board reading one more table. What
-     * differs is only what the numbers are about - counts are lucky pulls, streaks
-     * are counted in lucky spins, and every expectation is priced on the flat table
-     * a lucky spin draws from rather than the weighted one.
-     *
-     * Commons are off this board entirely. They are the misses, and 1,500 tiles of
-     * misses would bury the forty-odd items the lens exists to show; their count
-     * lives in the head, as the denominator of the hit rate.
-     */
+    // LUCKY, the third lens: counts are lucky pulls, streaks are in lucky spins, expectations use the flat table a lucky spin draws from. Commons are off this board (1,500 tiles of misses); their count is the hit rate's denominator in the head.
     const luckyView = scope === 'lucky';
-    // Memoised, and not for tidiness: the `|| {}` fallback mints a new object on
-    // every render, and three memos below key off these — the register, the
-    // totals, and the sort over 1,559 items. Without this the board re-sorts its
-    // whole platform on every keystroke in the search field.
-    // The ledger arrives keyed by texture with its own field names; shaped once
-    // here into what the board's collection/details pair already looks like.
+    // Memoised: the `|| {}` fallback mints a new object each render and three memos key off it (the sort over 1,559 items would rerun per keystroke).
+    // The ledger arrives keyed by texture with its own field names; shaped once into the board's collection/details pair.
     const luckyCollection = useMemo(() => {
         const counts = {};
         const details = {};
@@ -389,21 +246,11 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
         [prestigeView, prestigeData, luckyView, luckyCollection, collectionDetails],
     );
 
-    // When viewing someone else, their streaks arrive as a prop alongside the rest of
-    // their profile - /api/dry-streaks only answers for the logged-in user, so this
-    // used to leave the whole row sitting at zero for other people's collections.
-    //
-    // And when the prop is absent on someone else's board, the answer is *nothing*,
-    // not zero. The fetch below is correctly skipped for another player, so the
-    // fallback would have handed them this component's initial state — a row of
-    // zeros, which on a dry-streak column reads as "they just pulled one" rather
-    // than as "we were not told". A wrong number is worse than a dash.
+    // On someone else's board their streaks arrive as a prop (/api/dry-streaks answers only for the session); when absent the answer is nothing, not zeros: a wrong number is worse than a dash.
     const dryStreaks = dryStreaksProp || (viewingUser ? null : ownDryStreaks);
 
     useEffect(() => {
-        // Never fetch when looking at someone else - /api/dry-streaks answers for the
-        // session, so it would quietly show the viewer's own streaks on another
-        // player's collection.
+        // Never fetch for someone else: /api/dry-streaks answers for the session and would show the viewer's own streaks.
         if (viewingUser || dryStreaksProp) return;
 
         async function fetchDryStreaks() {
@@ -418,13 +265,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
         fetchDryStreaks();
     }, [viewingUser, dryStreaksProp]);
 
-    /*
-     * Prestige state, for whichever player's board this is.
-     *
-     * A board that cannot read prestige is a board without the lens, not a broken
-     * one: every prestige control is gated on this state existing, so the failure
-     * mode is the surface exactly as it was before the feature.
-     */
+    // Prestige state for this board's player; every prestige control is gated on it, so failure leaves the pre-feature surface.
     const loadPrestige = useCallback(async () => {
         try {
             const url = viewingUserId
@@ -459,9 +300,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
         return () => { cancelled = true; };
     }, [viewingUserId]);
 
-    // The Lucky ledger, fetched up front rather than when the lens is chosen,
-    // because whether to offer the lens at all depends on it: a player with no
-    // lucky spins gets no third option opening onto an empty board.
+    // Lucky ledger fetched up front: whether to offer the lens depends on it, so there is no empty third option.
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -505,19 +344,13 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
     }, [scope, prestige, viewLevel, viewingUserId]);
 
     useEffect(() => {
-        // Escape closes the board — except while the prestige ceremony is
-        // running, when closing the board IS skipping it. The overlay swallows
-        // the key too; this is the second lock on the same door, because the two
-        // handlers are on different elements and only one of them is guaranteed
-        // to see the event first.
+        // Escape closes the board, except during the prestige ceremony, where closing IS skipping it; the overlay swallows the key too (a second lock, since the handlers are on different elements).
         const onKey = e => { if (e.key === 'Escape' && !ascending) onClose(); };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [onClose, ascending]);
 
-    // The platform's canvas needs a pixel height and its mount flexes, so it is
-    // measured rather than declared — DESIGN.md §8's "don't give a canvas a fixed
-    // height when its mount flexes" applies here exactly as it does in the band.
+    // Measured, not declared: the canvas needs a pixel height and its mount flexes (DESIGN.md §8).
     useEffect(() => {
         const el = platformRef.current;
         if (!el || typeof ResizeObserver === 'undefined') return undefined;
@@ -532,19 +365,13 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
     const { tierItems, allItemsWithSpecial } = useMemo(() => {
         const hasApiData = dynamicItems && dynamicItems.length > 0;
 
-        // One mapper per source instead of four near-identical filter/map pairs
-        // per tier — adding exotic to the hand-written version meant writing the
-        // same eight lines a fifth time and getting one of the field names wrong.
+        // One mapper per source instead of four near-identical filter/map pairs.
         const fromApi = tier => dynamicItems.filter(i => i.rarity === tier).map(i => ({
             name: i.name, texture: i.texture, type: tier,
             chance: i.display_chance || i.chance,
             username: i.username, imageUrl: i.image_url || i.imageUrl
         }));
-        // `m.texture ||` is not defensive padding. The template below is right for a
-        // head and wrong for anything else in a member list: ChromaRGBDirt and the
-        // Wandering Trader have no username, so it built `special_null` for BOTH of
-        // them and the book showed one entry where there are two. Members that are
-        // not heads carry their real texture in constants.js; prefer it.
+        // `m.texture ||` is not padding: ChromaRGBDirt and the Wandering Trader have no username, so the template built `special_null` for both. Prefer the real texture from constants.js.
         const fromMembers = (members, tier, prefix) => members.map(m => ({
             name: m.name, texture: m.texture || `${prefix}_${m.username}`, type: tier,
             username: m.username, chance: m.chance, imageUrl: m.imageUrl
@@ -591,12 +418,6 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
     // so one item's chance is one over this, and a tier's is its size over this.
     const luckyPoolSize = allItemsWithSpecial.length;
 
-    /* ── The register ─────────────────────────────────────────────────────────
-     *
-     * One row per tier that has items. Everything in a row is read off the same
-     * data the old book already had; what is new is that it is on the board
-     * instead of behind an accordion, and that the wait has a number.
-     */
     const register = useMemo(() => REGISTER_ORDER
         .map(key => {
             const items = tierItems[key] || [];
@@ -606,10 +427,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
             const held = items.filter(i => activeCollection[i.texture] > 0).length;
             const missing = items.length - held;
 
-            // The tier's most recent arrival. Only the signed-in player's own
-            // payload carries first_obtained; another player's collection details
-            // are assembled from the special-items list and have no timestamps at
-            // all, so this is absent rather than wrong on someone else's board.
+            // Only the signed-in player's payload carries first_obtained; another player's details have no timestamps, so this is absent, not wrong.
             let last = null;
             for (const i of items) {
                 const at = activeDetails?.[i.texture]?.firstObtained;
@@ -619,44 +437,18 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
             // this tier, repeats included - the ledger carries it per tier.
             if (luckyView) last = luckyData?.tiers?.[key]?.last || null;
 
-            // Expected spins between pulls = 1 / (the tier's summed chance).
-            //
-            // `chance` is a FRACTION, not a percentage — 0.00009 for the mythic
-            // tier, not 0.009. This was written against the percentage reading
-            // first and every expectation came out a hundred times too large:
-            // the register offered "one costs about 1,111,111 spins on average"
-            // for a tier the player had completed three times over. Caught by
-            // reading the accessibility tree rather than the screen, because the
-            // number only ever appeared in a title attribute. `formatChance` is
-            // the proof: it multiplies by 100 before printing a percent sign.
-            //
-            // A lucky spin ignores `chance` altogether: the flat table makes the
-            // tier's odds its size over the pool, so the expectation is that
-            // ratio's reciprocal, counted in lucky spins. Insane stops being exempt
-            // there for the same reason - one item in ~1,560 is a wait a lucky
-            // spinner can actually finish.
+            // Expected spins between pulls = 1 / the tier's summed chance. `chance` is a FRACTION, not a percentage (`formatChance` multiplies by 100). A lucky spin ignores `chance`: odds are the tier's size over the pool, counted in lucky spins, and insane is no longer exempt.
             const chanceSum = luckyView
                 ? (luckyPoolSize > 0 ? items.length / luckyPoolSize : 0)
                 : items.reduce((sum, i) => sum + (Number(i.chance) || 0), 0);
             const expected = chanceSum > 0 ? Math.round(1 / chanceSum) : null;
-            // `?? null` rather than `?? 0`, for the same reason: a missing key —
-            // during a deploy where the API is briefly older than the page, or on
-            // another player's board — is an absence, and the register prints an
-            // absence as a dash. A real streak of 0 still arrives as 0 and still
-            // prints as 0, which is the case that made the old `?? 0` look right.
-            // A tier the ledger has never seen has waited every lucky spin taken.
+            // `?? null`, not `?? 0`: a missing key is an absence the register prints as a dash; a real streak of 0 still prints 0. A tier the ledger never saw has waited every lucky spin taken.
             const since = luckyView
                 ? (luckyData ? (luckyData.tiers?.[key]?.since ?? luckyData.spins) : null)
                 : NO_STREAK.has(key) ? null : (dryStreaks?.[key] ?? null);
             const overdue = expected != null && since != null && since > expected;
 
-            // Complete outranks overdue, and the two are not the same claim: a
-            // tier you have finished is not overdue for anything you still need.
-            // But "you own all ten rares" and "you have not pulled one in 414
-            // spins" are both true at once, and the status column has room for
-            // one word — so the word goes to the collection and the wait is
-            // marked on the SINCE figure instead, which is the number it is
-            // about. That is why `overdue` travels separately from `status`.
+            // Complete outranks overdue: the status column has room for one word, so the wait is marked on SINCE; `overdue` travels separately from `status`.
             const status = held === 0 ? 'empty'
                 : missing === 0 ? 'complete'
                 : overdue ? 'overdue'
@@ -683,9 +475,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
             pct: total > 0 ? (held / total) * 100 : 0,
             spins: stats?.totalSpins || 0,
             dupes: stats?.totalDuplicates || 0,
-            // Every tier the label calls a special, exotic included — leaving it
-            // out inflated the average, since the spins that produced an exotic
-            // still counted in the numerator.
+            // Every tier the label calls a special, exotic included: leaving one out inflated the average.
             perSpecial: specials > 0 ? (stats.totalSpins / specials).toFixed(1) : null,
         };
     }, [rosterItems, activeCollection, stats]);
@@ -744,14 +534,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
         ])).sort((a, b) => a - b)
         : [];
 
-    /*
-     * Starting a run.
-     *
-     * The server decides — the disabled button is a courtesy and the rule lives
-     * in `services/prestige.js`. A 409 here means the state moved under us (a
-     * second tab, a stale page), so the honest response is to re-read rather than
-     * to argue with it.
-     */
+    // Starting a run: the server decides (services/prestige.js); the disabled button is a courtesy, and a 409 means state moved, so re-read.
     const handleStartPrestige = useCallback(async () => {
         if (starting) return;
         setStarting(true);
@@ -769,10 +552,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
             setViewLevel(data.level);
             setPrestigeData(null);
 
-            // The board switches underneath first, so when the convergence
-            // clears there is nothing left to animate — the new schedule is
-            // simply already there. The overlay is the moment; the board's own
-            // flap cascade is what it lands on.
+            // The board switches underneath first so there is nothing left to animate when the convergence clears.
             setScope('prestige');
             setTierFilter(null);
             setHave('all');
@@ -787,19 +567,13 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
     }, [starting, loadPrestige]);
 
     const filtered = Boolean(tierFilter) || have !== 'all' || search.trim().length > 0;
-    // "LEGENDARY PRESTIGE" is eighteen characters of drum — about 324px at the
-    // phone's 28px step, in a 358px board — so it overflowed its row and the
-    // earned-level badge sat on top of its last letters. The word "Prestige" is
-    // the one part a phone can afford to lose: the lens directly beneath the
-    // title already says it, and says it as the *selected* state.
+    // The phone drops the word "Prestige": "LEGENDARY PRESTIGE" is ~324px of drum in a 358px board and overflowed onto the level badge; the lens beneath the title already says it.
     const boardTitle = prestigeView
         ? ((isPhone ? prestigeName(shownLevel) : prestigeLabel(shownLevel)) || 'Prestige')
         : luckyView ? (isPhone ? 'Lucky' : 'Lucky spins')
         : (viewingUser ? `${viewingUser}` : 'Collection');
 
-    // Offered once the ledger has a lucky spin in it. Most players do - one spin in
-    // twenty grants one - so this is not the rare state prestige is, but a board
-    // with nothing to say should not have a door onto it.
+    // Offered once the ledger has a lucky spin; a board with nothing to say gets no door onto it.
     const hasLucky = (luckyData?.spins || 0) > 0;
     const lensOptions = [
         ['main', 'Collection'],
@@ -813,14 +587,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
         if (next === 'lucky') setTierFilter(f => (f === 'common' ? null : f));
     }, []);
 
-    // The lens's own facts. The hit rate is the number the lens exists for.
-    //
-    // A "fair odds" figure stood beside it for one build - the share of the flat
-    // table that is special, so a reader could tell a lucky run from a dry one.
-    // The owner cut it. Worth knowing before anyone brings it back: it was priced
-    // on TODAY's roster while the hit rate spans a whole history in which the
-    // relic and exotic tiers did not always exist, so the two numbers never
-    // described quite the same table.
+    // The lens's own facts. No 'fair odds' figure, by owner's call: it was priced on today's roster while the hit rate spans a history in which relic and exotic did not exist.
     const luckyFacts = useMemo(() => {
         if (!luckyView || !luckyData) return null;
         const spins = luckyData.spins || 0;
@@ -840,28 +607,13 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
 
     // The head's figures. Fixed columns, divided by rules, label under value —
     // the register's own grammar one size up, not a row of stat cards.
-    /*
-     * The second register follows the lens.
-     *
-     * On the main board these are the career figures they have always been. On a
-     * prestige board they were *still* the career figures, which put "249 held"
-     * on the same coping as "50,342 duplicates" — two numbers about different
-     * collections, one of them looking very much like a total for the run you are
-     * staring at. A lens that changes the subject has to change the facts with it.
-     *
-     * Everything here is derived from the run's own rows, so nothing new is
-     * fetched and nothing can disagree with the register below it.
-     */
+    // The second register follows the lens: on a prestige board career figures would sit beside run figures. Derived from the run's own rows; nothing new is fetched.
     const runFacts = useMemo(() => {
         if (!prestigeView) return null;
         const counts = Object.values(activeCollection);
         const unique = counts.length;
         const dupes = counts.reduce((sum, n) => sum + n, 0) - unique;
-        // Tested against the ladder, NOT against 'common'. A pool item is stored
-        // as `item_type = 'regular'` in the wheel's database and only normalised
-        // to 'common' when this board builds its own roster — so "not common"
-        // was true for every ordinary item and this read 249 specials out of 249
-        // items. Two spellings of the same idea, and the filter met the other one.
+        // Tested against the ladder, NOT 'common': pool items are stored as `item_type = 'regular'` and only normalised to 'common' when this board builds its roster.
         const specials = Object.entries(activeCollection)
             .filter(([texture, n]) => n > 0 && SPECIAL_TYPES.has(activeDetails[texture]?.type))
             .length;
@@ -923,9 +675,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
             { label: 'Spins', value: fmt(totals.spins), tone: DECK.inkMid },
             { label: 'Duplicates', value: fmt(totals.dupes), tone: DECK.inkMid },
             {
-                // The long form drives this column ~115px wide, which is what
-                // pushed the phone's spin register onto a second line with one
-                // figure stranded on it. The title carries the full sentence.
+                // The long form drives this column ~115px wide and strands a figure on a second line on the phone; the title carries the full sentence.
                 label: isPhone ? 'Per special' : 'Spins per special',
                 value: totals.perSpecial ?? '—',
                 tone: DECK.inkMid,
@@ -949,9 +699,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
             className="fib-collection-book"
             style={{
                 position: 'fixed', inset: 0,
-                // The scrim ladder's middle step: this pushes the stage back
-                // behind a plaque rather than blacking it out. The board is a
-                // structure standing in the same city, not a new screen.
+                // Scrim ladder's middle step: pushes the stage back behind a plaque.
                 background: 'rgba(0,0,0,0.8)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: 1000, padding: isPhone ? '0' : '24px',
@@ -964,14 +712,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                 height: isPhone ? '100%' : 'min(88vh, 860px)',
                 display: 'flex', flexDirection: 'column',
                 backgroundImage: DECK.face,
-                // Edges of light, not a border: a lit rail along the top, the
-                // deck falling away below. The outer shadow seats the board over
-                // the scrim and carries a real offset and blur.
-                // Three edges, the way the band has three: a lit rail along the
-                // top, and a front lip at the bottom — one light face over the
-                // dark under-line. Without the lip the board simply stopped, and
-                // a structure with no bottom edge reads as a region rather than
-                // as a thing standing in the room.
+                // Edges of light, not a border: a lit top rail and a front lip at the bottom (a board with no bottom edge reads as a region); the outer shadow seats it over the scrim.
                 boxShadow: [
                     `inset 0 1px 0 ${rail(0.12)}`,
                     `inset 0 -2px 0 rgba(0,0,0,0.55)`,
@@ -982,19 +723,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                 overflow: 'hidden',
             }}>
 
-                {/*
-                 * The upper deck: the head and the register, which scroll
-                 * together and only when they have to.
-                 *
-                 * On a 375x667 phone the head, the register and the platform's
-                 * own controls want about 520px between them, which left the
-                 * platform 160px — two rows of a 1,559-item grid, on the surface
-                 * whose whole job is showing them. The platform now holds a floor
-                 * of 322px on a phone and the upper deck gives way instead, which
-                 * is the right way round: the numbers are a few rows you can
-                 * scroll back to, and the items are the thing you came for.
-                 * Above phone width nothing here ever scrolls.
-                 */}
+                {/* Upper deck (head and register) scrolls only when it has to: on a phone the platform keeps a 322px floor and the upper deck gives way. */}
                 <div
                     className={isPhone ? 'fib-board-scroll' : undefined}
                     style={{
@@ -1003,10 +732,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                         overflowY: isPhone ? 'auto' : 'visible',
                     }}
                 >
-                {/* ── THE HEAD ──────────────────────────────────────────────
-                    The deck's top face: the surface grain with sky light falling
-                    from the rail and dying before the register, the same coping
-                    the status console sits on in the band. */}
+                {/* The deck's top face, as in the band's status console. */}
                 <div style={{
                     position: 'relative', flex: '0 0 auto',
                     padding: isPhone ? '16px 16px 0' : '24px 26px 0',
@@ -1022,23 +748,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                 plate
                             />
 
-                            {/*
-                             * The lens.
-                             *
-                             * Not a tab bar — this board already owns exactly one
-                             * control for "pick one of N" and a second shape doing
-                             * the same job is how a reader loses the ability to
-                             * learn either. It appears only for a player who has
-                             * prestige, so the board grows no furniture for a
-                             * state almost nobody is in.
-                             *
-                             * Lucky joined it as a third option rather than as a
-                             * tab beside it, for the reason above: it is one more
-                             * collection to read, and this is the control that
-                             * picks which. Each option is offered only when its
-                             * collection exists, so the lens still vanishes for
-                             * a player who has neither.
-                             */}
+                            {/* The lens, not a tab bar: this board already has one 'pick one of N' control. Prestige and Lucky are options, each offered only when its collection exists, so the lens vanishes for players with neither. */}
                             {lensOptions.length > 1 && (
                                 <Segmented
                                     value={scope}
@@ -1048,24 +758,9 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                 />
                             )}
 
-                            {/* Past levels stay browsable, which is the whole
-                                reason the prestige collection is keyed by level
-                                rather than cleared. Only shown once there is more
-                                than one to choose between. */}
+                            {/* Past levels stay browsable (the prestige collection is keyed by level); shown only with more than one. */}
                             {prestigeView && selectableLevels.length > 1 && (
-                                // Labelled like SHOW and SORT below it, and the
-                                // options are the levels' NAMES.
-                                //
-                                // Adding the "Level" label fixed half of this:
-                                // bare numerals next to two labelled groups is a
-                                // control that never says what it controls. The
-                                // other half was the options themselves — "I II
-                                // III" is the least self-describing set on the
-                                // board, and a reader has to already know the
-                                // ladder to pick from it. The tier names are the
-                                // ladder, they are one word each, and they match
-                                // what the title says about whichever one is
-                                // selected.
+                                // Labelled like SHOW and SORT, with the levels' NAMES as options: bare numerals are the least self-describing set on the board.
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <BoardLabel>Level</BoardLabel>
                                     <Segmented
@@ -1079,14 +774,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
-                            {/*
-                             * The unlock.
-                             *
-                             * Station amber, because it is the board telling you
-                             * something — the level's own rarity colour belongs to
-                             * the badge you earn, not to the button that earns it,
-                             * or rarity would stop meaning rarity for one control.
-                             */}
+                            {/* The unlock is station amber (the board talking); the level's rarity colour belongs to the badge you earn, not the button. */}
                             {canPrestige && (
                                 <Plinth
                                     as="button"
@@ -1109,17 +797,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                 </Plinth>
                             )}
 
-                            {/* The badge. Worn on the board whose collection earned
-                                it, at every level, and iridescent at the top for
-                                the same reason insane is.
-
-                                Spelled out on a desktop head, a bare mark on a
-                                phone. It used to be the mark plus a Roman
-                                numeral, which is the level said twice — the
-                                level picks the icon, so ◇ and I carry the same
-                                one bit — and explained nowhere a phone could
-                                reach. The word is the explanation; the numeral
-                                was never doing anything the mark was not. */}
+                            {/* The badge, worn at every level and iridescent at the top like insane; spelled out on a desktop head, a bare mark on a phone. */}
                             {prestige?.level > 0 && (
                                 <span
                                     className={isIridescentPrestige(prestige.level) ? 'fib-holo' : undefined}
@@ -1138,10 +816,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                             : prestigeInk(prestige.level),
                                     }}
                                 >
-                                    {/* The level's own tier mark. The Crown stays
-                                        on the ACTION button below, which is the
-                                        abstract idea of prestige; anything naming
-                                        a specific level wears that level's icon. */}
+                                    {/* The level's own tier mark; the Crown stays on the ACTION button below. */}
                                     {isPhone && <span className="fib-sr-only">{prestigeLabel(prestige.level)}</span>}
                                     {prestigeIcon(prestige.level, 13)}
                                     {!isPhone && (
@@ -1166,18 +841,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                         </div>
                     </div>
 
-                    {/* The figures. Six of them on a desktop board, on drums, in
-                        fixed columns — the numbers this book used to hide behind a
-                        "Spin Stats" accordion, which is what made the surface feel
-                        like it had nothing to say.
-
-                        A phone cannot carry six drums, six register rows and a
-                        usable grid in 667px, and of the three the drums are the
-                        least urgent: a total is a thing you read once. So the
-                        three collection figures keep their drums and the three
-                        spin figures fold into one tracked line under the platform
-                        line. Nothing is dropped and nothing is hidden behind a
-                        control — the numbers just take the room they are worth. */}
+                    {/* The figures: six on drums on desktop; on a phone the three spin figures fold into one tracked line under the platform line (667px cannot carry six drums, six rows and a usable grid). */}
                     <div style={{
                         display: 'flex',
                         alignItems: 'flex-end',
@@ -1220,18 +884,9 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                     {!isPhone && <SpinRegister figures={headFigures.slice(3)} align="right" />}
                     </div>
 
-                    {/* The platform line: the board's own baseline, filled to the
-                        collection's completion. It replaces the thin rounded
-                        progress bar and needs no label, because HELD and COMPLETE
-                        are standing directly above it. */}
-                    {/* The board's baseline takes the level's colour on a
-                        prestige board, where the title, the badge and the level
-                        selector all already carry it; station amber is the main
-                        board's own signal and stays there. */}
-                    {/* On the Lucky lens the line measures how much of the
-                        special roster lucky spins have landed, in the lucky
-                        family's green - the colour every lucky pull already
-                        wears on the feed and the plaque. */}
+                    {/* The platform line: the baseline, filled to completion; no label, HELD and COMPLETE stand above it. */}
+                    {/* The baseline takes the level's colour on a prestige board; station amber is the main board's signal. */}
+                    {/* On the Lucky lens the line measures how much of the special roster lucky spins landed, in lucky green. */}
                     <div
                         role="progressbar"
                         aria-label={luckyView ? 'Specials landed on a lucky spin' : 'Collection completion'}
@@ -1247,18 +902,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                     />
                     </div>
 
-                    {/*
-                     * The spin figures, folded into one tracked line.
-                     *
-                     * Six equal drums in one run was a KPI strip with the boxes
-                     * taken off — the form kept, the container removed — and it
-                     * put 44,408 next to 42,692 at identical size and tone, two
-                     * five-digit numbers the eye cannot tell apart. These three
-                     * are a different register from the collection's three: they
-                     * are about spinning, not about holding, and a total is a
-                     * thing you read once. The phone worked this out first; the
-                     * board follows it.
-                     */}
+                    {/* The spin figures, folded into one tracked line: a different register (spinning, not holding) from the collection's three. */}
                     {isPhone && (
                         <div style={{ padding: '14px 0 2px' }}>
                             <SpinRegister figures={headFigures.slice(3)} size={17} />
@@ -1268,11 +912,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
 
                 {/* ── THE REGISTER ─────────────────────────────────────────── */}
                 <div style={{ flex: '0 0 auto', padding: isPhone ? '0 16px' : '0 26px' }}>
-                    {/* 22px above the headings, against 8px under the meter: the
-                        meter measures the figures it sits below, and at 11px it
-                        was reading as the register's own top rule — the one
-                        full-bleed line on a surface whose contract says no
-                        borders. More space above a heading than below it. */}
+                    {/* 22px above the headings, 8px under the meter: at 11px the meter read as the register's top rule, the one full-bleed line on a no-border surface. */}
                     <div style={{
                         display: 'grid', gridTemplateColumns: gridTemplate,
                         alignItems: 'center', gap: isPhone ? '0 6px' : '0 14px',
@@ -1296,11 +936,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                 : row.status === 'empty' ? DECK.inkMid
                                 : DECK.inkMid;
 
-                            // The whole claim, as one sentence, on the row itself.
-                            // It used to live only in a `title` — unreachable on a
-                            // phone, unreliable for a screen reader, and the row's
-                            // accessible name was a bare run of numerals
-                            // ("Rare 10 0 JAN 07 414 Complete").
+                            // The whole claim as one sentence on the row: a `title` alone is unreachable on a phone and leaves a bare run of numerals as the accessible name.
                             const unit = luckyView ? 'lucky spins' : 'spins';
                             const waitSentence = row.expected != null && row.since != null
                                 ? `${fmt(row.since)} ${unit} since your last ${row.label}; one costs about ${fmt(row.expected)} ${unit} on average`
@@ -1321,19 +957,13 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                         waitSentence,
                                         statusWord,
                                     ].filter(Boolean).join('. ')}
-                                    // No `title`: the same sentence is the row's
-                                    // accessible name and the DUE label says it on
-                                    // screen. A third copy in a native tooltip is
-                                    // one nobody on a phone can reach anyway.
+                                    // No `title`: the sentence is the accessible name and the DUE label says it on screen.
                                     style={{
                                         display: 'grid', gridTemplateColumns: gridTemplate,
                                         alignItems: 'center', gap: isPhone ? '0 6px' : '0 14px',
                                         width: '100%', padding: isPhone ? '7px 0' : '12px 0',
                                         border: 'none', textAlign: 'left', font: 'inherit',
-                                        // The tier's own wash and base bar are the
-                                        // only per-tier values here, so they are the
-                                        // only ones the component supplies; the
-                                        // states themselves live in index.css.
+                                        // Only the tier's wash and base bar are per-tier values; the states live in index.css.
                                         '--fib-row-wash': `${row.tone}14`,
                                         '--fib-row-tone': row.tone,
                                     }}
@@ -1342,11 +972,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                         state={row.status === 'complete' ? 'lit' : row.overdue ? 'due' : 'dark'}
                                         tone={row.tone}
                                     />
-                                    {/* A tier with nothing held is the one row on the
-                                        board with everything left to do, and it was
-                                        rendered as the quietest: dim label, dark lamp,
-                                        empty meter, two dashes. The chase gets its own
-                                        ink back. */}
+                                    {/* A tier with nothing held keeps its ink: it has everything left to do. */}
                                     <FlapText
                                         text={row.label}
                                         size={isPhone ? 15 : 16}
@@ -1373,16 +999,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                             style={{ justifyContent: 'flex-end' }}
                                         />
                                     )}
-                                    {/* The wait, as a number.
-                                        A "DUE" badge rode in front of it for one
-                                        build, on the argument that a colour is not
-                                        a claim anyone can read. The owner cut it:
-                                        a word in a column of figures breaks the
-                                        column, and this register is read down. The
-                                        amber stays — it is the signal, not a label
-                                        — and the row's accessible name still
-                                        carries the whole sentence, so the claim is
-                                        reachable without a word on screen. */}
+                                    {/* The wait as a number. No 'DUE' badge, by owner's call: a word in a column of figures breaks a register read down; the amber is the signal and the accessible name carries the sentence. */}
                                     <FlapText
                                         text={row.since == null ? '—' : fmt(row.since)}
                                         digits={row.since != null} size={16}
@@ -1459,10 +1076,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
 
                         <div style={{ flex: '1 1 auto', minWidth: '12px' }} />
 
-                        {/* Two radiogroups, not one six-way control. They sat 10px
-                            apart with identical plinths and the same amber active
-                            state, so "ALL … RARITY" read as two selections in one
-                            set; the aria-labels were correct and invisible. */}
+                        {/* Two radiogroups, not one six-way control: adjacent identical plinths read as one set. */}
                         <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <BoardLabel>Show</BoardLabel>
                             <Segmented
@@ -1502,9 +1116,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                                     textTransform: 'uppercase',
                                 }}
                             />
-                            {/* Backspacing out of a search field is not a control.
-                                It holds its space when hidden so the control bar
-                                does not resize as you type. */}
+                            {/* Holds its space when hidden so the control bar does not resize as you type. */}
                             <button
                                 onClick={() => setSearch('')}
                                 aria-label="Clear the search"
@@ -1554,15 +1166,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
                     </div>
                 </div>
 
-                {/*
-                 * THE CONVERGENCE.
-                 *
-                 * Mounted inside the board rather than over the page: this is the
-                 * board spending its own collection, and the deck's edges should
-                 * still frame it. `mainCollection` and not the lens — the items
-                 * being committed are the ones you had, and by this point the
-                 * board behind is already showing the empty run.
-                 */}
+                {/* THE CONVERGENCE, mounted inside the board so the deck's edges frame it. `mainCollection`, not the lens: the items committed are the ones you had. */}
                 {ascending && (
                     <PrestigeAscension
                         level={ascending}
@@ -1586,27 +1190,7 @@ export function CollectionBook({ collection, collectionDetails, stats, dryStreak
     );
 }
 
-/**
- * The spin register: three figures about spinning rather than about holding.
- *
- * ── HOW THIS LANDED AT A SECOND SIZE OF DRUM ─────────────────────────────────
- *
- * It started as six equal drums in one run, which is a KPI strip with the boxes
- * taken off — the form kept, the container removed — and it put 44,408 beside
- * 42,692 at identical size and tone, two five-digit numbers the eye cannot
- * separate. So the three spin figures were split off into a tracked line.
- *
- * That over-corrected and the owner said so: at label size they read as
- * side-notes, and a figure like "44,408 spins" is not a side-note — it is the
- * denominator under half the board. The split was never the problem; the volume
- * was.
- *
- * They are drums again, one step down: 20px against the collection's 27, which
- * is a 1.35 ratio — enough that the two registers read as headline and
- * supporting rather than as six equal claims, and enough that these still read
- * as figures on a board rather than as captions. The same two-tier trick §7's
- * profile record uses at 48/18.
- */
+// The spin register: three figures about spinning, one drum step down (20px against 27, a 1.35 ratio) so the two registers read as headline and supporting.
 function SpinRegister({ figures, align, size = 20 }) {
     return (
         <div style={{

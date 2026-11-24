@@ -3,7 +3,7 @@ import { useCalm } from '../../config/power.js';
 
 /* Silhouettes render once per size offscreen; frames run only on screen and in a visible tab. Calm draws one still frame. */
 
-/* ── Deterministic randomness, so a place looks the same on every visit ──────── */
+/* Deterministic randomness, so a place looks the same on every visit. */
 
 function rng(seed) {
     let a = seed >>> 0;
@@ -28,10 +28,7 @@ function noise1(seed) {
     };
 }
 
-/*
- * ── Places ──
- * Fixed oklch paints, not tokens: dark by design and never read as text.
- */
+/* Fixed oklch paints, not tokens: dark by design and never read as text. */
 
 const PRESETS = {
     surface: {
@@ -108,8 +105,6 @@ const PRESETS = {
         particles: 'endrods',
     },
 };
-
-/* ── The still picture ───────────────────────────────────────────────────────── */
 
 function paintBlocks(ctx, cells, B, color, texture, r) {
     ctx.fillStyle = color;
@@ -309,8 +304,6 @@ function paintStill(canvas, preset, seed, W, H, s) {
     }
 }
 
-/* ── Particles ───────────────────────────────────────────────────────────────── */
-
 const PARTICLES = {
     fireflies: { n: 26, spawn: (r, W, H) => ({ x: r() * W, y: H * (0.45 + r() * 0.5), vx: (r() - 0.5) * 0.25, vy: (r() - 0.5) * 0.15, p: r() * 6.28, z: 2 }),
         step: (q, r) => { q.vx += (r() - 0.5) * 0.02; q.vy += (r() - 0.5) * 0.02; q.vx *= 0.98; q.vy *= 0.98; q.p += 0.04; },
@@ -344,8 +337,6 @@ const PARTICLES = {
         alpha: (q) => 0.35 + 0.5 * Math.abs(Math.sin(q.p)),
         color: (q) => (q.portal ? 'oklch(68% 0.2 305' : 'oklch(96% 0.02 300') },
 };
-
-/* ── The component ───────────────────────────────────────────────────────────── */
 
 export default function Environment({ region, light = 0.5, seed = 7, className = '', still = false }) {
     const ref = useRef(null);

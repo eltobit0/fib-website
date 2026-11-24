@@ -1,17 +1,4 @@
-/**
- * FIB Stats — charts.
- *
- * Hand-built SVG rather than a charting library, for two reasons. The obvious
- * one is that default library styling is instantly recognisable and would sit
- * outside this design system. The less obvious one is that every chart here is
- * small and specific — a score trend, a race — and a general-purpose library
- * costs more in bundle size and configuration than the geometry costs to write.
- *
- * All of them render at MEASURED pixel width rather than scaling a fixed
- * viewBox. Scaling a viewBox scales the type with it, so a chart in a narrow
- * column ends up with 6px axis labels. Measuring keeps every label at its
- * designed size at every width.
- */
+/* Hand-built SVG at measured pixel width: scaling a fixed viewBox scales the type with it. */
 
 import React, { useEffect, useId, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { tokens, RARITY_LABEL } from './tokens.js';
@@ -20,7 +7,6 @@ import { prefersReducedMotion } from './env.js';
 import { usePendingReveal } from './useSeen.js';
 import * as f from './format.js';
 
-/** Container width in CSS pixels, tracked live. */
 function useWidth(ref, fallback = 720) {
   const [w, setW] = useState(fallback);
 
@@ -37,13 +23,7 @@ function useWidth(ref, fallback = 720) {
   return w;
 }
 
-/**
- * Draws a path on first render by animating its dash offset.
- *
- * Uses the path's own measured length, so the reveal takes the same time
- * regardless of how long the line is. Skipped entirely under reduced motion,
- * where the path is simply present.
- */
+/* Animates the dash offset over the path's measured length; skipped under reduced motion. */
 function useDraw(ref, deps = []) {
   useEffect(() => {
     const path = ref.current;
@@ -64,25 +44,12 @@ function useDraw(ref, deps = []) {
 const linePath = (pts) =>
   pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
 
-/* ── Score trend ──────────────────────────────────────────────────────── */
-
-/**
- * A player's score across their recent matches, oldest to newest.
- *
- * Wins are marked gold; the dim horizontal line is the player's mean, which is
- * what turns a wiggly line into an answer to "am I improving". Without the
- * mean, a trend chart is decoration.
- */
 export function ScoreTrend({ points, height = 190, label = 'Score per match' }) {
   const wrapRef = useRef(null);
   const pathRef = useRef(null);
   const width = useWidth(wrapRef);
 
-  /* The right gutter holds the average's label. It used to sit inside the
-     plot, right-aligned above the mean line - exactly where the newest match's
-     dot lands whenever the latest score is near the average, and on a real
-     profile it printed "avg 62" through the last point. In the gutter it
-     labels the line's end and can never meet the data. */
+  /* The average's label sits in the right gutter: inside the plot it collides with the newest point. */
   const pad = { top: 16, right: 52, bottom: 24, left: 40 };
   const innerW = Math.max(10, width - pad.left - pad.right);
   const innerH = Math.max(10, height - pad.top - pad.bottom);
@@ -145,7 +112,6 @@ export function ScoreTrend({ points, height = 190, label = 'Score per match' }) 
 
         <path className="area" d={areaD} fill="url(#fib-trend-fill)" />
 
-        {/* The mean, dashed, behind the trace. */}
         <line
           className="trace trace--dim"
           x1={pad.left} x2={width - pad.right} y1={meanY} y2={meanY}
@@ -174,12 +140,7 @@ export function ScoreTrend({ points, height = 190, label = 'Score per match' }) 
         ))}
       </svg>
 
-      {/*
-        The swatch carries the series colour; the label stays at reading ink.
-        Tinting the label too put "Career average" on `trace-dim` — a value with
-        a 3:1 floor because it describes a LINE, not text — and it measured
-        3.08:1 as a word.
-      */}
+      {/* Only the swatch takes the series colour: `trace-dim` fails text contrast. */}
       <ul className="fib-chart-legend">
         <li><i style={{ background: 'var(--fib-gold)' }} />Match won</li>
         <li><i style={{ background: 'var(--fib-diamond)' }} />Score</li>
@@ -189,9 +150,6 @@ export function ScoreTrend({ points, height = 190, label = 'Score per match' }) 
   );
 }
 
-/* ── Sparkline ────────────────────────────────────────────────────────── */
-
-/** Inline trend, no axes. Used in table rows where a full chart would shout. */
 export function Sparkline({ values, width = 88, height = 24, tone = 'var(--fib-ink-3)' }) {
   if (!values?.length) return null;
   const max = Math.max(...values);
@@ -209,33 +167,10 @@ export function Sparkline({ values, width = 88, height = 24, tone = 'var(--fib-i
   );
 }
 
-/* ── Shared race geometry ─────────────────────────────────────────────── */
-
-/*
- * Dash patterns per lane, so colour is never the only thing telling two
- * competitors apart. Used by the ribbon race; the overview's miniature draws
- * solid lanes on purpose, at its size a dash reads as noise.
- *
- * *RaceTrace, the match page's first chart, lived here.* It drew the running
- * counts on a fixed 0-to-total scale, then grew turn sprites, pull wells and a
- * lane panel; it and the tug-of-war timeline that briefly replaced it are both
- * gone. The ribbon race below records why each was replaced.
- */
+/* Dash patterns per lane so colour is never the only difference; the overview's miniature stays solid on purpose. */
 const DASHES = ['', '6 3', '2 3', '10 3 2 3', '4 2', '8 4', '1 3', '12 3'];
 
-/*
- * Axis steps a person would have picked.
- *
- * Both axes used to divide their own range into four, which produces the labels
- * the DATA happens to land on rather than the ones a reader can hold: a 60m 3s
- * match was ticked "0:00 · 15:01 · 30:01 · 45:02 · 1:00:03", and a 49-item
- * leader gave "0 · 12 · 25 · 37 · 49". Both are precise and both are noise —
- * nobody reads an axis to find out what a quarter of 3603 seconds is.
- *
- * So the step is chosen from a fixed vocabulary of intervals people already
- * think in, and the axis runs on multiples of it. The candidates are asked in
- * order and the first one that keeps the axis under `most` labels wins.
- */
+/* Axis steps from a fixed vocabulary of human intervals; the first that keeps the axis under `most` labels wins. */
 const TIME_STEPS = [30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
 const COUNT_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000];
 
@@ -257,43 +192,8 @@ const PHASE_INK = {
   LATE: 'var(--fib-phase-late-ink)',
 };
 
-/* ── The ribbon race ──────────────────────────────────────────────────── */
-
-/*
- * The match, as the race it was: each side's running item count over the match
- * clock, the gap between them filled in the colour of whoever led it, and a
- * pace strip underneath that doubles as the zoom control.
- *
- * ── How it got here ──
- *
- * The first match chart (RaceTrace) drew the two running counts and nothing
- * else. It showed the two things people read a match for - WHEN a side started
- * gathering (the slope) and WHEN it took over (the crossing) - but a close
- * finish was two lines a pixel apart at the top of a fixed 0-to-total scale.
- * It was replaced by a tug of war (the signed gap) over hunt lanes (a block per
- * item). That fixed the close finish and threw away both of the things above:
- * a margin has no slope to read a burst from, and the lanes were slivers.
- * Rejected, rightly. This keeps the lines and fixes what was wrong with them:
- *
- *   The ribbon.   The space between the two lines is filled in the leader's
- *                 colour, so a takeover is a colour flip rather than two lines
- *                 touching - visible even where they run a pixel apart.
- *   The scale.    The y axis fits the WINDOW, not the match: zoomed onto the
- *                 finish it runs from where the counts stood at the window's
- *                 start to where they ended, so the last ten items fill the
- *                 panel instead of its top fifth.
- *   The pace.     Items per bucket for each side, as bars under the chart - the
- *                 direct answer to "when did we start gathering". It always
- *                 shows the whole round, and dragging across it sets the
- *                 window above; the drawn selection is the zoom.
- *
- * No sprites on the chart. The items live in the team reports below, and the
- * page highlights the one each side was hunting at the cursor there.
- *
- * Three or more competitors have no single pair to fill between, so the
- * ribbon runs between the leader and the runner-up at each moment - the fight
- * that decides the top - and every line is still drawn.
- */
+/* Running item counts with the gap filled in the leader's colour; the y axis fits the window, not the match.
+   With three or more competitors the ribbon runs between the leader and the runner-up. */
 const MAIN_TOP = 28;
 const MAIN_BOTTOM = 26;
 const PACE_H = 104;
@@ -318,15 +218,13 @@ export function RibbonRace({
   const xn = (t) => LEFT + (Math.min(Math.max(t, 0), duration) / Math.max(1, duration)) * innerW;
   const tOfN = (px) => Math.max(0, Math.min(duration, ((px - LEFT) / innerW) * duration));
 
-  /* The moments any count changes inside the window, plus the window's edges. */
   const times = useMemo(() => {
     const set = new Set([from, to]);
     for (const e of entries) for (const ev of e.events) if (ev.t > from && ev.t < to) set.add(ev.t);
     return [...set].sort((a, b) => a - b);
   }, [entries, from, to]);
 
-  /* The y range fits the window: from the lowest count at its start to the
-     highest at its end, with a little air, and never under four items tall. */
+  /* The y range fits the window, never under four items tall. */
   const lo0 = Math.min(...entries.map((e) => countAt(e, from)));
   const hi0 = Math.max(...entries.map((e) => countAt(e, to)));
   const range = Math.max(4, hi0 - lo0);
@@ -351,9 +249,7 @@ export function RibbonRace({
     return `${d} L${x(to).toFixed(1)} ${y(prev).toFixed(1)}`;
   };
 
-  /* The ribbon: one rect per interval between count changes, spanning the gap
-     between the top two at that moment, in the leader's colour. Level
-     intervals draw nothing - a tie has no colour. */
+  /* Level intervals draw nothing: a tie has no colour. */
   const ribbon = useMemo(() => {
     const out = [];
     for (let i = 0; i < times.length - 1; i += 1) {
@@ -367,7 +263,6 @@ export function RibbonRace({
     return out;
   }, [entries, times]);
 
-  /* Consecutive intervals with the same leader, joined into one run each. */
   const ribbonRuns = useMemo(() => {
     const runs = [];
     for (const r of ribbon) {
@@ -382,7 +277,6 @@ export function RibbonRace({
   const ticks = [];
   for (let t = Math.ceil(from / xStep) * xStep; t <= to; t += xStep) ticks.push(t);
 
-  /* End labels, nudged apart when two finals land within a line of each other. */
   const ends = entries
     .map((e, lane) => ({ lane, n: countAt(e, to), yy: y(countAt(e, to)) }))
     .sort((a, b) => a.yy - b.yy);
@@ -390,7 +284,6 @@ export function RibbonRace({
     if (ends[i].yy - ends[i - 1].yy < 15) ends[i].yy = ends[i - 1].yy + 15;
   }
 
-  /* ── The pace strip ── */
   const bucket = BUCKETS.find((s) => duration / s <= 16) ?? BUCKETS[BUCKETS.length - 1];
   const nBuckets = Math.max(1, Math.ceil(duration / bucket));
   const pace = entries.map((e) => {
@@ -404,9 +297,7 @@ export function RibbonRace({
   const bw = innerW / nBuckets;
   const barW = Math.max(2, (bw * 0.78) / entries.length);
 
-  /* Brush: drag across the pace strip to set the window. A drag shorter than a
-     minute is a click, and does nothing - a stray click must not throw away
-     the view the reader had. */
+  /* A drag shorter than a minute is a click and does nothing, so a stray click keeps the view. */
   const [drag, setDrag] = useState(null);
   const onDown = (e) => {
     if (!onWindow) return;
@@ -496,9 +387,7 @@ export function RibbonRace({
           </g>
         ))}
 
-        {/* The ribbon, under the lines: one shape per unbroken stretch of the
-            same leader. It was a rect per interval, and the anti-aliased seams
-            between neighbouring rects drew a comb of hairlines through it. */}
+        {/* One shape per run of the same leader: per-interval rects left anti-aliased seams. */}
         {ribbonRuns.map((run, i) => {
           const topEdge = run.map((r) => `L${x(r.t0).toFixed(1)} ${y(r.top).toFixed(1)} L${x(r.t1).toFixed(1)} ${y(r.top).toFixed(1)}`).join(' ');
           const bottomEdge = [...run].reverse().map((r) => `L${x(r.t1).toFixed(1)} ${y(r.bottom).toFixed(1)} L${x(r.t0).toFixed(1)} ${y(r.bottom).toFixed(1)}`).join(' ');
@@ -522,7 +411,6 @@ export function RibbonRace({
           />
         ))}
 
-        {/* Takeovers: a ring where the new leader's line was when it went ahead. */}
         {changeTimes.filter((t) => t >= from && t <= to).map((t) => {
           const leader = entries.reduce((a, b) => (countAt(b, t) > countAt(a, t) ? b : a));
           return (
@@ -606,40 +494,9 @@ export function RibbonRace({
   );
 }
 
-/* ── Race miniature ───────────────────────────────────────────────────── */
-
-/**
- * The race compressed to a band: no axes, no numbers, just the shape of the
- * fight — lanes, lead-change ticks, and a dot per lane at the finish line so
- * the final order reads on the right edge. Used where the race is an
- * invitation (the featured match on the overview) rather than the subject.
- *
- * ── The draw ──
- *
- * The band runs itself once, left to right, when it scrolls into view. The
- * featured card's copy promises the reader they can "watch it unfold"; before
- * this it was a finished picture and the sentence was writing a cheque the
- * chart did not cash.
- *
- * It is ONE wipe across the whole lane group, not a per-lane stroke-dashoffset
- * draw. That distinction is the whole reason this reads as a race: the x axis
- * is match time, and a dash draw advances along each path's own LENGTH. A lane
- * with thirty items has more vertical segments than one with twenty, so at the
- * halfway point of its own length it sits at a different moment of the match —
- * the lanes would desynchronise and the picture would be a lie. A single wipe
- * is linear in x, so every lane is revealed at the same instant on the clock,
- * and overtakes happen on screen exactly when they happened in the match.
- *
- * The baseline is deliberately outside the clip: the track exists before the
- * race runs along it.
- */
-/*
- * `finish` is an item name: the winner's last find, drawn as its sprite just
- * past the finish line beside the winning lane's end dot. It sits inside the
- * wipe, so it is the last thing the race reveals - the item that closed the
- * match arrives when the match closes. The right pad widens to make room for
- * it rather than letting it overhang the chart.
- */
+/* One wipe across all lanes, not a per-lane dash draw: a dash draw advances by path length, so lanes would
+   desynchronise from match time. The baseline is outside the clip on purpose. */
+/* `finish` is the winner's last find; it sits inside the wipe so it is revealed last. */
 const FINISH_PX = 32;
 
 export function RaceMini({ entries, duration, height = 132, markers = [], label = 'Score over time', finish }) {
@@ -694,7 +551,6 @@ export function RaceMini({ entries, duration, height = 132, markers = [], label 
           </clipPath>
         </defs>
 
-        {/* The track, always present — the race is drawn along it. */}
         <line className="grid" x1={pad.left} x2={width - pad.right} y1={pad.top + innerH} y2={pad.top + innerH} />
 
         <g clipPath={`url(#${clipId})`}>
@@ -713,8 +569,6 @@ export function RaceMini({ entries, duration, height = 132, markers = [], label 
             />
           ))}
 
-          {/* Final order, readable as a column of dots on the finish line. The
-              wipe reaches them last, which is when the race is decided. */}
           {entries.map((entry, i) => (
             <circle
               key={`${entry.key}-end`}
@@ -744,14 +598,6 @@ export function RaceMini({ entries, duration, height = 132, markers = [], label 
   );
 }
 
-/* ── Distribution ─────────────────────────────────────────────────────── */
-
-/**
- * Horizontal ranked bars — used for "most collected items" and anywhere a
- * ranked magnitude comparison beats a table. Bars are scaled to the largest
- * value, and the label sits outside the bar so it stays legible when the bar
- * is short.
- */
 export function RankedBars({ rows, tone = 'var(--fib-ink-3)', format = f.num, max: maxProp }) {
   const max = maxProp ?? Math.max(1, ...rows.map((r) => r.value));
   return (

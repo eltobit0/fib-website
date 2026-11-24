@@ -150,10 +150,7 @@ export function countLabel(n, label) {
     return `${n} ${plural}`;
 }
 
-/*
- * ── What the page deals ──
- * An item needs at least two distinct routes to be worth dealing; families show one sprite and sit out.
- */
+// An item needs at least two distinct routes to be dealt; families sit out.
 const FAMILY = /_(POTTERY_SHERD|ARMOR_TRIM_SMITHING_TEMPLATE)$/;
 export const DEALABLE = ALL_POOL.filter((m) => !FAMILY.test(m) && routesFor(m).length >= 2);
 

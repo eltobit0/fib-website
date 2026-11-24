@@ -1,7 +1,3 @@
-// ============================================
-// Wheel of Fortune - Auth Context
-// ============================================
-
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { API_BASE_URL } from '../config/constants';
 

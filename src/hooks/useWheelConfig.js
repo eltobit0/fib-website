@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL, IMAGE_BASE_URL, CUSTOM_IMAGE_BASE_URL } from '../config/constants';
 
-// Fallback values (used only if server is unreachable)
 const FALLBACK_CONFIG = {
     wheel: {
         itemWidth: 80,
@@ -9,13 +8,7 @@ const FALLBACK_CONFIG = {
         stripLength: 80,
         finalIndex: 72
     },
-    // `/api/config` also serves a `urls` block pointing at raw.githubusercontent.com.
-    // Nothing reads it — the only accessor anyone consumes from this hook is
-    // spinDuration, and image URLs come from config/constants.js, which now resolves
-    // to vendored copies under public/. The block is mirrored here rather than
-    // dropped so the shape still matches what the server sends; leaving the remote
-    // URLs in place as a "fallback" would only mean a stale second source of truth
-    // that quietly reintroduces the throttled host the moment something reads it.
+    // Mirrored for shape only; nothing reads it. Images come from config/constants.js, never these remote URLs.
     urls: {
         imageBase: IMAGE_BASE_URL,
         wheelTexture: `${CUSTOM_IMAGE_BASE_URL}/wheel.png`
@@ -26,7 +19,6 @@ const FALLBACK_CONFIG = {
     ]
 };
 
-// Cache the config so we don't refetch on every component mount
 let cachedConfig = null;
 let fetchPromise = null;
 
@@ -72,7 +64,6 @@ export function useWheelConfig() {
     return {
         config,
         loading,
-        // Convenience accessors
         spinDuration: config.wheel.spinDuration,
         itemWidth: config.wheel.itemWidth,
         stripLength: config.wheel.stripLength,

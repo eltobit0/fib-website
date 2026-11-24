@@ -24,8 +24,6 @@ const GH_AVT = (u) => `https://github.com/${u}.png?size=100`;
 
 const fmt = (n) => n.toLocaleString('en-US');
 
-/* ── Content that is not derived ───────────────────────────────────────────── */
-
 /* Chosen by hand to show different route shapes; the routes shown are still derived. */
 const EXAMPLES = ['FIRE_CHARGE', 'BREAD', 'ECHO_SHARD', 'NAUTILUS_SHELL', 'ENDER_PEARL', 'NETHERITE_INGOT', 'WHITE_WOOL']
     .filter((m) => routesFor(m).length);
@@ -54,8 +52,6 @@ const THANKS = [
     { name: 'McPlayHD', role: 'Server infrastructure', link: 'https://github.com/mcplayhd' },
     { name: 'Owen1212055', role: 'Item renders for the Resource Pack', link: 'https://github.com/Owen1212055/mc-assets' },
 ];
-
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
 
 function useColumns(ref, slot, gap = 2) {
     const [cols, setCols] = useState(8);
@@ -93,14 +89,12 @@ function usePicks(list, n) {
 
 const regionOf = (m) => REGION[whereOf(m)?.region] ?? REGION.surface;
 
-/* Built once: usePicks memoises on its list, and a fresh array each render re-dealt everything on every resize. */
+/* Built once: usePicks memoises on its list, so a fresh array each render would re-deal on every resize. */
 const DEALABLE_BY_STAGE = {
     EARLY: dealableFrom(POOL_BY_STAGE.EARLY),
     MID: dealableFrom(POOL_BY_STAGE.MID),
     LATE: dealableFrom(POOL_BY_STAGE.LATE),
 };
-
-/* ── The draw ── */
 
 function useDraw(calm) {
     const [target, setTarget] = useState(() => pick(DEALABLE));
@@ -139,8 +133,6 @@ function useDraw(calm) {
 
     return { target, face, landed, draw };
 }
-
-/* ── 1. The item you were handed ─────────────────────────────────────────── */
 
 function Opening({ go, deal }) {
     const { target, face, landed, draw } = deal;
@@ -209,8 +201,6 @@ function Opening({ go, deal }) {
     );
 }
 
-/* ── 2. One item, many ways ──────────────────────────────────────────────── */
-
 function Routes({ deal, calm }) {
     const { target, draw } = deal;
     const region = regionOf(target);
@@ -241,8 +231,6 @@ function Routes({ deal, calm }) {
         </section>
     );
 }
-
-/* ── 3. The loop ── */
 
 const BEAT_MS = 340;
 
@@ -333,10 +321,7 @@ function Loop({ calm }) {
     );
 }
 
-/*
- * ── 4. The pressure ──
- * The strip draws the way ItemDifficultiesManager.drawFrom does: uniformly from everything unlocked so far.
- */
+/* The strip draws the way ItemDifficultiesManager.drawFrom does: uniformly from everything unlocked so far. */
 
 const pctOf = (minute) => (minute / ROUND.minutes) * 100;
 const BOUNDS = ['EARLY', 'MID', 'LATE'].map((k) => [k, pctOf(STAGES[k].minute)]);
@@ -446,7 +431,6 @@ function Pressure({ target }) {
         </section>
     );
 }
-/* ── 5. The escapes ──────────────────────────────────────────────────────── */
 
 function routeLine(r) {
     if (!r) return '';
@@ -558,8 +542,6 @@ function Escapes() {
     );
 }
 
-/* ── 6. The world, as the toolbox ────────────────────────────────────────── */
-
 /* The Nether and End are reached through something, not further down: their rail restarts after a gap, dashed. */
 const RAIL = { surface: 'top', ocean: 'world', caves: 'world', trial: 'world', deepdark: 'floor', nether: 'portal', end: 'last' };
 
@@ -651,10 +633,7 @@ function World({ go, calm }) {
     );
 }
 
-/*
- * ── 7. The modes ──
- * True to ForceItemAssignment: RunBattle shares one seeded sequence; MirrorBattle gives each Score Owner a cursor into one row.
- */
+/* True to ForceItemAssignment: RunBattle shares one seeded sequence; MirrorBattle gives each Score Owner a cursor into one row. */
 
 const HEADS = ['MHF_Steve', 'MHF_Alex', 'MHF_Villager'];
 const LANES = [0, 1, 2];
@@ -774,7 +753,6 @@ function ModeRun({ item, past }) {
     );
 }
 
-/* ── The standard round ── */
 function Standard({ go }) {
     const { hard, extreme, end, backpackSize } = POOL_SETTINGS;
     const { minutes, jokers } = ROUND;
@@ -848,8 +826,6 @@ function Modes({ go }) {
     );
 }
 
-/* ── 8. Where next ── */
-
 const GROUPS = [
     { label: 'Play', ids: ['how-to-play', 'gameplay', 'pools', 'structures'] },
     { label: 'Reference', ids: ['commands', 'settings', 'rules', 'changelog'] },
@@ -888,8 +864,6 @@ function Index({ go }) {
         </nav>
     );
 }
-
-/* ── 9. Made by ──────────────────────────────────────────────────────────── */
 
 function Team() {
     return (

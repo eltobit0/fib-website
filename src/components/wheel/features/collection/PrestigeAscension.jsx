@@ -1,65 +1,6 @@
-/*
- * ═══════════════════════════════════════════════════════════════════════════
- * THE CONVERGENCE — the prestige moment
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * A whole collection is spent to buy one rank, and the animation is the spending.
- * Every item you own is pulled off the board and compressed into a single core
- * that turns faster the more of them arrive; when the last one lands the core
- * detonates and the level is what is left standing.
- *
- * ── WHY THIS EARNS THE BUDGET ────────────────────────────────────────────────
- *
- * DESIGN.md is emphatic that glow and spectacle are rationed on this site and
- * that the wheel is where the reward budget gets spent. This is the rarest
- * moment the product has — a full collection, up to five times in a lifetime,
- * currently reachable by exactly one player — so it is the one place where
- * spending the whole budget at once is correct. The board's own restraint is
- * what makes this legible as an exception rather than as the house style.
- *
- * ── THE BEATS ────────────────────────────────────────────────────────────────
- *
- *   LEAD-IN  0.00–0.45   the board darkens, the core seeds, nothing moves yet
- *   GATHER   0.45–3.60   items stream inward from everywhere, accelerating;
- *                        a counter races the arrivals up to the real total
- *   INHALE   3.95–4.30   the core pulls IN and the frame shakes — the beat that
- *                        makes the detonation land instead of merely happen
- *   BOOM     4.30–5.15   shockwaves in the level's colour cross the whole board
- *   PROCLAIM 4.50–8.60   the level resolves on the flap drums, colour everywhere,
- *                        embers still drifting through it
- *
- * ── THE RULES IT STILL KEEPS ─────────────────────────────────────────────────
- *
- * The tier hues are the ladder's, imported and never spelled here. Level 5 is
- * painted with the whole slick through `createHoloGradient` and sampled only
- * where canvas physically cannot take a gradient (`shadowColor`), which is the
- * Whole-Gradient Rule that DESIGN.md §8 has now been broken by twice.
- *
- * `prefers-reduced-motion` does not get a lesser version of the announcement: it
- * skips the physics and holds the proclamation, because the thing being
- * communicated is "you reached Rare Prestige", and that must never be gated
- * behind motion someone has asked not to see.
- *
- * ── IT IS NOT SKIPPABLE, AND THAT IS DELIBERATE ─────────────────────────────
- *
- * The first build made it skippable by click, Escape, Enter or Space, on the
- * argument that an eight-second animation you cannot dismiss is one you resent
- * the second time. The owner overruled it, and the argument was weak on its own
- * terms: "the second time" is a real problem for something a player meets daily
- * and almost no problem at all for something they meet at most five times in a
- * lifetime. A ceremony you can wave away is not a ceremony.
- *
- * Unskippable has to mean it, so the board's own exits are held shut for the
- * duration too — Escape and the backdrop both close the collection book, and
- * either would have been a skip button wearing a different name. That is done in
- * CollectionBook, where those handlers live.
- *
- * The one door that stays open is `prefers-reduced-motion`, and it is not an
- * escape hatch bolted on: it is the same contract as everywhere else on this
- * site. Someone who has asked their system not to show them motion gets the
- * announcement without the physics, held for 3.4 seconds. Nobody is trapped in
- * something they told us they cannot watch.
- */
+// THE CONVERGENCE, the prestige moment: every owned item is pulled into one core, which detonates and leaves the level standing. Spends the whole spectacle budget on purpose (the rarest moment the product has). Beats: LEAD-IN, GATHER, INHALE, BOOM, PROCLAIM.
+// Tier hues come from the ladder; level 5 paints the whole slick via `createHoloGradient`, sampling only where canvas cannot take a gradient (`shadowColor`).
+// UNSKIPPABLE by owner's decision: the board's own exits (Escape, backdrop) are held shut in CollectionBook too. `prefers-reduced-motion` skips the physics and holds the proclamation for 3.4s; the announcement is never gated behind motion.
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { getRarityColor, sampleHolo, createHoloGradient, isIridescentRarity } from '../../../../utils/rarityHelpers.jsx';
@@ -70,24 +11,7 @@ import { FlapText, BoardLabel } from './FlapBoard.jsx';
 import { DECK } from '../../config/constants';
 import { usePrefersReducedMotion } from '../../../../utils/motion.js';
 
-/*
- * The timeline, in seconds.
- *
- * It ran 4.4s first and the owner was right that it rushed: this is a moment a
- * player reaches at most five times in a lifetime and currently only one player
- * on the server can reach at all, so it should be allowed to take its time. The
- * extra four seconds are NOT the same animation played slower — each beat got
- * the thing it was missing:
- *
- *   LEAD_IN     the board darkens and the core seeds before anything moves, so
- *               the gather arrives into a held breath rather than starting cold
- *   GATHER      twice as long, so the stream reads as a collection emptying
- *               rather than as a burst
- *   INHALE      the core pulls IN and the frame shakes before it goes off; the
- *               anticipation is what makes the detonation land
- *   PROCLAIM    more than three seconds, because a rank you spent 1,559 items on
- *               should be allowed to sit there
- */
+// The timeline in seconds. The beats are not a slowed 4.4s version: LEAD_IN holds the breath, GATHER reads as a collection emptying, INHALE makes the detonation land, PROCLAIM lets the rank sit.
 const LEAD_IN = 0.45;
 const GATHER_END = 3.60;
 const INHALE_AT = 3.95;
@@ -96,37 +20,10 @@ const BOOM_AT = 4.30;
 const PROCLAIM_AT = 4.50;
 const TOTAL = 8.60;
 
-/*
- * How many sprites actually fly.
- *
- * Not 1,559. The atlas caches each cell as its own small canvas (the fix that
- * took the collection grid from 25.5ms a frame to 2.5), but the LRU is capped at
- * 512 and a thousand shadowed draws a frame is a budget no cache saves. 220 is
- * chosen so that every held special flies — those are the ones a player will
- * look for — and the rest is a sample of the commons, which read as volume
- * rather than as individuals.
- *
- * The COUNTER still races to the real total. What the reader is told is true;
- * what is drawn is a representative crowd.
- */
+// How many sprites fly: not 1,559. The atlas cell cache is an LRU capped at 512 and a thousand shadowed draws per frame is a budget no cache saves; 220 covers every held special plus a sample of commons. The COUNTER still races to the real total.
 const MAX_MOVERS = 220;
 
-/*
- * Colour with an alpha, without string-appending one to a hex.
- *
- * The first build wrote `${tone}${Math.round(150 * fill).toString(16)}` and it
- * threw on the opening frame with '#FF5555-1': a rAF callback's timestamp is the
- * frame's start, which can PRECEDE the performance.now() captured just before
- * requestAnimationFrame was called, so elapsed time is briefly negative and every
- * value derived from it goes with it. The exception killed the loop silently —
- * an uncaught throw inside a rAF callback stops the chain and logs once — so the
- * phase timers still advanced and the animation appeared to skip straight to its
- * final frame with a blank canvas.
- *
- * Both halves are fixed: elapsed time is clamped at the source, and alphas no
- * longer travel as hex digits, which is what made an out-of-range number a parse
- * error instead of a clamp.
- */
+// Colour with an alpha, never by appending hex digits: a rAF timestamp can precede the performance.now() captured before requesting it, so elapsed time is briefly negative, `${tone}-1` throws, and an uncaught throw silently stops the rAF chain. Elapsed time is also clamped at the source.
 function withAlpha(hex, a) {
     const alpha = Math.max(0, Math.min(1, a));
     const h = hex.replace('#', '');
@@ -176,15 +73,7 @@ export function PrestigeAscension({ level, items, collection, onDone }) {
         onDone?.();
     };
 
-    /*
-     * Nothing here dismisses it.
-     *
-     * The keys that would have skipped are swallowed rather than ignored: with
-     * the overlay up, Escape still reaches CollectionBook's own handler and
-     * closes the whole board, which is the same thing as skipping. Capturing
-     * them here and stopping propagation is what makes "unskippable" true rather
-     * than merely unadvertised.
-     */
+    // Nothing here dismisses it: the skip keys are swallowed with propagation stopped, since Escape would otherwise reach CollectionBook's handler and close the board, which is a skip.
     useEffect(() => {
         const swallow = e => {
             if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
@@ -213,11 +102,7 @@ export function PrestigeAscension({ level, items, collection, onDone }) {
         const ctx = canvas.getContext('2d');
         const dpr = window.devicePixelRatio || 1;
         let W = 0, H = 0, cx = 0, cy = 0;
-        // The start ring, recomputed on resize. Movers hold their radius as a
-        // FRACTION of it rather than a pixel length, so a resize moves the whole
-        // swarm with the canvas instead of leaving it sized for a box that no
-        // longer exists — the same "constant that outlived its geometry" shape
-        // DESIGN.md SS8 tables five instances of.
+        // The start ring, recomputed on resize. Movers hold their radius as a FRACTION of it, so a resize moves the whole swarm with the canvas.
         let R = 0;
         let movers = [];
 
@@ -231,13 +116,9 @@ export function PrestigeAscension({ level, items, collection, onDone }) {
             canvas.style.height = `${H}px`;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            // The start ring is deliberately wider than the board, so items
-            // arrive from off the edges too — the collection is bigger than the
-            // window showing it.
+            // The start ring is wider than the board, so items also arrive from off the edges.
             R = Math.hypot(W, H) * 0.62;
-            // Every previous position is in the old canvas's coordinates. Left
-            // in place they would each draw one streak from wherever they used to
-            // be to wherever they are now, straight across the new canvas.
+            // Previous positions are in the old canvas's coordinates; left in place each would draw a streak across the new canvas.
             for (const m of movers) m.prev = null;
         };
         size();
@@ -248,9 +129,7 @@ export function PrestigeAscension({ level, items, collection, onDone }) {
                 item,
                 a0: a,
                 rFrac: 0.34 + Math.random() * 0.66,
-                // Staggered so they arrive as a stream, not a wall, and the last
-                // ones land exactly as the gather ends. Offset past the lead-in
-                // so nothing moves during the held breath.
+                // Staggered so they arrive as a stream and the last land as the gather ends, offset past the lead-in.
                 delay: LEAD_IN + (i / flyers.length) * ((GATHER_END - LEAD_IN) * 0.78) + Math.random() * 0.12,
                 spin: (Math.random() - 0.5) * 4,
                 size: 22 + Math.random() * 16,
@@ -270,10 +149,7 @@ export function PrestigeAscension({ level, items, collection, onDone }) {
             warm.set(src, img);
         }
 
-        // The detonation's debris. Seeded once, drawn only after the boom, and
-        // deliberately slow: they are what keeps the level's colour moving in the
-        // room while the announcement holds, so the last three seconds are not a
-        // static card.
+        // The detonation's debris: seeded once, drawn after the boom, slow, so the last three seconds are not a static card.
         const embers = Array.from({ length: 54 }, () => ({
             a: Math.random() * Math.PI * 2,
             v: 90 + Math.random() * 340,
@@ -360,10 +236,7 @@ export function PrestigeAscension({ level, items, collection, onDone }) {
                 const pulse = 1 + Math.sin(el * (18 + 22 * fill)) * (0.04 + 0.05 * fill);
                 let coreR = (10 + 78 * easeInCubic(fill)) * pulse;
 
-                // THE INHALE. For the last third of a second the core pulls in
-                // rather than growing, and the whole frame shakes with it. This
-                // is the beat the first build did not have, and it is most of
-                // why the detonation now lands instead of merely happening.
+                // THE INHALE: for the last third of a second the core pulls in and the frame shakes; it is most of why the detonation lands.
                 let shake = 0;
                 if (el >= INHALE_AT && el < BOOM_AT) {
                     const q = (el - INHALE_AT) / (BOOM_AT - INHALE_AT);
@@ -424,9 +297,7 @@ export function PrestigeAscension({ level, items, collection, onDone }) {
                     }
                 }
 
-                // The colour stays in the room afterwards — "the colors all
-                // around" — as a vignette in the level's own hue rather than a
-                // full wash, so the proclamation stays the brightest thing.
+                // The colour stays in the room as a vignette in the level's hue, not a full wash, so the proclamation stays the brightest thing.
                 const after = Math.min(1, (el - BOOM_AT) / 0.6);
                 const v = ctx.createRadialGradient(cx, cy, Math.min(W, H) * 0.18, cx, cy, Math.hypot(W, H) * 0.62);
                 v.addColorStop(0, 'rgba(0,0,0,0)');
@@ -479,9 +350,7 @@ export function PrestigeAscension({ level, items, collection, onDone }) {
     return (
         <div
             ref={wrapRef}
-            // Swallows the click rather than passing it through: the board behind
-            // is live, and a stray click on a register row mid-ceremony would
-            // both filter a collection nobody is looking at and break the moment.
+            // Swallows the click: the board behind is live, and a stray click on a register row mid-ceremony would filter a collection nobody is looking at.
             onClick={e => { e.stopPropagation(); }}
             role="status"
             aria-live="assertive"

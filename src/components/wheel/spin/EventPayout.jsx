@@ -1,26 +1,7 @@
 import React from 'react';
 import { Sparkles } from 'lucide-react';
 
-/**
- * Lucky spins you are holding, shown in the status bar.
- *
- * This is what an event pays out. Every one of them settles the same way — King
- * of the Wheel awards the winner lucky spins, Community Goal pays every
- * participant, First Blood pays whoever lands the rare first — so the payout is
- * one number regardless of which event produced it, and this deliberately does
- * not name the event that did. By the time you are looking at it the event is
- * usually over; what matters is what you now have.
- *
- * It used to sit in the stage, above the spin button, as a large crimson pill
- * with its own pulse animation. That put a persistent badge in the middle of the
- * surface, competing with the result panel for the same space and pushing the
- * spin button down whenever it appeared. Here it occupies the status bar's centre
- * slot — the same place the KOTW standings use while an event is running, which
- * is the natural pairing: standings during, payout after.
- *
- * Styled to match the standings chips rather than the old badge, so the slot
- * looks like one thing whichever of the two is in it.
- */
+// Lucky spins you are holding, in the status bar's centre slot (the KOTW standings' slot: standings during, payout after). Deliberately does not name the event that paid out; styled like the standings chips so the slot reads as one thing.
 
 const KOTW_BG_DARK = '#0F172A';
 const KOTW_GOLD = '#F59E0B';

@@ -1,43 +1,13 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 
-// Components
 import Navigation from './components/common/Navigation';
 import WikiRoot from './wiki/shell/WikiRoot.jsx';
 
-// Config
 import { COLORS } from './config/constants';
-// A leaf module, deliberately: importing this from atlas.js would pull the
-// wheel's canvas layer and utils/helpers.js into the entry chunk for one string.
+// A leaf module: importing via atlas.js would pull the wheel's canvas layer into the entry chunk.
 import { ATLAS_JSON } from './components/wheel/canvas/atlasUrls.js';
 
-/*
- * Every route is code-split. There is no page here that a visitor to another
- * page needs.
- *
- * It began with the two standalone routes only — the wheel and the stats
- * module, each heavy and each mutually exclusive with everything else — on the
- * grounds that a reader of a reference page should not download them. That
- * argument was only ever stated in one direction, and the traffic since went the
- * other way: PRODUCT.md now records the play loop as the site's draw, and the
- * wheel is where most arrivals land.
- *
- * Split one way, the wheel's cold start paid for the entire wiki before its own
- * chunk was even requested — the reference pages, the item-pool page and its
- * admin editor, ~180 kB gzipped of code that /wheel never calls, and *then* the
- * wheel. Serialised, because the lazy chunk cannot be requested until the entry
- * chunk has parsed.
- *
- * The cost on the other side is a chunk request when navigating between wiki
- * pages, which is a few kB on a warm connection behind an already-painted nav
- * bar. RouteFallback holds the page's ground colour so the swap is not a flash
- * of white.
- *
- * (The old note here said the wheel "pulls in three.js". It had not since the
- * mythic celebration was rewritten in Canvas 2D; the dependency outlived the
- * import by long enough to still be the stated reason for splitting this route,
- * and has now been removed from package.json. The route stays split on its own
- * merits — it is 124 kB gzipped.)
- */
+// Every route is code-split, so /wheel's cold start doesn't pay for the wiki first.
 const HomePage = lazy(() => import('./pages/HomePage'));
 const ForceItemPools = lazy(() => import('./pages/ItemPools/ForceItemPools.jsx'));
 const HowToPlay = lazy(() => import('./pages/HowToPlay'));
@@ -51,21 +21,15 @@ const GameSettings = lazy(() => import('./pages/GameSettings'));
 const WheelOfFortune = lazy(() => import('./components/wheel/WheelOfFortune'));
 const StatsShell = lazy(() => import('./pages/Stats/StatsShell.jsx'));
 
-/** Full-bleed placeholder while a standalone route's chunk arrives. */
 function RouteFallback() {
     return <div style={{ minHeight: '100vh', background: COLORS.bg }} />;
 }
 
-/**
- * The same hold for a wiki page, minus the nav bar's height — the bar is
- * already painted above it, so reserving a second viewport under it would make
- * the page scroll to nothing for the length of one chunk request.
- */
+// Minus the nav bar's height, which is already painted above it.
 function PageFallback() {
     return <div style={{ minHeight: '70vh', background: 'var(--wk-ground)' }} />;
 }
 
-// Route lookup map
 const ROUTE_MAP = {
     'pools': 'pools',
     'how-to-play': 'how-to-play',
@@ -80,18 +44,16 @@ const ROUTE_MAP = {
     'stats': 'stats',
 };
 
-/** The rendered element with this id: Suspense can keep a hidden page mounted, and two pages share ids. */
+// Suspense can keep a hidden page mounted, and two pages share ids.
 function visibleById(id) {
     return [...document.querySelectorAll(`[id="${CSS.escape(id)}"]`)].find((x) => x.getClientRects().length > 0);
 }
 
 export default function App() {
-    // Simple routing based on pathname
     const getPageFromPath = () => {
-        // Normalize: trim leading/trailing slashes, lowercase, remove query params
         const normalized = window.location.pathname
-            .replace(/^\/+|\/+$/g, '')  // Trim slashes
-            .split('?')[0]               // Remove query params
+            .replace(/^\/+|\/+$/g, '')
+            .split('?')[0]
             .toLowerCase();
 
         return ROUTE_MAP[normalized] || 'home';
@@ -107,10 +69,7 @@ export default function App() {
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
-    // A target may name a section too ('structures#traders'): the page, then the
-    // section on it. Without one, a new page opens at its top. A section on the page
-    // already showing is scrolled to here: setting the same page again changes no
-    // state, so the effect below, which handles arriving on a new page, never runs.
+    // A target may name a section ('structures#traders'). Same-page sections scroll here: the page state doesn't change.
     const navigate = (target) => {
         const [page, section] = target.split('#');
         const path = (page === 'home' ? '/' : `/${page}`) + (section ? `#${section}` : '');
@@ -120,17 +79,8 @@ export default function App() {
         else if (page === currentPage) visibleById(section)?.scrollIntoView();
     };
 
-    // Scroll to the #section in the address once it exists. Pages are lazy chunks,
-    // so right after a route change (or a first load with a #section) the element
-    // is not there yet: watch the DOM until it appears, and give up quietly after
-    // ten seconds. (A two-second poll was tried first and lost the race against a
-    // cold chunk in development.) Anything after a '?' in the hash is a query (the
-    // sign-in flow uses one), not a section.
-    //
-    // Only a section that is actually rendered counts. While the next chunk loads,
-    // Suspense keeps the page being left mounted and hides it with display: none,
-    // and two pages can share an id (Gameplay and Custom Content both have
-    // #traders), so the first match can be the old page's, invisible.
+    // Pages are lazy, so watch the DOM for the #section (up to 10s). Only a rendered match counts: Suspense keeps the
+    // old page mounted but hidden, and pages share ids. Anything after '?' in the hash is a query, not a section.
     useEffect(() => {
         const id = decodeURIComponent(window.location.hash.slice(1).split('?')[0]);
         if (!id) return undefined;
@@ -150,33 +100,10 @@ export default function App() {
         return stop;
     }, [currentPage]);
 
-    // Wheel page is standalone (no nav bar)
     if (currentPage === 'wheel') {
         /*
-         * The lazy chunk and the atlas are the wheel's two cold-start costs;
-         * preloading the index while the chunk downloads overlaps them instead
-         * of serialising. React 19 hoists this <link> into <head>. It carries
-         * crossOrigin because fetch() is a CORS request even when the URL is
-         * same-origin, and a preload without it would not match.
-         *
-         * ── The image is deliberately NOT preloaded ──────────────────────────
-         *
-         * It was, and it was 6.4 MB of pure waste. atlas.js requests the image
-         * as `/fib-atlas.webp?v=<version>` — the version stamp is load-bearing,
-         * it exists because a cached image once disagreed with a fresh index and
-         * shifted every sprite past #356. A preload of the bare
-         * `/fib-atlas.webp` is a DIFFERENT URL, so the browser fetched 6.4 MB,
-         * used none of it, and then fetched the versioned 6.4 MB for real.
-         *
-         * It cannot be fixed by versioning the link: the version lives inside
-         * the JSON and is not known until that JSON has been fetched and parsed,
-         * which is exactly the thing this preload runs ahead of. Restoring the
-         * overlap properly means baking the version in at build time — vendor
-         * -atlas.mjs would emit it as a module beside public/fib-atlas.json —
-         * and that is a build-pipeline change, not a render-path one.
-         *
-         * The JSON preload below still overlaps the part that can overlap, and
-         * atlas.js starts the image the moment the index parses.
+         * Preload the atlas index while the chunk downloads. crossOrigin is needed for it to match fetch().
+         * Not the image: atlas.js requests a versioned URL (`?v=`), so a bare preload would be a wasted 6.4 MB fetch.
          */
         return (
             <>
@@ -196,15 +123,11 @@ export default function App() {
         );
     }
 
-    // The wiki. WikiRoot carries its tokens and faces; the two routes above never
-    // render it, so they never load either.
     return (
         <WikiRoot>
             <Navigation currentPage={currentPage} onNavigate={navigate} />
 
-            {/* The nav bar is outside the boundary deliberately: it is already
-                on screen and it is how the visitor got here, so it must not
-                blink while the next page's chunk arrives. */}
+            {/* Outside the boundary so the nav doesn't blink while a chunk loads. */}
             <Suspense fallback={<PageFallback />}>
             {currentPage === 'home' && (
                 <HomePage onNavigate={navigate} />

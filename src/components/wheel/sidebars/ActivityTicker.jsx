@@ -9,49 +9,10 @@ import { useActivity } from '../../../context/ActivityContext.jsx';
 import { visibleInterval } from '../../../config/power.js';
 import { MysteryTag } from '../spin/MysteryTag.jsx';
 
-/**
- * Live drops as a horizontal strip above the reel.
- *
- * The vertical `ActivityFeedSidebar` still exists and is what the mobile drawer
- * opens — this is the desktop presentation, not a replacement. The reason for two
- * is layout, not taste: a 380px column beside the reel is 380px the reel cannot
- * have, and the reel is the page. Moved above it as a strip, the feed costs ~86px
- * of a dimension the page has to spare and gives back a dimension it does not.
- *
- * A strip also changes what the feed is *for*. A tall column invites reading down
- * a history; this is glanced at. So the text is cut back — no absolute
- * timestamps, no All/Mythic tab, one line of name and one of item — and the tier
- * carries the weight instead. That is the right trade only if the tier is
- * legible at a glance, which is what the styling below is for.
- *
- * That cut went one item too far. "No absolute timestamps" is right; no timestamp
- * at all is not, because without one the strip cannot answer whether it is showing
- * the last five minutes or the last five hours — and on a quiet server those look
- * identical. A relative age is back, compact, on the line that already exists.
- *
- * Deliberately NOT auto-scrolling. A marquee makes the newest drop a moving
- * target and needs a `prefers-reduced-motion` alternative that ends up being this
- * anyway; entries appear at the left and push the rest along.
- */
+// Live drops as a horizontal strip above the reel: the desktop presentation, while the vertical `ActivityFeedSidebar` stays for the mobile drawer (a 380px column is width the reel cannot have). Glanced at, so text is cut back and the tier carries the weight; a compact relative age stays so a quiet server shows how old the strip is.
+// Deliberately NOT auto-scrolling: a marquee makes the newest drop a moving target and needs a reduced-motion alternative that ends up being this.
 
-/**
- * Per-tier presentation, ported from the sidebar's rows.
- *
- * The first version of this strip flattened every tier to `${color}12` fill and
- * `${color}33` border, and an insane pull ended up looking like a common with a
- * different hue — which is a real loss, because the tier IS the news. Everything
- * the sidebar used to separate tiers is back: the oil-slick fill and drifting
- * `.fib-holo` overlay for insane, the cool-band gradient for mythic, tier-tinted
- * glow on the avatar, and the item name in its `ink` step with a matching
- * text-shadow.
- *
- * What is deliberately NOT ported is the sidebar's per-tier *geometry* — its
- * 12/11/10px padding, 34/32/30px avatars and 13/12.5/12px type. A 1px padding
- * step is below the threshold at which anyone reads it as hierarchy, but it does
- * give every row a different height, which in a horizontal strip means tiles that
- * do not line up. Tiles here are one size and the tier is carried entirely by
- * colour, glow and the slick, which is the stronger signal anyway.
- */
+// Per-tier presentation ported from the sidebar's rows (a flat fill made an insane pull look like a common in another hue): slick and `.fib-holo` for insane, cool-band gradient for mythic, tier glow on the avatar, name in `ink` with a text-shadow. The sidebar's per-tier geometry is NOT ported: varying heights make tiles that do not line up.
 function tierStyle(rarity) {
     const color = getRarityColor(rarity);
     const isInsane = rarity === 'insane';
@@ -59,9 +20,7 @@ function tierStyle(rarity) {
 
     return {
         color,
-        // `ink` rather than `color` for anything that is text: several tier
-        // colours are Minecraft chat colours picked for a black chat box and fail
-        // contrast on these panels. Icons count as text.
+        // `ink` for anything that is text: several tier colours fail contrast on these panels. Icons count as text.
         ink: getRarityInk(rarity),
         isInsane,
         isMythic,
@@ -81,22 +40,7 @@ function tierStyle(rarity) {
     };
 }
 
-/**
- * An age in the fewest characters that still say something: `now`, `4m`, `2h`,
- * `3d`.
- *
- * Not `formatTimeAgo`, which is the right wording everywhere else and the wrong
- * one here — "Just now" and "42s ago" are three to four times the width of the
- * thing they sit beside, on a line that is already carrying the username, in a
- * strip whose whole argument is that it is glanced at. Same instant, different
- * register. The parsing is shared (`parseServerDate`) so the two can never
- * disagree about *when*, only about how to say it.
- *
- * Seconds are deliberately not shown. They would demand a re-render every second
- * to stay honest, and a number ticking in the corner of ten tiles pulls the eye
- * away from the reel, which is the thing on this page worth watching. Under a
- * minute is `now` — true for the whole minute, and no refresh can make it a lie.
- */
+// An age in the fewest characters (`now`, `4m`, `2h`, `3d`); `formatTimeAgo` is too wide here. Parsing is shared (`parseServerDate`) so the two never disagree about when. No seconds: they would demand a re-render per second and pull the eye from the reel.
 function compactAge(dateString) {
     const date = parseServerDate(dateString);
     if (!date) return null;
@@ -114,22 +58,14 @@ const AGE_REFRESH_MS = 30_000;
 export function ActivityTicker({ onOpenFull }) {
     const { feed, initialized } = useActivity();
 
-    // A relative time that never recomputes is a clock that stopped: the feed only
-    // re-renders when a new drop arrives, so on a quiet server every tile would sit
-    // at whatever it said when it was mounted. Half the display resolution means an
-    // age is never wrong by a whole minute.
+    // A relative time that never recomputes is a stopped clock: the feed only re-renders on a new drop, so half the display resolution keeps an age from being wrong by a whole minute.
     const [, tickAges] = useReducer(n => n + 1, 0);
     useEffect(() => {
-        // Not stretched in saver mode: the whole point of this timer is that an
-        // age is never wrong by a whole minute, and a stretched one would be.
-        // Visibility is the saving here - ages nobody is looking at do not need
-        // recomputing, and one catch-up tick on return fixes them all at once.
+        // Not stretched in saver mode: a stretched timer would let an age be wrong by a minute. Visibility is the saving; one catch-up tick on return fixes all ages.
         return visibleInterval(tickAges, AGE_REFRESH_MS);
     }, []);
 
-    // Newest first, achievements excluded — they are not drops and have no item to
-    // show. Capped at 10: beyond that they are off the right edge at any realistic
-    // width, and rendering tiles nobody can see costs the same as tiles they can.
+    // Newest first, achievements excluded (no item to show). Capped at 10: beyond that they are off the right edge.
     const entries = useMemo(() => (
         (feed || [])
             .filter(e => e.event_type !== 'achievement_unlock')
@@ -164,10 +100,7 @@ export function ActivityTicker({ onOpenFull }) {
                 </span>
             </div>
 
-            {/* `overflow: hidden` rather than `auto`: this is a glance surface, and
-                a horizontal scrollbar under a ten-item strip is more chrome than
-                the content it reveals. The mask fades the right edge so tiles look
-                like they continue past the viewport rather than being chopped. */}
+            {/* `overflow: hidden`, not `auto`: a glance surface needs no scrollbar. The mask fades the right edge so tiles look like they continue. */}
             <div style={{
                 display: 'flex',
                 alignItems: 'stretch',
@@ -207,27 +140,10 @@ export function ActivityTicker({ onOpenFull }) {
                                 border: t.border,
                                 boxShadow: t.boxShadow,
                                 flexShrink: 0,
-                                // No maxWidth, deliberately. It was 230px, which
-                                // after the avatar, the sprite and the padding left
-                                // the item name about 128px — under twenty
-                                // characters, while Minecraft names run to "Waxed
-                                // Oxidized Cut Copper Stairs" at thirty-two. So the
-                                // strip routinely ellipsised the single most
-                                // newsworthy word on the tile, and did it *more*
-                                // often to the rarer, longer-named items.
-                                //
-                                // Tiles size to their content instead. A short name
-                                // makes a narrow tile and more of them fit; a long
-                                // one takes the room it needs. Nothing here is
-                                // laid out in a grid, so there is no column for a
-                                // wide tile to break, and the newest drop is
-                                // leftmost and therefore never the one pushed out.
+                                // No maxWidth, deliberately: at 230px the item name got ~128px and ellipsised the longer-named, rarer items. Tiles size to their content; the newest is leftmost and never pushed out.
                             }}
                         >
-                            {/* The oil-slick drifting across an insane tile. Shared
-                                `.fib-holo` class, which also brings the
-                                reduced-motion path with it: the gradient stays, the
-                                drift stops. */}
+                            {/* The oil-slick on an insane tile uses the shared `.fib-holo` class, which brings the reduced-motion path (the gradient stays, the drift stops). */}
                             {t.isInsane && (
                                 <div className="fib-holo" style={{
                                     position: 'absolute',
@@ -238,32 +154,7 @@ export function ActivityTicker({ onOpenFull }) {
                                 }} />
                             )}
 
-                            {/*
-                              * THE RING ON A FACE MEANS PRESTIGE. IT DOES NOT
-                              * MEAN THE ITEM.
-                              *
-                              * This avatar used to be ringed and glowed in the
-                              * *item's* tier — a 2px insane ring, a 1.5px common
-                              * one — and everywhere else on this site a ring
-                              * around a player's face is their prestige level:
-                              * the leaderboard, the stage's standings, the
-                              * player board. One shape, two meanings, both drawn
-                              * in rarity hues, on surfaces a player moves
-                              * between in a single glance.
-                              *
-                              * The item's tier is not lost by the swap; it was
-                              * never carried here. This tile states it four
-                              * times over — the fill, the border, the glow, and
-                              * the item's name in its own ink — and the sprite
-                              * itself is the news. The avatar's ring was the one
-                              * redundant copy and the only one that meant
-                              * something else.
-                              *
-                              * A player with no prestige gets no ring at all,
-                              * which is what `PrestigeRing` already does with a
-                              * level of 0 — the tile is byte-for-byte what it
-                              * was for everyone who has not prestiged.
-                              */}
+                            {/* THE RING ON A FACE MEANS PRESTIGE, NOT THE ITEM: everywhere else on the site a ring around a player's face is their prestige level, so this avatar must not be ringed in the item's tier. The tile already states the tier through fill, border, glow and name ink. No prestige renders no ring (`PrestigeRing` with level 0). */}
                             <PrestigeRing standing={prestigeStanding(item)}>
                             <img
                                 src={getDiscordAvatarUrl(item.discord_id, item.discord_avatar)}
@@ -288,15 +179,7 @@ export function ActivityTicker({ onOpenFull }) {
                                 position: 'relative',
                                 zIndex: 1,
                             }}>
-                                {/* Who and when, on one line. The age goes here
-                                    rather than anywhere else on the tile because
-                                    this line already exists, is already muted, and
-                                    already holds the context rather than the news —
-                                    so the age costs no height and competes with
-                                    nothing. It is also the line that may still
-                                    truncate: a Discord username runs to 32
-                                    characters and is the least newsworthy thing
-                                    here, so it is what gives way, never the item. */}
+                                {/* Who and when on one line: this muted context line already exists and costs no height. It is the line that may truncate (Discord names run to 32 characters), so the item never gives way. */}
                                 <span style={{
                                     display: 'flex',
                                     // Centre, not baseline: a padded pill sitting on
@@ -315,14 +198,7 @@ export function ActivityTicker({ onOpenFull }) {
                                     }}>
                                         {item.custom_username || 'Unknown'}
                                     </span>
-                                    {/* Same muted step as the username rather than
-                                        a dimmer one. There is no step below
-                                        `textMuted` on this palette, and inventing
-                                        one would put 11px text under the 4.5:1
-                                        floor PRODUCT.md commits to — `#888` on
-                                        these tinted tiles is already near it. The
-                                        separator does the demoting instead, which
-                                        costs no contrast at all. */}
+                                    {/* Same muted step as the username: no dimmer step exists on this palette, and a new one would break PRODUCT.md's 4.5:1 floor at 11px. The separator does the demoting. */}
                                     {age && (
                                         <span style={{
                                             flexShrink: 0,
@@ -334,30 +210,11 @@ export function ActivityTicker({ onOpenFull }) {
                                         </span>
                                     )}
 
-                                    {/* Lucky drops say so in words. This was a bare
-                                        `⚡` glyph sitting between the text and the
-                                        sprite, which is a worse version of the same
-                                        idea twice over: an unlabelled icon has to be
-                                        learned before it means anything, and parked
-                                        in the tile's own row it competed with the
-                                        item name — the one thing on the tile that
-                                        should win. On the context line it reads as
-                                        what it is, a condition of the drop rather
-                                        than part of the drop.
-                                        The badge keeps `COLORS.green`, which is what
-                                        the reel paints a lucky common. The sidebar's
-                                        original used `#00FF00` — that is recursion's
-                                        matrix green, a spin *mode*, and borrowing it
-                                        here would have the ticker disagreeing with
-                                        the reel about what lucky looks like. */}
+                                    {/* Lucky drops say so in words, on the context line (a condition of the drop). The badge keeps `COLORS.green`, what the reel paints a lucky common; the sidebar's `#00FF00` is recursion's matrix green, a spin mode. */}
                                     {item.is_mystery === 1 ? <MysteryTag /> : item.is_lucky === 1 && (
                                         <span style={{
                                             flexShrink: 0,
-                                            // 10px, one step up from the sidebar's
-                                            // 9px. That 9px is recorded in DESIGN.md
-                                            // §8 as tolerable only because it was a
-                                            // glyph with no text beside it; this is
-                                            // a word, and a word has to be read.
+                                            // 10px, one step above the sidebar's 9px: DESIGN.md §8 tolerates 9px only for a glyph with no text beside it, and this is a word.
                                             fontSize: '10px',
                                             fontWeight: 700,
                                             lineHeight: 1,
@@ -424,11 +281,7 @@ export function ActivityTicker({ onOpenFull }) {
                     flexShrink: 0,
                     alignSelf: 'center',
                     background: 'transparent',
-                    // Signboard, not a box: the Nocturne has no frames, and this
-                    // readout sits on the open street. One line of amber type that
-                    // lights on hover keeps the affordance without drawing a box
-                    // around it — the label column next door already anchors the
-                    // strip.
+                    // Signboard, not a box (the Nocturne has no frames): one line of amber type that lights on hover keeps the affordance.
                     border: 'none',
                     color: COLORS.textMuted,
                     fontSize: '11px',

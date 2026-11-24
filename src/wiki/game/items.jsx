@@ -4,8 +4,6 @@ import { itemName, itemSrc, stageOf, tagsOf, whereOf } from '../data/atlas.js';
 import { STAGES, TAGS, REGION } from '../tokens.js';
 
 
-/* ── Pixel glyphs for the tags. 7x7, drawn, one colour each. ─────────────────── */
-
 const GLYPHS = {
     NETHER: 'M3 0h1v1h1v2h1v3h-1v1h-3v-1h-1v-3h1v-1h1z', // a flame
     END: 'M2 1h3v1h1v1h1v1h-1v1h-1v1h-3v-1h-1v-1h-1v-1h1v-1h1zM3 3h1v1h-1z', // an eye
@@ -22,8 +20,6 @@ export function TagGlyph({ tag, size = 9 }) {
         </svg>
     );
 }
-
-/* ── The sprite and the slot ─────────────────────────────────────────────────── */
 
 export function ItemSprite({ material, className = '', eager = false }) {
     return (
@@ -132,8 +128,6 @@ export function SlotGrid({ items, size = 52, label, className = '', onPoint, aft
         </div>
     );
 }
-
-/* ── The one tooltip ─────────────────────────────────────────────────────────── */
 
 export function TooltipLayer() {
     const t = useSyncExternalStore(subscribeTip, getTip, () => null);

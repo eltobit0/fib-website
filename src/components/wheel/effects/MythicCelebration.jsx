@@ -1,8 +1,3 @@
-// ============================================
-// Global Mythic & Insane Celebration Component
-// ============================================
-// Shows a full-page celebration when ANY user pulls a MYTHIC or INSANE item
-// Delays celebration to sync with wheel animation finishing
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { COLORS } from '../config/constants';
@@ -18,19 +13,14 @@ import { useActivity } from '../../../context/ActivityContext.jsx';
 import { useSound } from '../../../context/SoundContext.jsx';
 import { Sparkles, Star, Crown, Diamond } from 'lucide-react';
 
-// Configuration
-//
-// CELEBRATION_DELAY is gone — see the note in PixiMythicCelebration.jsx, which is
-// the component actually mounted. The timing rule lives in utils/helpers.js.
+// The delay lives in utils/helpers.js (see PixiMythicCelebration.jsx, the component actually mounted).
 const CELEBRATION_DURATION = 12000;
 const CONFETTI_COUNT = 500;
 
 // Color schemes for each rarity
 const RARITY_THEMES = {
     insane: {
-        // Iridescent, not gold. This theme was five shades of gold, which is now
-        // legendary's colour — the biggest moment in the product would have
-        // celebrated an insane pull in the tier below it.
+        // Iridescent, not gold: gold is legendary's colour, and this is the tier above it.
         primary: COLORS.insaneHolo[0],   // #FF55FF hot magenta
         secondary: COLORS.insaneHolo[1], // #55FFFF cyan
         accent: COLORS.insaneFlat,       // #F2ECFF platinum

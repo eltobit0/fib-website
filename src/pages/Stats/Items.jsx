@@ -14,10 +14,7 @@ const PHASES = [
 ];
 const phaseOf = (itemName) => ITEM_STATE[itemKey(itemName).toUpperCase()] ?? 'NONE';
 
-/*
- * Each sort is a question about the whole index. On a card the active one is the headline (figure, unit and the
- * bar against the highest in the index) and the other two ride along underneath as their one-line `brief`.
- */
+/* The active sort is a card's headline; the other two ride along underneath as their `brief`. */
 const found = (r) => r.seen > r.skips;
 const SORTS = [
   {

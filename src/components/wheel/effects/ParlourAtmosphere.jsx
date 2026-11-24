@@ -43,39 +43,14 @@ function ParlourAtmosphere({ openedAt, pocketColour = null }) {
     }, [openedAt]);
 
     /*
-     * The room's voice.
-     *
-     * ── WHY IT HANGS OFF THE ROOM AND NOT OFF THE TABLE ──────────────────────
-     *
-     * `RouletteTable` is the obvious home — it owns the beats the take is cut
-     * against and it already calls `playSfx`. It is the wrong one for the same
-     * reason this component exists at all: the bed is scored to the EVENT, and
-     * the event is the whole surface warming for half a minute, not the panel
-     * under the reel. This component is mounted by WheelPage for exactly the
-     * table's lifetime, keyed on `openedAt`, and is the one piece of THE
-     * PARLOUR that is neither behind a viewport check nor inside the band — the
-     * wheel and the deck below are both `!isPhone`, and a phone should still
-     * hear the room.
-     *
-     * ── AND WHY IT SEEKS ─────────────────────────────────────────────────────
-     *
-     * The same `(serverNow() - openedAt) / 1000` the light two effects up is
-     * measured with, handed to the bed. A player who loads the page at the
-     * call gets a room that is already lit and a take that is already at the
-     * call; starting at zero would put the deal under the reveal and make the
-     * one honest clock on this event disagree with itself.
-     *
-     * `prefersCalm()` is deliberately NOT consulted. It gates the rAF loops
-     * above because those are motion; a reduced-motion preference is not a
-     * sound preference, and `parlourSoundtrackEnabled` is where a player says
-     * they do not want this. Same call as THE ARRIVAL's bed.
-     *
-     * The callbacks are read through a ref and the effect depends on
-     * `openedAt` alone — `useSound`'s callbacks are rebuilt whenever any
-     * setting changes, so a volume slider moved mid-event would otherwise run
-     * the cleanup and start the take again from the top. That is the note in
-     * ArrivalTheatre.jsx, applied to the same hazard here.
-     */
+    * The room's voice. It hangs off the room, not RouletteTable: WheelPage mounts it for exactly the table's
+    * lifetime, keyed on `openedAt`, and it is neither behind a viewport check nor inside the band, so a phone hears it too.
+    *
+    * It seeks with the same `(serverNow() - openedAt) / 1000` as the light, so a late page load joins the take.
+    * `prefersCalm()` is deliberately NOT consulted: reduced motion is not a sound preference
+    * (`parlourSoundtrackEnabled` is). Callbacks go through a ref and the effect depends on `openedAt` alone, or a
+    * volume change mid-event would restart the take (see ArrivalTheatre.jsx).
+    */
     const soundRef = useRef({ startParlourSoundtrack, stopParlourSoundtrack });
     useEffect(() => {
         soundRef.current = { startParlourSoundtrack, stopParlourSoundtrack };
@@ -84,15 +59,10 @@ function ParlourAtmosphere({ openedAt, pocketColour = null }) {
         if (!openedAt) return undefined;
 
         const elapsed = (serverNow() - openedAt) / 1000;
-        // A table this far gone has no room left to score. Nothing else in the
-        // component bothers guarding past T_END because a finished animation is
-        // a still frame, but a bed started here would be audible.
+        // A table this far gone has no room left to score; a bed started here would be audible.
         if (elapsed >= T_END) return undefined;
 
-        // The clock, not a reading of it. `elapsed` above is measured before the
-        // file has even been asked for, so on a cold first play it is stale by
-        // exactly the fetch it was meant to survive; the function is evaluated
-        // on the far side of that. See `joinTake` in SoundContext.
+        // The clock, not a reading of it: `elapsed` is stale by the fetch on a cold first play. See `joinTake` in SoundContext.
         soundRef.current?.startParlourSoundtrack?.(
             () => Math.max(0, (serverNow() - openedAt) / 1000),
         );

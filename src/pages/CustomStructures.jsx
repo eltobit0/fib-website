@@ -19,8 +19,6 @@ import portalTexture from '@resources/ForceItemBattle/assets/minecraft/textures/
  * RecipeManager, VillagerTradeListener, WanderingTraderManager and JournalListener: recheck them after a plugin change.
  */
 
-/* ── Items ───────────────────────────────────────────────────────────────────── */
-
 /* Three of these animate in the pack as sprite strips, so the static renders in /fib-items are used. */
 const ITEM = {
     antimatterLocator: { name: 'Antimatter Locator', src: '/fib-items/knowledge_book.png' },
@@ -58,8 +56,6 @@ const RECIPES = {
     trial: [[v('cut_copper'), v('glass'), v('cut_copper')], [v('glass'), v('compass'), v('glass')], [v('gold_ingot'), v('gold_ingot'), v('gold_ingot')]],
     trialHarder: [[v('obsidian'), v('copper_ingot'), v('obsidian')], [v('gold_ingot'), v('compass'), v('iron_ingot')], [v('obsidian'), v('diamond'), v('obsidian')]],
 };
-
-/* ── Drawing pieces ─────────────────────────────────────────────────────────── */
 
 function Face({ item, size = 48, count = null, className = '', lift = false }) {
     return (
@@ -220,8 +216,6 @@ function PortalRuin() {
     );
 }
 
-/* ── The Antimatter Depths ──────────────────────────────────────────────────── */
-
 function Step({ n, title, children, drawing }) {
     return (
         <li className="cc-step">
@@ -303,8 +297,6 @@ function Inside() {
         </ul>
     );
 }
-
-/* ── Its loot ───────────────────────────────────────────────────────────────── */
 
 const ROOMS = [
     { key: 'antimatter_depths_nature', name: 'Nature Room', text: 'A sanctuary of flowers, with a small bonus roll on top.' },
@@ -469,8 +461,6 @@ function Loot() {
     );
 }
 
-/* ── Locators ───────────────────────────────────────────────────────────────── */
-
 const LOCATORS = [
     { item: ITEM.antimatterLocator, to: 'antimatter-depths', how: 'Crafted', finds: 'An Antimatter Depths Portal ruin', spent: 'Unless someone already marked it' },
     { item: ITEM.trialLocator, to: 'trial-locator', how: 'Crafted', finds: 'Trial Chambers', spent: 'Unless someone already marked it' },
@@ -571,8 +561,6 @@ const BIOME_NOTES = [
     { biome: 'Cherry Grove', flavor: 'hills awash in falling pink petals' },
 ];
 
-/* ── Traders ────────────────────────────────────────────────────────────────── */
-
 const SPECIAL = [
     { price: 1, get: { item: { ...ITEM.wheel, name: 'Wheels of Fortune' }, count: 3 }, note: 'Three for one emerald.' },
     { price: 5, get: { item: ITEM.journal }, note: 'Otherwise only found in shipwrecks.' },
@@ -645,8 +633,6 @@ function Traders({ go }) {
     );
 }
 
-/* ── The world ──────────────────────────────────────────────────────────────── */
-
 function World() {
     const chest = TABLES.teleporter?.[0]?.entries ?? [];
     return (
@@ -687,8 +673,6 @@ function World() {
         </section>
     );
 }
-
-/* ── The page ───────────────────────────────────────────────────────────────── */
 
 export default function CustomStructures({ onNavigate }) {
     const go = useGo(onNavigate);

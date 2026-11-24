@@ -29,7 +29,6 @@
 .fs .skip { position: absolute; left: -999px; }
 .fs .skip:focus { left: 16px; top: 16px; z-index: 20; padding: 10px 14px; background: var(--aqua); color: #000; }
 
-/* header */
 .fs-head { border-bottom: 1px solid var(--line); background: var(--deep); }
 .fs-head > div { display: flex; align-items: center; gap: 30px; max-width: 1200px; height: 62px; margin: 0 auto; padding: 0 24px; }
 .fs-head .mark { font-family: var(--d); font-size: 18px; letter-spacing: .02em; white-space: nowrap; }
@@ -62,7 +61,6 @@
 .fs .link-plain { font-weight: inherit; }
 .fs .link-plain:hover { color: var(--aqua); }
 
-/* controls: text tabs with a line under the chosen one */
 .fs .ctrls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px; margin-top: 22px; }
 .fs .tog { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .fs .tog button { padding: 4px 0; color: var(--text3); font-weight: 600; border-bottom: 2px solid transparent; transition: color .15s; }
@@ -77,7 +75,6 @@
 .fs .btn.go { background: var(--aqua); color: #000; }
 .fs .btn:disabled { opacity: .5; cursor: default; }
 
-/* players */
 .fs .face { flex: none; background: var(--deep); }
 .fs .who { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; white-space: nowrap; }
 .fs .who:hover .nm { color: var(--aqua); }
@@ -85,7 +82,6 @@
 .fs .faces { display: inline-flex; }
 .fs .faces img + img { margin-left: -5px; box-shadow: 0 0 0 2px var(--bg); }
 
-/* an item on its tile; a back to back is ringed in its rarity, a joker is the pack's barrier */
 .fs .it { position: relative; display: grid; place-items: center; flex: none; background: var(--tile); border-radius: 4px; }
 .fs .it.r { box-shadow: inset 0 0 0 2px var(--r); }
 .fs .it.j { background: transparent; border: 2px dashed var(--text3); }
@@ -113,7 +109,6 @@
 .fs .shelf [aria-pressed=true] b { color: var(--aqua); }
 .fs .shelf [aria-pressed=true] .it { box-shadow: inset 0 0 0 2px var(--aqua); }
 
-/* a round: each side's items in the order they came */
 .fs .round-hd { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 32px; align-items: end; }
 .fs .round-hd .title { max-width: 20ch; }
 .fs .score { display: flex; align-items: baseline; gap: 12px; font-family: var(--d); font-size: 64px; line-height: .9; }
@@ -128,7 +123,6 @@
 .fs .lane.p1 header .pos { color: var(--gold); } .fs .lane.p2 header .pos { color: var(--silver); } .fs .lane.p3 header .pos { color: var(--bronze); }
 .fs .legend { margin-top: 18px; color: var(--text3); font-size: 13.5px; }
 
-/* lists */
 .fs .top-list li { display: grid; grid-template-columns: 22px auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .fs .top-list .pos { font-family: var(--d); color: var(--text3); text-align: right; }
 .fs .top-list li.p1 .pos, .fs .top-list li.p1 .v { color: var(--gold); }
@@ -156,7 +150,6 @@
 .fs .ach li.got small { color: var(--gold); }
 .fs .ach li:not(.got) b { color: var(--text2); }
 
-/* tables: hairlines, no panels */
 .fs .tbl { overflow-x: auto; }
 .fs table { width: 100%; border-collapse: collapse; }
 .fs td, .fs th { padding: 11px 16px 11px 0; text-align: left; white-space: nowrap; vertical-align: middle; border-bottom: 1px solid var(--line); }
@@ -177,7 +170,6 @@
 .fs .tb tr { transition: transform .5s var(--ease); }
 .fs .tb tr[data-flipping] { transition: none; }
 
-/* the profile's banner: the items they find most, behind them */
 .fs .banner { position: relative; overflow: hidden; margin-top: 28px; border-radius: 4px; background: var(--deep); }
 .fs .banner .wall { position: absolute; inset: -20px; display: grid; grid-template-columns: repeat(auto-fill, 60px); grid-auto-rows: 60px; gap: 6px; opacity: .16; transform: rotate(-5deg); pointer-events: none; }
 .fs .banner .wall img { width: 42px; height: 42px; margin: 9px; }
@@ -195,14 +187,12 @@
 .fs .meter i { display: block; height: 100%; width: calc(var(--w) * 1%); background: var(--gold); }
 .fs .big { font-family: var(--d); font-size: 30px; }
 
-/* directory: people as rows of faces */
 .fs .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0 32px; }
 .fs .people button { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .fs .people b { display: block; font-weight: 600; font-size: 16px; }
 .fs .people small { display: block; color: var(--text3); font-size: 13.5px; }
 .fs .people button:hover b { color: var(--aqua); }
 
-/* the item index and the album: entries on the ground, not cards */
 .fs .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 28px 20px; margin-top: 28px; }
 .fs .grid > li { display: grid; gap: 4px; align-content: start; content-visibility: auto; contain-intrinsic-size: 200px; }
 .fs .grid .it { margin-bottom: 6px; }
@@ -217,7 +207,6 @@
 .fs .slots small { color: var(--text3); font-size: 12.5px; }
 .fs .slots .gone span { color: var(--text3); }
 
-/* the round page */
 .fs .scrub { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; margin-top: 18px; }
 .fs .scrub .btn { margin-top: 0; }
 .fs .scrub input[type=range] { flex: 1 1 220px; accent-color: var(--aqua); }

@@ -1,8 +1,3 @@
-// ============================================
-// PixiMythicCelebration.jsx
-// ============================================
-// Drop-in replacement for MythicCelebration using GPU-accelerated Canvas
-// Maintains identical visual appearance - no PixiJS, just Canvas 2D
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { COLORS } from '../config/constants';
@@ -18,12 +13,7 @@ import { useActivity } from '../../../context/ActivityContext.jsx';
 import { useSound } from '../../../context/SoundContext.jsx';
 import { Sparkles, Star, Crown, Diamond } from 'lucide-react';
 
-// Configuration - must match original
-//
-// CELEBRATION_DELAY is gone. It was 4500 here and 4500 in MythicCelebration, a
-// third number for an idea that already had SPIN_REVEAL_MS, and each copy was
-// applied against a different clock. `celebrationDelay()` in utils/helpers.js is
-// the one rule now; the note there records what the two copies got wrong.
+// The delay is `celebrationDelay()` in utils/helpers.js.
 const CELEBRATION_DURATION = 12000;
 const CONFETTI_COUNT = 500;
 
@@ -59,10 +49,6 @@ function hexToRgb(hex) {
         b: parseInt(cleanHex.substring(4, 6), 16)
     };
 }
-
-// ============================================
-// GPU CONFETTI PARTICLE
-// ============================================
 
 class ConfettiParticle {
     constructor(screenWidth, color) {
@@ -129,10 +115,6 @@ class ConfettiParticle {
         ctx.restore();
     }
 }
-
-// ============================================
-// CANVAS-BASED CONFETTI SYSTEM
-// ============================================
 
 function CanvasConfetti({ active, colors, count }) {
     const canvasRef = useRef(null);
@@ -242,10 +224,6 @@ function CanvasConfetti({ active, colors, count }) {
     );
 }
 
-// ============================================
-// CANVAS-BASED BACKGROUND PULSE
-// ============================================
-
 function CanvasBackgroundPulse({ active, colors }) {
     const canvasRef = useRef(null);
     const animationRef = useRef(null);
@@ -331,10 +309,6 @@ function CanvasBackgroundPulse({ active, colors }) {
         />
     );
 }
-
-// ============================================
-// MAIN COMPONENT - DROP-IN REPLACEMENT
-// ============================================
 
 export function PixiMythicCelebration({ currentUserId }) {
     const { newItems } = useActivity();
@@ -441,9 +415,7 @@ export function PixiMythicCelebration({ currentUserId }) {
             !processedItemsRef.current.has(item.id)
         );
 
-        // One takeover at a time — the newest pull that is still news. A loop
-        // rather than `specialPulls[0]` because the first candidate can now be
-        // rejected as stale, and when it is, the one behind it deserves the look.
+        // One takeover at a time, the newest pull that is still news; a loop because the first candidate can be rejected as stale.
         for (const specialItem of specialPulls) {
             processedItemsRef.current.add(specialItem.id);
 

@@ -41,8 +41,6 @@ const Tick = () => (
     </span>
 );
 
-/* ── The plugin's arithmetic ─────────────────────────────────────────────────── */
-
 /** BackToBackProbability.probabilityOf. */
 function oddsOf(held, pool, streak) {
     if (pool <= 0) return 0;
@@ -67,8 +65,6 @@ function formatPercent(percent) {
     const s = percent.toFixed(Math.min(20, zeros + 2)).replace(/\.?0+$/, '');
     return `${s}%`;
 }
-
-/* ── 1. One item at a time ───────────────────────────────────────────────────── */
 
 const WAYS = [
     { face: 'HOPPER', name: 'Pick it up', text: 'A drop, a block you broke, whatever a mob left behind.' },
@@ -131,7 +127,6 @@ function Round() {
     );
 }
 
-/* ── Your screen ── */
 function Screen() {
     return (
         <section id="screen" className="wk-wrap pg-sec" aria-labelledby="screen-title">
@@ -151,8 +146,6 @@ function Screen() {
         </section>
     );
 }
-
-/* ── 2. The pool opens up ────────────────────────────────────────────────────── */
 
 const DRAWS = 8;
 
@@ -278,8 +271,6 @@ function Clock() {
     );
 }
 
-/* ── 3. Jokers ───────────────────────────────────────────────────────────────── */
-
 const JOKER_RULES = [
     { name: 'It still breaks your streak', text: 'Every item you get extends your item streak. A skip is the one thing that ends it.' },
     { name: 'Not in an Item Hunt', text: 'The hunt goes to the first find made without skipping.' },
@@ -384,8 +375,6 @@ function Jokers() {
         </section>
     );
 }
-
-/* ── 4. Back-to-backs ────────────────────────────────────────────────────────── */
 
 const COLS = 9;
 const POOL_ALL = COUNT.EARLY + COUNT.MID + COUNT.LATE;
@@ -693,8 +682,6 @@ function Luck() {
     );
 }
 
-/* ── 5. The modes ────────────────────────────────────────────────────────────── */
-
 function laneStart() {
     return HEADS.map(() => {
         const [current, ...trail] = picks(EARLY_MID, 4);
@@ -906,8 +893,6 @@ function Modes({ calm }) {
     );
 }
 
-/* ── 6. Random events ────────────────────────────────────────────────────────── */
-
 const EVENTS = [
     { key: 'ITEM_HUNT', name: 'Item Hunt', face: 'SPYGLASS', weight: 10, once: false, minLeft: 0 },
     { key: 'POINT_HUNT', name: 'Point Hunt', face: 'TARGET', weight: 6, once: true, minLeft: 11 * 60 },
@@ -1014,11 +999,6 @@ function Events({ go }) {
     );
 }
 
-/*
- * ── 7. Traders ──
- * Offers live on Custom Content; this section only shows when traders come.
- */
-
 const TRADER_STAY = 5 * 60;
 
 /** WanderingTraderManager.startTimer: arrival times, in seconds, over a round. */
@@ -1078,7 +1058,6 @@ function Traders({ go }) {
     );
 }
 
-/* ── 8. How a round ends ── */
 function Results() {
     return (
         <section id="results" className="wk-wrap pg-sec" aria-labelledby="results-title">
@@ -1102,8 +1081,6 @@ function Results() {
         </section>
     );
 }
-
-/* ── 9. Strategy ─────────────────────────────────────────────────────────────── */
 
 const TIPS = [
     { face: 'SHULKER_BOX', name: 'Keep one of everything',
@@ -1136,8 +1113,6 @@ function Strategy() {
         </section>
     );
 }
-
-/* ── The page ───────────────────────────────────────────────────────────────── */
 
 const CONTENTS = [
     ['round', 'The round'], ['screen', 'Your screen'], ['pool', 'The pool'], ['jokers', 'Jokers'], ['back-to-backs', 'Back-to-backs'], ['odds', 'The odds'],

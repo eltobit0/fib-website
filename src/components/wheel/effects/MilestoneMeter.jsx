@@ -5,45 +5,15 @@ import { visibleInterval } from '../../../config/power.js';
 import { useEventSlotBusy } from './useEventSlotBusy.js';
 
 /**
- * How close the server is to its next global event.
- *
- * Fills the banner slot between the ticker and the reel, which is empty whenever
- * no event is running — which is most of the time. The four event banners live in
- * the same slot and take it over when they fire; this is what that space says the
- * rest of the time.
- *
- * **It counts spins, not seconds, and that is not a compromise.** Events trigger on
- * `nextEventTriggerSpin`, a server-wide spin counter with a random 300–600 interval
- * (`globalEvents.js`). There is no scheduled time to count down to, so a clock here
- * would have to estimate a spin rate — a number that is wrong whenever the server is
- * quiet or busy, and precisely the kind of figure PRODUCT.md's "counted, never
- * asserted" rule exists to keep off this site. Spins are the real unit.
- *
- * It also turns out to be the better design. A clock runs down on its own and asks
- * nothing of anybody; a spin counter moves when someone spins, so the meter is a
- * live readout of the thing the page is for, and your own spin visibly moves it.
- *
- * The count is server-wide, and the copy says so. "159 spins to go" on its own
- * reads as a personal target — the difference between "I have to do this" and
- * "everyone here is doing this together" is the whole character of the feature.
- *
- * **And it opens the event log, at THE RUN-UP.** The sentence above names a
- * collective effort and then shows nobody in it, which is the one question this
- * card provokes and cannot answer in the row it is allowed. A click hands it to
- * the board that can: `runUp` there lists who has spun since the last event
- * ended, and the same figure that is on this plinth is in that board's head, so
- * the reader lands on the number they clicked rather than on a new one.
- */
+* How close the server is to its next global event, filling the banner slot between the ticker and the reel when no event runs.
+*
+* It counts spins, not seconds: events trigger on `nextEventTriggerSpin`, a server-wide counter with a random 300-600
+* interval (`globalEvents.js`), so a clock would estimate a spin rate ("counted, never asserted", PRODUCT.md).
+* The copy says the count is server-wide, or it reads as a personal target. Clicking opens the event log at THE RUN-UP,
+* whose head shows the same figure.
+*/
 
-/**
- * How often the fallback re-reads the counter while it is on screen.
- *
- * This is the safety net, not the source of truth. The server now pushes a
- * `global_event_milestone` SSE event after every spin (see checkMilestoneTrigger
- * in the wheel backend), so the number moves within a frame of whoever last
- * spun. The 20s interval only covers a silent stream — a reconnecting SSE or a
- * server too busy to broadcast — the same reasons this meter ever polled.
- */
+/** Fallback re-read interval: the server pushes `global_event_milestone` after every spin, so this only covers a silent stream (reconnecting SSE, busy server). */
 const REFRESH_MS = 20_000;
 
 export function MilestoneMeter({ isMobile, onOpen }) {
@@ -51,38 +21,23 @@ export function MilestoneMeter({ isMobile, onOpen }) {
     const effectiveActive = useEventSlotBusy();
     const milestone = globalEventStatus?.milestone;
 
-    // The number arrives pushed: `global_event_milestone` lands here after every
-    // spin with the fresh count, and the layout below just renders it. Nothing
-    // about the update loop lives in this component any more — the SSE handler in
-    // ActivityContext writes into the same `globalEventStatus.milestone` the
-    // status broadcasts write. All this effect does is keep asking, slowly, in
-    // case the stream went quiet (reconnect gap, quiet-server stall) — and only
-    // while the meter is actually visible; `document.hidden` covers the
-    // backgrounded tab.
+    // The number arrives pushed (ActivityContext writes `globalEventStatus.milestone`); this effect only keeps asking
+    // slowly in case the stream went quiet, and only while visible.
     useEffect(() => {
         if (effectiveActive) return undefined;
 
-        // The `document.hidden` check this used to do inline is `visibleInterval`'s
-        // whole job, and it does the better version: the timer is torn down while
-        // hidden rather than firing into a branch that does nothing, and one
-        // catch-up refresh runs on the way back so the meter is right before it
-        // is looked at. `stretch` slows it further in saver mode — this is a
-        // backstop for a quiet stream, and a backstop can afford to be slow.
+        // `visibleInterval` tears the timer down while hidden and refreshes once on return; `stretch` slows it further in saver mode.
         refreshMilestone();
         return visibleInterval(refreshMilestone, REFRESH_MS, { stretch: true });
     }, [effectiveActive, refreshMilestone]);
 
-    // Nothing to say rather than a placeholder: an event is running and has its own
-    // banner, or the server has not told us yet. A skeleton here would be chrome
-    // standing in for a number that arrives in a few hundred milliseconds.
+    // Nothing rather than a placeholder: an event is running with its own banner, or the server has not told us yet.
     if (effectiveActive || !milestone || typeof milestone.remaining !== 'number') return null;
 
     const remaining = Math.max(0, milestone.remaining);
     const progress = Math.min(100, Math.max(0, milestone.progress || 0));
 
-    // The last stretch runs hotter. This is anticipation the data actually supports
-    // — it *is* closer — rather than a flourish bolted on a timer, and it is the one
-    // moment this component is allowed to raise its voice.
+    // The last stretch runs hotter: anticipation the data supports, the one moment this component may raise its voice.
     const imminent = remaining <= 25;
 
     return (
@@ -92,23 +47,9 @@ export function MilestoneMeter({ isMobile, onOpen }) {
             paddingBottom: `${SPACE.sm}px`,
             zIndex: Z.content,
         }}>
-            {/*
-             * The two keyframes are defined here, in the component, because the
-             * wheel's effects each own their animation vocabulary — see the
-             * countdownPulse* keyframes in the event banners. Both are frozen by
-             * the media query below, matching the surface's rule: light and
-             * motion may breathe, geometry and data may not.
-             *
-             * `fibMeterTick` is the number's "something just moved" pop. It runs
-             * exactly once per update because the <strong> remounts on
-             * `key={remaining}` — a 20s poll snap turns into a visible tick
-             * without inventing any data in between.
-             *
-             * `fibMeterBreath` is the imminent fill's glow. The static 8px
-             * shadow that the rest of the time says "status" gives way to a
-             * slow swell — the one moment this component is allowed to raise
-             * its voice, and it spends it on light, never on layout.
-             */}
+            {/* Keyframes live here because the wheel's effects each own their animation vocabulary; both are frozen by the media
+            query below (light and motion may breathe, geometry and data may not). `fibMeterTick` pops once per update because
+            the <strong> remounts on `key={remaining}`; `fibMeterBreath` is the imminent fill's glow swell. */}
             <style>{`
                 @keyframes fibMeterTick {
                     0% { transform: scale(1); }
@@ -129,42 +70,22 @@ export function MilestoneMeter({ isMobile, onOpen }) {
                 type="button"
                 className={onOpen ? 'fib-board-hit' : undefined}
                 onClick={onOpen}
-                // Not a button at all when nothing is listening. The meter is
-                // mounted by the wheel page, but it is a component and a caller
-                // that wires no handler would otherwise ship a control that
-                // takes focus, announces itself and does nothing.
+                // Not a button when nothing is listening, or it would take focus, announce itself and do nothing.
                 disabled={!onOpen}
                 aria-label={onOpen
                     ? `${remaining.toLocaleString('en-US')} spins to the next global event, server-wide. Open the event log to see who has been spinning.`
                     : undefined}
-                // The full sentence lives here rather than on screen. The visible
-                // copy has to carry "server-wide" in three words; the tooltip can
-                // afford to explain the mechanism to whoever wonders.
+                // The full sentence lives in the tooltip; the visible copy carries "server-wide" in three words.
                 title={`Global events trigger on a server-wide spin count. Every player's spins count toward it — ${remaining.toLocaleString('en-US')} to go.${onOpen ? ' Open the log to see who has been spinning.' : ''}`}
                 style={{
-                    // Button reset. The plinth's own look is entirely in the
-                    // rules below; these four lines only stop the user agent
-                    // from painting a control over them.
+                    // Button reset: these lines only stop the user agent painting a control over the plinth's own look.
                     border: 0,
                     font: 'inherit',
                     color: 'inherit',
                     textAlign: 'left',
                     cursor: onOpen ? 'pointer' : 'default',
-                    // ── The phone's version is one line ──────────────────────
-                    //
-                    // At 84px this was the third-largest thing on a 800px phone,
-                    // behind only the shaft and the payoff apron — four stacked
-                    // rows (label, 22px number, caption, 7px bar) for a single
-                    // figure that changes every few seconds and that nobody came
-                    // here to read. It cost the reel two thirds of a row.
-                    //
-                    // Compacted to ~32px: the label folds into the sentence, the
-                    // number keeps its instrument treatment because it is still
-                    // the only datum, and the progress bar stops being a row of
-                    // its own — it becomes the plinth's own lit floor edge,
-                    // growing left to right. That is the Nocturne's own move
-                    // rather than a smaller widget: the deck section is lit by
-                    // how close the event is.
+                    // The phone's version is one line (~32px, from 84px): the label folds into the sentence, and the progress bar becomes
+                    // the plinth's own lit floor edge growing left to right.
                     position: 'relative',
                     overflow: 'hidden',
                     display: 'flex',
@@ -173,12 +94,8 @@ export function MilestoneMeter({ isMobile, onOpen }) {
                     gap: isMobile ? '6px' : '5px',
                     width: isMobile ? '100%' : '460px',
                     padding: isMobile ? '7px 16px 9px' : '10px 18px 12px',
-                    // No radius, no ring: this is a detached section of the band's
-                    // viaduct deck (the Nocturne), not a card sitting in the slot —
-                    // square plinth, lit rail along the top, amber entering from
-                    // the floor. Deliberately quieter than the event banners that
-                    // share this slot — this is a status, and they are news. The
-                    // grain is SURFACE_NOISE, the deck's own material.
+                    // A detached section of the band's viaduct deck (the Nocturne): square plinth, lit rail on top, amber from the floor,
+                    // quieter than the event banners sharing the slot (this is status, they are news). Grain is SURFACE_NOISE.
                     backgroundImage: `${SURFACE_NOISE}, linear-gradient(180deg, #0d1322 0%, #0a0d18 100%)`,
                     boxShadow: [
                         'inset 0 1px 0 rgba(206,214,236,0.10)',
@@ -186,13 +103,7 @@ export function MilestoneMeter({ isMobile, onOpen }) {
                     ].join(', '),
                 }}
             >
-                {/*
-                 * The number is the product, the label is the margin note. It
-                 * used to be the other way around — 11px bold caps against 13px
-                 * regular — so the only datum that ever changes was the quietest
-                 * thing on the card. Now the count reads as an instrument
-                 * readout and the prose around it recedes.
-                 */}
+                {/* The number is the product (an instrument readout); the label is the margin note. */}
                 <div style={{
                     display: 'flex',
                     flexDirection: isMobile ? 'row' : 'column',
@@ -200,11 +111,7 @@ export function MilestoneMeter({ isMobile, onOpen }) {
                     gap: isMobile ? '6px' : '1px',
                     minWidth: 0,
                 }}>
-                    {/* The standalone label is desktop-only. On a phone it folds
-                        into the sentence after the number — "283 spins to the next
-                        event" says the same thing in one line, and an uppercase
-                        eyebrow above a figure is exactly the row a 390px screen
-                        cannot afford. */}
+                    {/* The standalone label is desktop-only; on a phone it folds into the sentence after the number. */}
                     {!isMobile && (
                         <span style={{
                             display: 'flex',
@@ -222,13 +129,7 @@ export function MilestoneMeter({ isMobile, onOpen }) {
                             }}>
                                 Next global event
                             </span>
-                            {/* The affordance, in the one place there is room for
-                                it. A plinth that lights on hover tells you it is
-                                clickable only once you are already on it; this
-                                says what the click is FOR, which is the thing a
-                                reader is actually deciding. Desktop only — the
-                                phone's row is one line and the eyebrow it would
-                                sit in does not exist there. */}
+                            {/* The affordance says what the click is FOR. Desktop only: the phone's row has no eyebrow to sit in. */}
                             {onOpen && (
                                 <span style={{
                                     fontSize: '10px',
@@ -273,24 +174,14 @@ export function MilestoneMeter({ isMobile, onOpen }) {
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                         }}>
-                            {/* The phone's copy carries the label the eyebrow used
-                                to. "server-wide" is the word that stops the figure
-                                reading as a personal target — DESIGN.md §8 records
-                                that as the whole character of the feature — so it
-                                is the last thing that would be cut, not the first. */}
+                            {/* The phone's copy carries the label; "server-wide" stops the figure reading as a personal target (DESIGN.md §8), so it is cut last. */}
                             {isMobile ? 'spins to the next event, server-wide' : 'spins to go, server-wide'}
                         </span>
                     </div>
                 </div>
 
-                {/*
-                 * The meter. A pill track with the fill scaled rather than widened:
-                 * this updates on a timer, and `width` would lay the row out again
-                 * every time — see the same call in the spin control's loading bar.
-                 * 7px rather than the 4px it used to be: the fill's glide is the
-                 * only motion on the card, and at 4px on a 460px track it was
-                 * invisible from the couch.
-                 */}
+                {/* A pill track with the fill scaled rather than widened (`width` relays out on every update; see the spin control's
+                loading bar). 7px: the fill's glide is the card's only motion and was invisible at 4px. */}
                 <div
                     role="progressbar"
                     aria-valuenow={Math.round(progress)}
@@ -298,12 +189,7 @@ export function MilestoneMeter({ isMobile, onOpen }) {
                     aria-valuemax={100}
                     aria-label="Progress to the next global event"
                     style={isMobile
-                        // On a phone the track is not a row — it is the plinth's
-                        // own floor edge, pinned across the bottom of the deck
-                        // section and growing left to right. Costs nothing in
-                        // height, and it is the more Nocturne answer: the deck is
-                        // lit by how close the event is, rather than carrying a
-                        // widget that reports it. Square, because it is an edge.
+                        // On a phone the track is the plinth's floor edge, pinned across the bottom and growing left to right; square because it is an edge.
                         ? {
                             position: 'absolute',
                             left: 0,
@@ -332,20 +218,13 @@ export function MilestoneMeter({ isMobile, onOpen }) {
                             borderRadius: '999px',
                             background: `linear-gradient(90deg, ${COLORS.gold}77, ${COLORS.gold})`,
                             boxShadow: `0 0 8px ${COLORS.gold}${imminent ? '99' : '55'}`,
-                            // Long, because the value only moves every 20s and in
-                            // jumps: a slow glide reads as a meter filling, where a
-                            // snap reads as the number having been wrong a moment ago.
+                            // Long, because the value moves every 20s in jumps: a slow glide reads as filling, a snap as the number having been wrong.
                             transition: 'transform 900ms cubic-bezier(0.22, 1, 0.36, 1)',
                         }}
                     />
                 </div>
 
-                {/* The light that rises through a plinth when it is hovered or
-                    focused — the board's own affordance, shared rather than
-                    reinvented here, so a clickable thing on this surface feels
-                    the same wherever it is. It is the LAST child so it lies over
-                    the copy; it is `pointer-events: none`, so it costs the
-                    button nothing. */}
+                {/* The hover/focus light shared with the board, so clickable things feel the same everywhere. LAST child so it lies over the copy; `pointer-events: none`. */}
                 {onOpen && <span className="fib-plinth-lift" aria-hidden="true" />}
             </button>
         </div>

@@ -10,66 +10,13 @@ import {
 } from '../../../utils/rarityHelpers.jsx';
 import { LANE_SEAM } from './SpinLanes.jsx';
 
-/**
- * A common in a triple-lucky spin is not a grey common.
- *
- * The reel paints it green — `isLuckySpin` is what tells `drawItem` that every
- * tile in a lucky strip is worth the same, so the whole band goes green — and
- * for one build the readout under it called the same item grey. The mode's
- * identity has to survive the trip down to the answer: the band and its answer
- * are one object, and the moment they disagree about a colour the reader stops
- * believing either.
- *
- * Only the triple applies it. The 5x is an ordinary-odds spin whose commons are
- * genuinely grey in the band, so gilding them here — which an earlier version
- * did — invented a distinction the reel never made.
- */
+// A common in a triple-lucky spin is green, as the reel paints it (`isLuckySpin` makes every tile in a lucky strip worth the same); the answer must keep the mode's identity. Only the triple applies it: the 5x's commons are genuinely grey in the band.
 function modeCommonColor(rarity, isTripleLucky) {
     return rarity === 'common' && isTripleLucky ? COLORS.green : null;
 }
 
-/**
- * The 5x / triple readout: one answer per track, standing under its own track.
- *
- * ── WHAT THIS REPLACED, AND WHY (2026-08-19, owner review) ───────────────────
- *
- * It was a centred, wrapping row of plaques: square plinths in the deck's grain
- * with a lit rail on top, a floating tier pill, a filled chance chip and a NEW
- * chip. Two things were wrong with it and they were the same thing twice.
- *
- * **It had no positional relationship to the lanes.** Five columns of light land
- * in five places and five plaques appeared in one centred cluster somewhere
- * below, so the reader had to re-pair them by rarity colour — which is exactly
- * the work the layout should have done. The plaques share the tracks' grid now:
- * one column per track, the same `flex: 1` and the same seam width, so answer N
- * is *under* track N and the pairing costs nothing.
- *
- * **It was a box under a band whose whole argument is that rarity is light.**
- * The plinth register was ratified here before the lanes filled the band, and
- * once a column can sit directly under its own track there is a better device
- * already ratified one panel over: `SpinResult` continues the winner's column
- * downward as a shaft of tier light, so the payoff reads as the consequence of
- * the spin rather than a receipt printed after it. That is what this does now,
- * five times — five shafts continuing out of five tracks — and the deck grain,
- * the rail and the three pills are gone with the boxes they were decorating.
- * The grammar is `SpinResult`'s at track scale, deliberately, so the surface
- * speaks one language whether it answered once or five times.
- *
- * DESIGN.md §8's earlier note ("plaques are the signboard register: square, the
- * deck's grain, a lit rail in the item's own ink") is superseded by this and has
- * been rewritten there rather than deleted — the signboard register is still
- * right for the *bonus board's* answer, which names an event rather than an item.
- *
- * ── MOBILE IS ROWS, NOT COLUMNS ──────────────────────────────────────────────
- *
- * A track on a phone is ~70px wide, and a column that narrow cannot carry a
- * Minecraft item name at any size above the surface's 10px floor — "Waxed
- * Oxidized Cut Copper Stairs" in a 70px column is either four lines of 8px type
- * or an ellipsis. So mobile keeps the answers as full-width rows in lane order,
- * each led by a tick of its track's own light. Top-to-bottom against
- * left-to-right is a rotation, and it is the cheaper one: the alternative was
- * type nobody can read.
- */
+// The 5x / triple readout: one answer per track, standing under its own track. The plaques share the tracks' grid (one column per track, the same `flex: 1` and seam width) so answer N is under track N and no re-pairing by colour is needed. Each is SpinResult's shaft of tier light at track scale, not a box; DESIGN.md §8's signboard register still applies to the bonus board's answer.
+// Mobile is full-width rows in lane order, each led by a tick of its track's light: a ~70px column cannot carry an item name above the 10px floor.
 export function LaneResultsRow({
     items = [],
     isTripleLucky = false,
@@ -109,9 +56,7 @@ export function LaneResultsRow({
             display: 'flex',
             alignItems: 'stretch',
             width: '100%',
-            // No padding-top: the shafts start at this row's top edge, which is
-            // the underside of the band, so the light has to be continuous
-            // across the seam. The breathing room is inside each column.
+            // No padding-top: the shafts start at this row's top edge (the band's underside), so the light is continuous across the seam; the breathing room is inside each column.
         }}>
             {present.map((item, idx) => (
                 <React.Fragment key={idx}>
@@ -123,21 +68,12 @@ export function LaneResultsRow({
                         laneCount={laneCount}
                     />
                     {idx < present.length - 1 && (
-                        /* The track seam, continuing past the deck and dying.
-                           The mirror of the seam in the band above, which is
-                           nothing at the top and full at the floor: down here
-                           the light comes from the deck, so the cut is full at
-                           the top and gone a third of the way down. It is what
-                           holds the five columns in register once the plinths
-                           are gone. */
+                        // The track seam continuing past the deck and dying: the mirror of the band's seam, full at the top and gone a third of the way down. It holds the columns in register.
                         <div aria-hidden="true" style={{
                             alignSelf: 'stretch',
                             flex: `0 0 ${seam}px`,
                             width: `${seam}px`,
-                            // Built from `seam` rather than hardcoded stops: the
-                            // channel widened from 3px to 7px on review and a
-                            // gradient written against the old width left four
-                            // transparent pixels in the middle of the cut.
+                            // Built from `seam`, not hardcoded stops: the channel widened from 3px to 7px and a fixed gradient left transparent pixels in the cut.
                             background: `linear-gradient(90deg, rgba(0,0,0,0.42) 0 1px, rgba(0,0,0,0.58) 1px ${seam - 1}px, rgba(190,198,220,0.14) ${seam - 1}px ${seam}px)`,
                             WebkitMaskImage: 'linear-gradient(180deg, #000 0%, rgba(0,0,0,0.3) 22%, transparent 44%)',
                             maskImage: 'linear-gradient(180deg, #000 0%, rgba(0,0,0,0.3) 22%, transparent 44%)',
@@ -149,36 +85,22 @@ export function LaneResultsRow({
     );
 }
 
-/**
- * One track's answer, desktop.
- *
- * Sized by the track count rather than by taste: three tracks get ~638px each
- * at 1920 and five get ~381px, so the triple runs a step larger everywhere. It
- * is also the honest read — fewer spins, bigger payoff.
- */
+// One track's answer, desktop, sized by track count (~638px at 1920 for three, ~381px for five), so the triple runs a step larger.
 function LaneAnswerColumn({ item, index, isNewItem, isTripleLucky, laneCount }) {
     const rarity = getItemRarity(item);
     const iridescent = isIridescentRarity(rarity);
     const modeCommon = modeCommonColor(rarity, isTripleLucky);
     const tierColor = modeCommon || getRarityColor(rarity);
     const tierInk = modeCommon || getRarityInk(rarity);
-    // The flat hue for the pieces that cannot take a gradient. Insane's `color`
-    // is the near-white platinum fallback — right for a badge, useless as light
-    // — so it borrows the slick's opening stop instead, the same correction
-    // SpinResult documents.
+    // The flat hue for pieces that cannot take a gradient: insane borrows the slick's opening stop, as SpinResult does.
     const tierGlow = iridescent ? COLORS.insaneHolo[0] : tierColor;
 
     const wide = laneCount <= 3;
     const itemPx = wide ? 84 : 64;
-    // Item names run from "Dirt" to "Waxed Oxidized Cut Copper Stairs". The
-    // column is narrow enough that the long end has to wrap rather than step
-    // down as far as SpinResult's does — two balanced lines beat one line of
-    // 11px type.
+    // Item names run from "Dirt" to "Waxed Oxidized Cut Copper Stairs"; the narrow column wraps (two balanced lines beat one of 11px type).
     const nameSize = wide ? '19px' : '15px';
 
-    // Only the 5x shows a drop rate: the triple lucky is an equal-chance roll
-    // and printing the pool's own odds beside it would be a different number
-    // answering a different question.
+    // Only the 5x shows a drop rate: the triple lucky is an equal-chance roll, and the pool's own odds would answer a different question.
     const chance = !isTripleLucky && item.chance != null ? formatChance(item.chance) : null;
 
     return (
@@ -197,9 +119,7 @@ function LaneAnswerColumn({ item, index, isNewItem, isTripleLucky, laneCount }) 
             // Lane order, at the cadence the lanes themselves landed in.
             animation: `textFadeUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) ${index * 0.07}s both`,
         }}>
-            {/* The shaft, continuing out of this column's track. Widest where it
-                leaves the band and thinning into the page, the mirror of the
-                column above, which is brightest at its floor. */}
+            {/* The shaft, continuing out of this column's track: widest where it leaves the band and thinning into the page. */}
             <div
                 aria-hidden="true"
                 className={iridescent ? 'fib-holo' : undefined}
@@ -319,9 +239,7 @@ function LaneAnswerColumn({ item, index, isNewItem, isTripleLucky, laneCount }) 
                 }}
             />
 
-            {/* Name. Two balanced lines at most — the column is the width, so a
-                long name wraps rather than being cut with an ellipsis the way
-                the old fixed-width plaque cut it. */}
+            {/* Name: two balanced lines at most; a long name wraps rather than being cut. */}
             <div style={{
                 position: 'relative',
                 zIndex: Z.content,
@@ -348,11 +266,7 @@ function LaneAnswerColumn({ item, index, isNewItem, isTripleLucky, laneCount }) 
                     gap: `${SPACE.sm}px`,
                     marginTop: '2px',
                 }}>
-                    {/* The rate as type, not as a chip. SpinResult's 999px pill
-                        is the surface's "this is a figure to screenshot" shape
-                        and it is a single object on a single answer; five of
-                        them in a row would turn the readout back into the pill
-                        rack this replaced. Tier ink because it is text. */}
+                    {/* The rate as type, not a chip: five of SpinResult's 999px pills would turn the readout back into a pill rack. Tier ink because it is text. */}
                     {chance && (
                         <span style={{
                             fontSize: wide ? '13px' : '12px',
@@ -390,9 +304,7 @@ function LaneAnswerRow({ item, index, isNewItem, isTripleLucky }) {
             paddingRight: '4px',
             animation: `textFadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) ${index * 0.07}s both`,
         }}>
-            {/* The track's tick: this row's link back to the lane it came from,
-                in that lane's own light. Not a card's accent border — there is
-                no card here; it is the shaft, seen end-on. */}
+            {/* The track's tick: the row's link back to its lane, in that lane's light (the shaft seen end-on, not a card accent). */}
             <div
                 aria-hidden="true"
                 className={iridescent ? 'fib-holo' : undefined}

@@ -42,18 +42,7 @@ export function LiveActivityToast() {
             // Mark as processed
             processedIdsRef.current.add(item.id);
 
-            // The reveal window is `spinRevealDelay`'s now, not this component's.
-            //
-            // It used to be computed here: its own date parsing, its own age
-            // branch, 4500ms for a fresh SSE item and `max(500, 5000 - age)` for an
-            // older one. Two constants for one idea, and — more to the point — the
-            // activity feed had no copy of the rule at all, so the ticker printed a
-            // drop about four seconds before this toast announced the same drop.
-            // Sharing the helper is what makes "synced" a property of the code
-            // rather than of two numbers that happen to be close.
-            //
-            // The stagger stays local. It is about not stacking three toasts on one
-            // frame, which is this component's problem and nobody else's.
+            // The reveal window is `spinRevealDelay`'s, shared with the activity feed so the ticker and this toast announce a drop together. The stagger stays local: it avoids stacking three toasts on one frame.
             const delay = spinRevealDelay(item.created_at) + (idx * 300);
 
             const timeoutId = setTimeout(() => {
@@ -168,15 +157,7 @@ export function LiveActivityToast() {
                                 gap: '14px',
                                 minWidth: '320px',
                                 maxWidth: '400px',
-                                // Decelerating, not overshooting. DESIGN.md §8
-                                // permits the 1.56-style overshoot on the spin
-                                // control alone — a wheel overshoots and settles,
-                                // and the control that starts one may borrow that —
-                                // and names panels, modals and toasts as taking a
-                                // smooth curve instead. A toast that sails past its
-                                // resting position and springs back is the same
-                                // defect the rule was written for when the username
-                                // modal did it.
+                                // Decelerating, not overshooting: DESIGN.md §8 allows overshoot easing on the spin control alone; toasts take a smooth curve.
                                 animation: 'toastSlideIn 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
                                 cursor: 'pointer',
                                 pointerEvents: 'auto',
@@ -295,9 +276,7 @@ export function LiveActivityToast() {
                             gap: '14px',
                             minWidth: '320px',
                             maxWidth: '400px',
-                            // Same decelerating curve as the ordinary toast above.
-                            // This is the special-pull variant; being the loud one
-                            // is not a reason to be the bouncy one.
+                            // Same decelerating curve as the ordinary toast; the special-pull variant is the loud one, not the bouncy one.
                             animation: 'toastSlideIn 0.4s cubic-bezier(0.22, 1, 0.36, 1), toastPulse 2s ease-in-out infinite',
                             cursor: 'pointer',
                             pointerEvents: 'auto'

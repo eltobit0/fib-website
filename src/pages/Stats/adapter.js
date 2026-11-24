@@ -1,16 +1,3 @@
-/**
- * The seam between the pure data helpers and the UI.
- *
- * This used to assemble mock payloads — `loadStats`, `loadPlayer`, and a wall of `mock*` generators
- * re-exported for the views. All of that is gone: the views fetch real data through `api.js` now.
- * What remains here is the small set of pure, data-source-agnostic helpers the components still
- * import — match derivations, identity and item formatting, a few metadata lists — plus this file's
- * own additions (avatar sizing, rarity counting). None of it synthesises data; it shapes and reads
- * shapes the real endpoints return, exactly as it read the mock's before.
- *
- * `data.js` has been stripped to match: only these helpers live there now, no generators.
- */
-
 import {
   playerName, playerAvatar, idUuid, idName, idLabel,
   itemKey, itemLabel, itemSearchText, itemTexture, ITEM_POOL, ITEM_STATE,
@@ -28,29 +15,16 @@ export {
   winRate, itemsPerGame, secondsPerItem, timeAgo,
 };
 
-/**
- * An item's match phase — EARLY / MID / LATE — from ITEM_STATE (vendored from
- * the plugin), or null for an item never assigned one. Shared by the item index
- * and the collection so a sprite reads the same phase colour in both places.
- */
+/* Shared by the item index and the collection so a sprite reads the same phase colour in both. */
 export const itemPhase = (itemName) => ITEM_STATE[itemKey(itemName).toUpperCase()] || null;
 
 /** Order-independent pair key, matching FibTeamKey. */
 export const teamKey = (a, b) => [a, b].slice().sort().join('~');
 
-/** Rarity counts keyed by tier, in tier order, from a FibRarities payload. */
 export const rarityCounts = (rarities) =>
     Object.fromEntries(RARITY_KEYS.map((k) => [k, rarities?.[RARITY_FIELDS[k]] ?? 0]));
 
-/**
- * Player head at a usable size.
- *
- * The head renderer takes the size in the path, so the size is swapped rather than upscaling a
- * smaller render. The requested size is snapped to one of three steps instead of being passed
- * through: avatars appear at half a dozen sizes across the module, and an unsnapped size means a
- * separate third-party request — and a separate cache entry — for each. Three URLs per player
- * covers the lot.
- */
+/* Snapped to three steps: every distinct size is a separate third-party request and cache entry. */
 const AVATAR_STEPS = [32, 64, 128];
 
 export const avatarAt = (uuid, size = 32) => {
@@ -58,38 +32,14 @@ export const avatarAt = (uuid, size = 32) => {
   return playerAvatar(uuid, step);
 };
 
-/**
- * The head as an OBJECT rather than a face: an isometric render, the same
- * three-quarter view Minecraft uses for a block in an inventory slot. The podium
- * stands these on stacked block sprites, and a flat face on an isometric block
- * reads as a sticker, not a player standing there.
- *
- * mineatar's head is 16 px tall per unit of scale, so the 128 step is scale 8
- * (a 110x128 image). This used to be mc-heads' `head/` render, whose `left`
- * variant the podium had already stopped using (see PodiumHead), so the
- * `facing` parameter went with the switch. See playerAvatar for why it switched.
- */
+/* Isometric so it stands on the podium's block sprites. mineatar's head is 16 px per unit of scale, so 128 is scale 8. */
 export const headAt = (uuid, size = 128) => {
   if (!uuid) return HEAD_FALLBACK;
   const step = AVATAR_STEPS.find((s) => s >= size) ?? 128;
   return `https://api.mineatar.io/head/${uuid}?scale=${step / 16}`;
 };
 
-/**
- * One line that says how a match was won, derived only from what the match
- * record can prove.
- *
- * The overview's featured card used to say every match was "decided in the
- * final stretch" whatever the race actually did - a sentence written once and
- * printed over every match, which is the interface asserting a story the data
- * never told it. Each branch below is a fact about the race: no lead change at
- * all, the last lead change landing in the final fifth of the clock, the
- * margin. The match page and the overview both headline with this, so the
- * story a reader clicks on is the story the page they land on tells.
- *
- * `lastChange` is the offset of the final lead change in seconds, or null.
- * Returns { winner, text } where text is the whole headline.
- */
+/* Each branch states only what the match record can prove; the overview and the match page share it so their headlines agree. */
 export const matchHeadline = (match, lastChange = null) => {
   const standings = matchStandings(match);
   const [first, second] = standings;
@@ -111,12 +61,6 @@ export const matchHeadline = (match, lastChange = null) => {
   return { winner, text };
 };
 
-/**
- * Shown when the head renderer is unreachable or rate-limits us. It is a third party we do not
- * control, and a row of blank squares reads as a broken page rather than a slow one.
- *
- * The fallbacks stay on mc-heads while the heads come from mineatar: a fallback on the same host
- * as the render that just failed would usually fail with it.
- */
+/* Fallbacks stay on mc-heads while heads come from mineatar: a fallback on the failing host would fail with it. */
 export const AVATAR_FALLBACK = 'https://mc-heads.net/avatar/MHF_Steve/64';
 export const HEAD_FALLBACK = 'https://mc-heads.net/head/MHF_Steve/128';

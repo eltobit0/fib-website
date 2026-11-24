@@ -57,8 +57,6 @@
 .ip-seg--small > button { min-height: 32px; font-size: 13px; padding: 0 10px 2px; }
 .ip-seg--icons > button { width: 40px; justify-content: center; padding: 0 0 2px; }
 
-/* ── The toolbar ──────────────────────────────────────────────────────────── */
-
 .ip-bar {
   position: sticky; top: 56px; z-index: 60;
   background: oklch(11.5% 0.006 255 / 0.96);
@@ -108,8 +106,6 @@
   background-position: right 11px center, right 6px center; background-size: 5px 5px; background-repeat: no-repeat;
 }
 .ip-quiet-select:hover { color: var(--wk-ink); background-color: var(--wk-panel); }
-
-/* ── The workspace ────────────────────────────────────────────────────────── */
 
 .ip-work { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 0 32px; align-items: start; padding-top: 16px; }
 .ip-browse { min-width: 0; }
@@ -174,8 +170,6 @@
 .ip-row-info .ip-mc-line { display: inline; }
 .ip-row-staged { font-size: 13px; font-weight: 600; color: var(--wk-ink); white-space: nowrap; }
 
-/* ── The catalogue ────────────────────────────────────────────────────────── */
-
 /* 284px is measured: the narrowest entry where only one item's chips give way (3 across at 1440px, 5 at 1920px). */
 .ip-catalogue { display: grid; grid-template-columns: repeat(auto-fill, minmax(284px, 1fr)); gap: 6px; }
 .ip-entry {
@@ -232,8 +226,6 @@
 .ip-tip-lore { display: grid; margin-top: 3px; }
 .ip-tip-lore .ip-mc-line { min-height: 0; font-size: 13.5px; line-height: 1.45; }
 .ip-tip-more { font-size: 12.5px; color: var(--wk-ink-3); margin-top: 2px; }
-
-/* ── The inspector ────────────────────────────────────────────────────────── */
 
 .ip-inspect {
   position: sticky; top: calc(var(--ip-top) + 12px);
@@ -347,8 +339,6 @@
 .ip-commit-meta { font-size: 13px; color: var(--wk-ink-3); }
 .ip-small-link { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; }
 
-/* ── /info ────────────────────────────────────────────────────────────────── */
-
 .ip-chat {
   display: grid; gap: 0; padding: 8px 10px;
   background: oklch(0% 0 0 / 0.5); border-radius: 2px;
@@ -418,8 +408,6 @@
 .ip-copy-lines .ip-btn { justify-self: start; margin-top: 4px; }
 .ip-info-foot { padding-top: 4px; }
 
-/* ── The tray and the drawer ──────────────────────────────────────────────── */
-
 .ip-tray {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
   background: oklch(11.5% 0.006 255 / 0.97);
@@ -475,8 +463,6 @@
 .ip-done { display: grid; gap: 6px; justify-items: start; padding: 12px 14px; background: var(--wk-panel); border-radius: 2px; box-shadow: inset 3px 0 0 var(--wk-ink); }
 .ip-done p { margin: 0; }
 
-/* ── Narrower screens ─────────────────────────────────────────────────────── */
-
 @media (max-width: 1360px) {
   .ip-work { gap: 0 24px; }
 }
@@ -516,8 +502,6 @@
   .ip-compare { grid-template-columns: 1fr; }
   .ip-signin-form { grid-template-columns: 1fr; }
 }
-
-/* ── Calm ─────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .ip-ghost, .ip-spin, .ip-tray, .ip-drawer, .ip-scrim { animation: none; }

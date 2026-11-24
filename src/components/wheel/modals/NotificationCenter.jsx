@@ -5,9 +5,6 @@ import { Bell, X, Check, CheckCheck, ChevronDown } from 'lucide-react';
 import { getNotificationTypeIcon, getNotificationTypeColor } from '../../../utils/notificationHelpers.jsx';
 import { visibleInterval } from '../../../config/power.js';
 
-// ============================================
-// Notification Bell (shows in header)
-// ============================================
 export function NotificationBell({ onClick, unreadCount }) {
     return (
         <button
@@ -54,9 +51,6 @@ export function NotificationBell({ onClick, unreadCount }) {
     );
 }
 
-// ============================================
-// Notification Center (dropdown/modal)
-// ============================================
 export function NotificationCenter({ isOpen, onClose }) {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -380,9 +374,6 @@ export function NotificationCenter({ isOpen, onClose }) {
     );
 }
 
-// ============================================
-// Hook for notification state
-// ============================================
 export function useNotifications() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
@@ -403,9 +394,7 @@ export function useNotifications() {
 
     useEffect(() => {
         fetchUnreadCount();
-        // Poll every 5 minutes as backup (20 in saver mode). SSE is the source;
-        // this only covers a stream that went quiet, so it can afford to wait,
-        // and it has nothing to back up while the tab is hidden.
+        // Poll every 5 minutes (20 in saver mode) as a backup: SSE is the source, and there is nothing to back up while the tab is hidden.
         return visibleInterval(fetchUnreadCount, 300000, { stretch: true });
     }, [fetchUnreadCount]);
 

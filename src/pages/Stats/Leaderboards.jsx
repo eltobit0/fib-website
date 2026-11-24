@@ -12,7 +12,6 @@ const SCOPE_NOTE = {
   combined: 'Teams adds up every duo a player has been part of.',
 };
 
-/* Solo and combined rows carry one player, duo rows two. */
 const entrantsOf = (row) => (row.player ? [row.player] : [row.player1, row.player2].filter(Boolean));
 const keyOf = (row) => entrantsOf(row).map(idUuid).join('~');
 

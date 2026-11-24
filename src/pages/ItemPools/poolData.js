@@ -1,4 +1,4 @@
-/* POOL_PATH is a cross-repo contract (CLAUDE.md, "The path is part of the contract"): moving the file 404s this page. */
+/* POOL_PATH is a cross-repo contract with the plugin, pinned by its CrossRepoContractTest: moving the file 404s this page. */
 
 import { PAPER_VERSION } from '../../wiki/data/atlas.js';
 
@@ -25,8 +25,6 @@ const REGISTRY_CACHE_KEY = 'forceitem_misode_cache_v2';
 const VIEW_BRANCH_KEY = 'fib_view_branch';
 const CACHE_MS = 60 * 60 * 1000;
 const REGISTRY_CACHE_MS = 24 * 60 * 60 * 1000;
-
-/* ── Parsing ─────────────────────────────────────────────────────────────────── */
 
 // Identical to vendor-pool.mjs and the plugin's CrossRepoContractTest. Do not reshape.
 export const REGISTER_REGEX = /register\(Material\.(\w+),\s*State\.(\w+)(?:,\s*ItemTag\.(\w+))?(?:,\s*ItemTag\.(\w+))?(?:,\s*ItemTag\.(\w+))?\)/g;
@@ -70,8 +68,6 @@ export function parseDescriptions(content) {
     return descriptions;
 }
 
-/* ── Caching ─────────────────────────────────────────────────────────────────── */
-
 function readCache(branch) {
     try {
         const raw = localStorage.getItem(CACHE_KEY);
@@ -105,8 +101,6 @@ export function getViewBranch() {
 export function setViewBranch(branch) {
     try { localStorage.setItem(VIEW_BRANCH_KEY, branch); } catch { /* see writeCache */ }
 }
-
-/* ── Loading ─────────────────────────────────────────────────────────────────── */
 
 /* The pool is always the plugin's main: pool changes are not live until their pull request merges. */
 export async function loadPool(branch, { fresh = false } = {}) {

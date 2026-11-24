@@ -1,20 +1,5 @@
-/**
- * FIB Stats — module root.
- *
- * Routing is local state mirrored into the query string. The app router owns
- * `window.location.pathname` and deliberately strips the query when resolving
- * a page, so `?view=player&uuid=…` is free real estate: deep links, refresh,
- * and the back button all work without claiming a single URL from the host
- * app. A profile or a match is now something you can send to someone.
- *
- * View navigations PUSH a history entry; scope changes REPLACE — flipping
- * solo/duo/combined is a lens on the current view, not a place you travelled
- * to, and the back button should not have to walk back through it.
- *
- * Scope (solo / duos / combined) is held HERE, not per screen, so switching to
- * Duos on the ranking and then opening a profile keeps the reader in the same
- * frame of reference. It is the one piece of state worth lifting.
- */
+/* Routing lives in the query string: the app router owns the pathname and strips the query.
+   View navigations push history; scope changes replace it. */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { injectStyles } from './styles.js';
@@ -28,7 +13,6 @@ import { PlayerProfile } from './Profile.jsx';
 import { Collection } from './Collection.jsx';
 import { Items } from './Items.jsx';
 
-/** Which tab is lit for a given view. Detail views keep their parent lit. */
 const NAV_FOR = { match: 'matches', player: 'players', collection: 'players' };
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -41,11 +25,7 @@ const TABS = [
 
 const SCOPES = ['solo', 'duo', 'combined'];
 
-/**
- * Read the current URL. Returns null only when it carries nothing stats-
- * related at all. A scope with no view means the overview — `toUrl` omits the
- * view param there, so `/stats?scope=duo` must still parse.
- */
+/* A scope with no view means the overview; `toUrl` omits the view param there. */
 function readLocation() {
   if (typeof window === 'undefined') return null;
   const q = new URLSearchParams(window.location.search);
@@ -78,9 +58,8 @@ export function StatsShell({ initialView = 'overview', wikiHref = '/', onExitWik
   );
   const [scope, setScopeState] = useState(() => readLocation()?.scope ?? 'solo');
 
-  /* A ref mirror so history writes read the CURRENT scope and route without
-     making `go` depend on them — and without side effects inside state
-     updaters, which StrictMode invokes twice. Synced post-commit. */
+  /* Ref mirror so `go` reads the current scope/route without depending on them or
+     side-effecting inside state updaters, which StrictMode invokes twice. */
   const scopeRef = useRef(scope);
   const routeRef = useRef(route);
   useEffect(() => {

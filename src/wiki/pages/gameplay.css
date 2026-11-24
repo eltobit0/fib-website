@@ -33,8 +33,6 @@
 @keyframes gp-in-right { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
 .gp-land { animation: gp-drop 280ms var(--wk-ease) both; }
 
-/* ── 1. One item at a time ─────────────────────────────────────────────────── */
-
 .gp-round { display: grid; gap: 20px; }
 .gp-beats { margin-bottom: 4px; }
 .gp-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 40px; }
@@ -49,8 +47,6 @@
 .gp-way > span:last-child, .gp-tip > span:last-child { display: grid; gap: 2px; min-width: 0; }
 .gp-way-name { font-size: 16px; font-weight: 700; line-height: 1.25; color: var(--wk-ink); }
 .gp-way-text { font-size: 14px; line-height: 1.4; color: var(--wk-ink-3); }
-
-/* ── 2. The pool opens up ──────────────────────────────────────────────────── */
 
 .gp-clock { display: grid; gap: 18px; }
 .gp-clock-controls { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px 24px; }
@@ -147,8 +143,6 @@
 .gp-draws-row { display: flex; flex-wrap: wrap; gap: 2px; }
 .gp-draw { line-height: 0; animation: gp-drop 280ms var(--wk-ease) both; animation-delay: calc(var(--i) * 45ms); }
 
-/* ── 3. Jokers ─────────────────────────────────────────────────────────────── */
-
 .gp-jokers { display: grid; gap: 20px; }
 .gp-seq { display: flex; align-items: center; gap: 10px; }
 .gp-seq-node { display: grid; justify-items: center; gap: 8px; min-width: 64px; }
@@ -166,8 +160,6 @@
 .gp-rules { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 32px; padding-top: 20px; box-shadow: inset 0 1px 0 var(--wk-line); }
 .gp-rule dt { font-size: 16px; font-weight: 700; color: var(--wk-ink); }
 .gp-rule dd { margin: 2px 0 0; font-size: 14px; line-height: 1.5; color: var(--wk-ink-3); }
-
-/* ── 4. Back-to-backs ──────────────────────────────────────────────────────── */
 
 .gp-sec-wide { grid-template-columns: 1fr; }
 .gp-sec-wide .pg-sec-head { position: static; max-width: 72ch; }
@@ -249,8 +241,6 @@
 .gp-rung-when { font-size: 14px; line-height: 1.35; color: var(--wk-ink-2); }
 .gp-rung-note { font-size: 13px; color: var(--wk-ink-3); }
 
-/* ── 5. The modes ──────────────────────────────────────────────────────────── */
-
 .gp-modes { padding: 48px 0 56px; box-shadow: inset 0 1px 0 var(--wk-line); scroll-margin-top: 56px; }
 .gp-mode-list { list-style: none; margin: 24px 0 0; padding: 0; display: grid; }
 .gp-mode {
@@ -304,8 +294,6 @@
 .gp-belt-hidden { display: flex; gap: 2px; }
 .gp-hidden { font-weight: 700; font-size: 22px; color: var(--wk-ink-4); }
 
-/* ── 6. Random events ──────────────────────────────────────────────────────── */
-
 .gp-events { display: grid; gap: 28px; }
 .gp-evline { display: grid; gap: 10px; }
 .gp-evline-track { position: relative; height: 72px; margin-top: 18px; }
@@ -332,8 +320,6 @@
 .gp-event-often { margin: 2px 0 6px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--wk-ink-3); }
 .gp-event-text { margin: 0; font-size: 16px; line-height: 1.5; color: var(--wk-ink-2); }
 
-/* ── Traders ──────────────────────────────────────────────────────────────── */
-
 .gp-trline { display: grid; gap: 10px; }
 .gp-trline-track { position: relative; height: 40px; }
 .gp-trline-track::before { content: ""; position: absolute; left: 0; right: 0; bottom: 5px; height: 2px; background: var(--wk-line-hi); }
@@ -348,13 +334,9 @@
 }
 
 
-/* ── 7. Strategy ───────────────────────────────────────────────────────────── */
-
 .gp-tips { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 36px; align-content: start; }
 .gp-tip { align-items: flex-start; }
 .gp-tip-text { font-size: 16px; line-height: 1.5; color: var(--wk-ink-2); }
-
-/* ── Narrower screens ─────────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {
   .gp-mode { grid-template-columns: 1fr; }
@@ -386,8 +368,6 @@
   .gp-sched-stage { font-size: 22px; }
   .gp-sched-when { font-size: 13px; }
 }
-
-/* ── Calm ─────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .gp-land, .gp-draw, .gp-plus, .gp-live, .gp-lane-trail .gp-done, .gp-belt-step, .gp-evmark,

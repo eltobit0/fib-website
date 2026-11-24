@@ -54,7 +54,6 @@ export function Skin({ uuid, scale = 6 }) {
   );
 }
 
-/** A player as face and name; opens their profile. */
 export function Who({ player, onOpen, size = 28 }) {
   const uuid = idUuid(player);
   return (
@@ -69,7 +68,6 @@ export const Faces = ({ members, size = 24 }) => (
   <span className="faces">{members.map((m) => <Face key={idUuid(m) ?? idLabel(m)} uuid={idUuid(m)} size={size} />)}</span>
 );
 
-/** An item on its tile. `tier` rings it in a back to back's rarity; a jokered item sits faded in a dashed outline. */
 export function Item({ name, size = 't48', tier, joker, unique, gone, state = '', title }) {
   const r = tier ? RARITY[tier] : null;
   const cls = ['it', size, r && 'r', joker && 'j', unique && 'u', gone && 'gone', state].filter(Boolean).join(' ');
@@ -80,14 +78,12 @@ export function Item({ name, size = 't48', tier, joker, unique, gone, state = ''
   );
 }
 
-/** One find of a round: ringed when it came back to back, dashed when it was jokered. */
 export const RoundItem = ({ event, tip, size = 't28', state }) => (
   <Item name={event.itemName} size={size} tier={!event.skipped ? event.b2b : null} joker={event.skipped} state={state} title={tip} />
 );
 
 export const Tier = ({ tier }) => <span className="tier" style={{ '--r': RARITY[tier]?.color }}>{RARITY[tier]?.label}</span>;
 
-/** Pick one of N: text tabs, the chosen one underlined. */
 export function Tog({ label, options, value, onChange }) {
   return (
     <div className="tog" role="group" aria-label={label}>

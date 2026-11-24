@@ -100,8 +100,6 @@ const JOIN = [
     { face: 'PAPER', text: 'Open a support ticket and ask about FIB' },
 ];
 
-/* ── The install board ─────────────────────────────────────────────────────── */
-
 function FileRow({ file, go }) {
     return (
         <li className="hp-file">
@@ -241,8 +239,6 @@ function Host({ go }) {
     );
 }
 
-/* ── Joining ours ──────────────────────────────────────────────────────────── */
-
 function Join({ go }) {
     return (
         <section id="join" className="wk-wrap pg-sec hp-join" aria-labelledby="join-title">
@@ -283,8 +279,6 @@ function Join({ go }) {
         </section>
     );
 }
-
-/* ── The page ──────────────────────────────────────────────────────────────── */
 
 export default function HowToPlay({ onNavigate }) {
     const go = useGo(onNavigate);

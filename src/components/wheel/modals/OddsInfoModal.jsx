@@ -1,68 +1,5 @@
-/*
- * THE ODDS BOARD — the drop table on THE CONCOURSE.
- *
- * Scope: this file. DESIGN.md §9 is the authority for everything below; it is
- * the fifth surface on the board and the first one that is a *document* rather
- * than a ranking, which is the only interesting thing about porting it.
- *
- * ── WHAT THIS REPLACED ───────────────────────────────────────────────────────
- *
- * A 16px-radius modal with bordered cards, four-cell stat grids on their own
- * backgrounds, tinted pills, gradient washes per section, and every figure on
- * the surface set in `fontFamily: 'monospace'` — fifteen call sites of it. That
- * last one is not a style preference: §3's Mono Rule allows monospace in exactly
- * one situation, a string the reader is meant to TYPE, and none of these were.
- * Percentages, counts and odds are set in the display face, which on this board
- * means the flap drum.
- *
- * The structure it replaced was eleven stacked boxes. What it is now is a head,
- * three registers and a foot — the same shape as the collection board, because
- * this surface is answering the same kind of question: a table of tiers, read
- * down, rarest first.
- *
- * ── THE THREE THINGS THAT WERE WRONG, NOT JUST OLD ───────────────────────────
- *
- * Found while porting, and worth stating because the redesign is what surfaced
- * them:
- *
- *   1. **Gold Rush was still listed, at 25%.** It cannot fire. `EVENT_TYPES` in
- *      globalEvents.js is five entries and gold_rush is not one of them —
- *      "`arrival` replaces `gold_rush` rather than joining it" — and the only
- *      remaining path to one is an admin forcing it by type. A drop-rate modal
- *      quoting a probability for an event with none is the one bug this file is
- *      least allowed to have.
- *   2. **"All four run for 5 minutes" was wrong twice.** There are five, and two
- *      of them are not minutes: THE ARRIVAL is 19.5s and THE PARLOUR is ~31s.
- *      Neither takes the 5s countdown either — both set `activatesAt: now`.
- *   3. **AVERAGE and 1 IN N were the same number, printed twice.** `1/p` and
- *      `TOTAL_WEIGHT / weight` are one figure, and they sat two columns apart
- *      under different headings. One column now, and the word "average" is
- *      spent on explaining it rather than on repeating it.
- *
- * ── WHY THE LADDER HAS NO LAMP AND THE EVENTS DO ─────────────────────────────
- *
- * §9's lamp is "one lamp per row for the thing that wants your eye", and it
- * earns that by being off most of the time. On the collection board it is player
- * state — complete, or overdue. This board has no player in it: every tier is
- * exactly as true as every other, so a lamp on the ladder could only be lit on
- * all five, which is furniture wearing a signal's clothes. The tier's name in
- * the tier's ink is the mark instead.
- *
- * The event register does have one, because there it has something to say: one
- * of the five asks the player a question. THE PARLOUR is fifteen seconds with a
- * deadline in them; the other four happen to you. One lamp lit out of five is
- * the shape §9 describes.
- *
- * ── AND WHY THE EVENTS CARRY AN ICON ─────────────────────────────────────────
- *
- * The one concession this register makes that the collection board's does not.
- * THE PARLOUR's green (#19B36B) and the Community Goal's teal (#2DD4BF) are the
- * closest pair in `EVENT_IDENTITY`, and two ruled rows apart with nothing but
- * hue between them they are one colour. `EventSelectionWheel` hit this first and
- * solved it the same way. Colour alone was never carrying this, which is §9's
- * own named rule about the due lamp, one surface over — so the glyphs are shared
- * from `config/eventIcons.js` rather than picked per surface.
- */
+// THE ODDS BOARD (DESIGN.md §9): the drop table as a head, three registers and a foot, the collection board's shape. Percentages, counts and odds use the display face (flap drum), never monospace (§3's Mono Rule).
+// The ladder has no lamp (every tier is equally true); the events do (THE PARLOUR asks a question). Each event carries an icon from config/eventIcons.js because the Parlour's green and the Community Goal's teal are indistinguishable by hue alone.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, ChevronDown } from 'lucide-react';
@@ -75,19 +12,10 @@ import { useWheelViewport } from '../config/breakpoints.js';
 // The weight pool every drop rate is a fraction of. Mirrors seed.js.
 const TOTAL_WEIGHT = 10000000;
 
-// Tiers this board accounts for, derived from the shared ladder rather than
-// listed by hand — the four separate hand-written tier lists that used to live
-// in this file are why adding a rarity meant editing it in four places and
-// missing one. `common` is excluded because it is the remainder, not a weighted
-// tier; `event` because it drops on a schedule rather than against the pool, so
-// a per-spin probability for it would be a number with nothing behind it. The
-// note under the ladder says that on screen rather than leaving it to a filter.
+// Tiers derived from the shared ladder, not hand-listed. `common` is the remainder, not a weighted tier; `event` drops on a schedule, so a per-spin probability for it would have nothing behind it.
 const ODDS_TIERS = RARITY_KEYS.filter(key => key !== 'common' && key !== 'event');
 
-// ============================================
-// What the server does, restated for the reader
-// Every value below mirrors wheel-backend/src/server/services/globalEvents.js.
-// ============================================
+// What the server does, restated for the reader; every value mirrors wheel-backend/src/server/services/globalEvents.js.
 
 const RECURSION = { chance: 0.25, min: 3, max: 8, seconds: 60 };
 
@@ -107,19 +35,7 @@ const GLOBAL = {
     countdownSeconds: 5,    // ACTIVATION_DELAY_MS — the three timed events only
 };
 
-/*
- * The rotation, rarest-first being meaningless here: this is the order the
- * player meets them in the room, newest last.
- *
- * `share` is DERIVED from the length of this array and not typed, because the
- * every-weight-is-1 draw in `pickEventType` means the share is exactly
- * 1/length — and the last time it was typed, an event was removed from the
- * rotation and the number stayed at 25%.
- *
- * `acts` marks the events with a decision in them - the two tables. It drives
- * the lamp; see the header. `actsLabel` is what the lamp means for that event,
- * read out to a screen reader in place of the colour.
- */
+// The rotation in room order, newest last. `share` is DERIVED from the length (every weight is 1 in `pickEventType`), not typed. `acts` marks the events with a decision in them and drives the lamp; `actsLabel` is read to screen readers in its place.
 const EVENTS = [
     {
         key: 'arrival',
@@ -190,24 +106,13 @@ const EVENTS = [
 
 const EVENT_SHARE = `${Math.round(100 / EVENTS.length)}%`;
 
-/*
- * What the four figures in the ladder mean, in the reader's terms.
- *
- * A register rather than the four-paragraph prose block this replaced: they are
- * four rows of one shape — a term and what it means — and a register is what
- * this board makes out of that. `is-static`, because §9 says a row that is a
- * readout refuses the hover a row that is a door earns.
- */
+// What the four ladder figures mean, as a register; `is-static` because a readout row refuses the hover a door earns (§9).
 const READING = [
     ['1 in N', 'The average, and nothing more. Over a great many spins you land one every N; it is not a promise about your next N.'],
     ['50%', 'Half of all players have one within this many spins. The other half do not.'],
     ['90%', 'Nine players in ten have one within this many spins.'],
     ['99%', 'Only one player in a hundred needs more spins than this.'],
 ];
-
-// ============================================
-// Formatting
-// ============================================
 
 const fmt = n => (n == null ? '—' : n.toLocaleString());
 
@@ -220,13 +125,7 @@ function fmtOdds(weight) {
     return `1 in ${odds.toLocaleString()}`;
 }
 
-/**
- * A weight as a percentage, at whatever precision keeps it a number.
- *
- * The tiers here span five orders of magnitude — insane is 0.000001% and rare is
- * a few percent — so a fixed precision either rounds the top of the ladder to
- * zero or prints the bottom with seven meaningless digits.
- */
+// A weight as a percentage at whatever precision keeps it a number: the tiers span five orders of magnitude.
 function fmtPercent(weight) {
     const w = Number(weight);
     if (!Number.isFinite(w) || w <= 0) return '0%';
@@ -241,10 +140,7 @@ function fmtPercent(weight) {
     return `${str.replace(/\.?0+$/, '')}%`;
 }
 
-/**
- * How many spins it takes to be `confidence` sure of one pull, from the
- * geometric distribution.
- */
+// Spins needed to be `confidence` sure of one pull (geometric distribution).
 function confidenceSpins(weight, confidence) {
     if (!Number.isFinite(weight) || weight <= 0) return null;
     let p = weight / TOTAL_WEIGHT;
@@ -255,17 +151,7 @@ function confidenceSpins(weight, confidence) {
     return Number.isFinite(result) ? result : null;
 }
 
-// ============================================
-// Board furniture
-// ============================================
-
-/**
- * A section heading, and the space above it.
- *
- * §9's rule, transplanted from the register's column headings: more space above
- * a heading than below it, so a heading belongs to what follows it rather than
- * floating between two things.
- */
+// A section heading: more space above than below, so it belongs to what follows (§9).
 function Section({ title, children, first = false }) {
     return (
         <section style={{ paddingTop: first ? 0 : '30px' }}>
@@ -277,14 +163,7 @@ function Section({ title, children, first = false }) {
     );
 }
 
-/**
- * Prose, on a board made of figures.
- *
- * The inherited `'Segoe UI', system-ui` stack, which is what §8 says the whole
- * spin surface uses — the flap face is for names and figures, and a paragraph
- * set in condensed uppercase caps is a paragraph nobody reads. 13px against the
- * ramp's 11px floor, because these are sentences rather than labels.
- */
+// Prose in the inherited UI stack, not the flap face (a caps paragraph goes unread); 13px since these are sentences.
 function Prose({ children, tone = DECK.inkMid, style }) {
     return (
         <p style={{
@@ -297,14 +176,7 @@ function Prose({ children, tone = DECK.inkMid, style }) {
     );
 }
 
-/**
- * The strip of figures inside an opened row.
- *
- * Divided by a rule and never boxed — the decision the plaque's facts and the
- * stats module's record block both make, for the reason §4 gives: there are no
- * cards on this surface, so depth is which way a surface goes against its
- * ground, and three figures in three boxes would be the only boxes here.
- */
+// The strip of figures in an opened row: divided by a rule, never boxed (§4).
 function FigureStrip({ figures, label, tone, size = 18 }) {
     return (
         <div style={{ marginTop: '14px' }}>
@@ -331,13 +203,7 @@ function FigureStrip({ figures, label, tone, size = 18 }) {
     );
 }
 
-/**
- * The recess an opened row drops into.
- *
- * Cut one step deeper than the board it sits in, with the board's own edge as
- * its top seam — the platform's material, because it is doing the platform's
- * job: this is the case under the row that opened it.
- */
+// The recess an opened row drops into: one step deeper than the board, with the board's edge as its top seam.
 function Drawer({ children, phone }) {
     return (
         <div style={{
@@ -363,10 +229,6 @@ function Caret({ open }) {
     );
 }
 
-// ============================================
-// THE BOARD
-// ============================================
-
 export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
     const { isPhone } = useWheelViewport();
     const scrollRef = useRef(null);
@@ -374,9 +236,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
     const [openEvent, setOpenEvent] = useState(null);
     const [openSpin, setOpenSpin] = useState(null);
 
-    // The board closes on Escape, which the modal it replaced did not do — the
-    // three sibling boards all do, and a reader who has learned it on one has
-    // learned it on the surface, not on a component.
+    // Closes on Escape, as the three sibling boards do.
     useEffect(() => {
         const onKey = e => { if (e.key === 'Escape') onClose(); };
         window.addEventListener('keydown', onKey);
@@ -404,10 +264,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
             specialCount,
             regularCount,
             totalCount: specialCount + regularCount,
-            // The share of the whole pool that is not a common. The board's
-            // baseline is filled to it, and the figure standing above the line
-            // is what makes a 5%-full bar read as a fact rather than as an empty
-            // one — the same job HELD and COMPLETE do for the collection board's.
+            // The share of the pool that is not a common; the baseline fills to it, and the figure above the line makes a 5% bar read as a fact.
             specialShare: special / TOTAL_WEIGHT,
         };
     }, [dynamicItems, allItems]);
@@ -430,20 +287,12 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
             p50: confidenceSpins(weight, 0.5),
             p90: confidenceSpins(weight, 0.9),
             p99: confidenceSpins(weight, 0.99),
-            // Against the special pool rather than against all ten million: as a
-            // share of everything, every tier here rounds to a rail of nothing.
-            // Against the specials it is the shape of the drop table, which is
-            // the thing the column is for.
+            // Against the special pool, not all ten million: as a share of everything every tier rounds to nothing.
             share: pool.special > 0 ? weight / pool.special : 0,
         };
     }).filter(row => row.weight > 0), [pool, dynamicItems]);
 
-    /*
-     * Opening a row inserts a drawer, which moves everything below it — and
-     * everything above it too, once the scroller has to re-anchor. The scroll
-     * position is taken before the state change and put back on the next frame,
-     * so the row you clicked stays under the cursor.
-     */
+    // Opening a row inserts a drawer that moves everything; the scroll position is taken before the change and restored next frame so the clicked row stays under the cursor.
     const toggle = (setter, key) => {
         const top = scrollRef.current?.scrollTop || 0;
         setter(prev => (prev === key ? null : key));
@@ -452,21 +301,8 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
         });
     };
 
-    // ── The registers' tracks ────────────────────────────────────────────────
-    //
-    // The phone drops CHANCE, 50% and 99% and keeps 1 IN N and 90%, and which
-    // three go is §9's rule rather than a fit: CHANCE is the reciprocal of a
-    // column still on screen, and 50/99 are the same question at two other
-    // confidences. All three come back inside the drawer, so nothing on this
-    // board is only reachable on a desktop.
-    //
-    // **Every fixed column here is sized on INSANE, not on rare.** The three
-    // confidence columns hold seven-figure numbers at the top of the ladder —
-    // insane's 99% is 4,605,168, nine characters — and a flap cell is a fixed
-    // 0.60em wide, so a column measured against rare's "49" clips the one row a
-    // reader opened this board to look at. 84px is nine digit cells at 15px
-    // with a character to spare. The same arithmetic sets ODDS at 96/88 for
-    // "1 IN 999K" and CHANCE at 92px for "0.0001%".
+    // The phone drops CHANCE, 50% and 99% (§9: CHANCE is the reciprocal of a column still shown, 50/99 are the same question at other confidences); all three return in the drawer.
+    // Fixed columns are sized on INSANE, not rare: its 99% is 4,605,168 and a flap cell is a fixed 0.60em wide (84px = nine digit cells at 15px; ODDS 96/88 for "1 IN 999K", CHANCE 92px for "0.0001%").
     const ladderTrack = isPhone
         ? 'minmax(0, 1fr) 88px 84px 14px'
         : 'minmax(84px, 1fr) 92px 96px minmax(56px, 0.6fr) 84px 84px 84px 16px';
@@ -489,9 +325,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
             aria-label="Drop rates"
             style={{
                 position: 'fixed', inset: 0,
-                // The scrim ladder's middle step, the same one the collection
-                // board takes: this pushes the stage back behind the board
-                // rather than blacking it out.
+                // Scrim ladder's middle step, as on the collection board.
                 background: 'rgba(0,0,0,0.8)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: Z.modal, padding: isPhone ? '0' : '24px',
@@ -504,11 +338,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
                 height: isPhone ? '100%' : 'min(88vh, 840px)',
                 display: 'flex', flexDirection: 'column',
                 backgroundImage: DECK.face,
-                // Three edges, the way the band and the collection board have
-                // three: a lit rail along the top, and a front lip at the bottom
-                // — one light face over the dark under-line. Without the lip the
-                // board simply stops, and a structure with no bottom edge reads
-                // as a region rather than as a thing standing in the room.
+                // Three edges: a lit top rail and a front lip at the bottom, so the board reads as a thing in the room rather than a region.
                 boxShadow: [
                     `inset 0 1px 0 ${rail(0.12)}`,
                     'inset 0 -2px 0 rgba(0,0,0,0.55)',
@@ -519,9 +349,6 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
                 overflow: 'hidden',
             }}>
 
-                {/* ── THE HEAD ─────────────────────────────────────────────────
-                    The deck's top face: the surface grain with sky light falling
-                    from the rail and dying before the register below. */}
                 <div style={{
                     position: 'relative', flex: '0 0 auto',
                     padding: isPhone ? '16px 16px 0' : '24px 26px 0',
@@ -548,11 +375,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
                         ><X size={16} /></Plinth>
                     </div>
 
-                    {/* The two registers §9 describes: the pool's three counts on
-                        drums, and the weight figures beside them one step down.
-                        Two sizes at the documented 1.35 ratio — far enough apart
-                        to read as headline and supporting, close enough that both
-                        still read as figures on a board. */}
+                    {/* Two registers at the documented 1.35 ratio: the pool's three counts on drums, the weight figures one step down. */}
                     <div style={{
                         display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
                         gap: '24px', margin: isPhone ? '14px 0 8px' : '20px 0 8px',
@@ -608,18 +431,11 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
                         )}
                     </div>
 
-                    {/* The platform line: the board's own baseline, filled to the
-                        share of the pool that is not a common. It needs no label
-                        because the figure is standing directly above it — and on
-                        a phone, where that figure has nowhere to stand, the
-                        caption below says it in words instead. */}
+                    {/* The platform line: baseline filled to the non-common share; the figure above it labels it, and on a phone the caption below does. */}
                     <BoardMeter value={pool.specialShare} tone={DECK.amber} height={3} />
 
                     <div style={{ padding: isPhone ? '12px 0 2px' : '14px 0 2px' }}>
-                        {/* The phone has no room for the two weight figures beside
-                            the drums, so the one that the line above it is filled
-                            to is said here in words instead. A bar with neither a
-                            label nor a figure anywhere near it is a decoration. */}
+                        {/* The phone has no room for the weight figures, so the one the line fills to is said in words. */}
                         <Prose tone={DECK.inkDim} style={{ fontSize: '12px' }}>
                             Every item carries a weight, and its drop rate is that weight over the
                             pool of 10,000,000.{' '}
@@ -685,10 +501,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
                                             alignItems: 'center', gap: '0 12px',
                                             width: '100%', padding: isPhone ? '9px 0' : '12px 0',
                                             border: 'none', textAlign: 'left', font: 'inherit',
-                                            // The tier's own wash and base bar are the only
-                                            // per-tier values here, so they are the only ones
-                                            // the component supplies; the states are in
-                                            // index.css. See §9's named rule.
+                                            // Only the tier's wash and base bar are per-tier values; the states are in index.css (§9).
                                             '--fib-row-wash': `${row.tone}14`,
                                             '--fib-row-tone': row.tone,
                                         }}
@@ -739,11 +552,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
                                                 where there is room for them. */}
                                             {isPhone && (
                                                 <div style={{ marginBottom: '14px' }}>
-                                                    {/* 15px and not the strip's 18: these are the
-                                                        same seven-figure numbers the desktop
-                                                        register carries, in a third of a phone's
-                                                        width. At 18px a nine-digit figure is 99px
-                                                        against a 96px column. */}
+                                                    {/* 15px, not 18: seven-figure numbers in a third of a phone's width (18px makes a nine-digit figure 99px against a 96px column). */}
                                                     <FigureStrip
                                                         figures={[[row.chance, 'Chance'], [fmt(row.p50), '50%'], [fmt(row.p99), '99%']]}
                                                         tone={row.ink}
@@ -763,10 +572,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
                                                         gap: '12px', padding: '7px 0',
                                                     }}
                                                 >
-                                                    {/* The item's own name, in the display face and
-                                                        not on a drum: a cascade firing on a list of
-                                                        forty is the board shouting. §9's rule about
-                                                        the hovered item's readout, same reasoning. */}
+                                                    {/* The item's name in the display face, not on a drum: a cascade on a list of forty is the board shouting (§9). */}
                                                     <span style={{
                                                         fontSize: '13px', color: DECK.inkMid,
                                                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -810,11 +616,7 @@ export function OddsInfoModal({ onClose, dynamicItems, allItems }) {
                             </div>
                         ))}
 
-                        {/* The one claim on this board that is a warning rather than
-                            a figure, so it takes the board's one signal colour.
-                            §9's "don't signal with amber alone where a tier colour
-                            can sit beside it" does not bite: there is no tier here
-                            for it to be confused with. */}
+                        {/* The one warning on the board takes the board's one signal colour; no tier is here to confuse it with. */}
                         <div style={{ marginTop: '18px' }}>
                             <BoardLabel tone={DECK.amber}>The gambler’s fallacy</BoardLabel>
                             <Prose style={{ marginTop: '7px' }}>

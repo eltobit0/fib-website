@@ -4,8 +4,6 @@
 .cc-sec [id] { scroll-margin-top: 72px; }
 .cc-sec-head { display: grid; gap: 12px; max-width: 72ch; }
 
-/* ── The head: the custom items, and the page's contents ─────────────────── */
-
 .cc-contents { display: grid; gap: 8px; width: 100%; margin-top: 10px; }
 .cc-contents ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 12px; }
 .cc-content {
@@ -19,8 +17,6 @@
 .cc-toc { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-top: 6px; }
 .cc-toc .wk-label { margin-right: 4px; }
 
-/* ── Tracks ────────────────────────────────────────────────────────────────── */
-
 /* Sized by width, not flex-basis: Firefox measures a wrapping row from content, so a basis-only track counted as 0px. */
 .cc-to { position: relative; flex: none; width: 40px; height: 2px; background: var(--wk-line-hi); }
 .cc-to::after {
@@ -33,8 +29,6 @@
   font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--wk-ink-3);
   white-space: nowrap;
 }
-
-/* ── Crafting, trading, smelting ───────────────────────────────────────────── */
 
 .cc-craft, .cc-exchange { margin: 0; display: grid; gap: 10px; justify-items: start; }
 .cc-craft-row, .cc-exchange-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -62,8 +56,6 @@
 }
 html[data-saver="on"] :is(.cc-result[data-pop] .wk-slot, [data-cook] .cc-to-fill, [data-cook] .cc-result .wk-slot) { animation: none; }
 
-/* ── The trip into the Depths ──────────────────────────────────────────────── */
-
 /* The rail is drawn per step: one masked line down the list hid itself along with the dividers. */
 .cc-steps { position: relative; list-style: none; margin: 0; padding: 0; display: grid; }
 .cc-step {
@@ -87,8 +79,6 @@ html[data-saver="on"] :is(.cc-result[data-pop] .wk-slot, [data-cook] .cc-to-fill
 .cc-inside-item > span:last-child { display: grid; gap: 1px; }
 a.cc-inside-item:hover { background: var(--wk-panel); }
 .cc-inside-name { font-size: 16px; font-weight: 600; color: var(--wk-ink); }
-
-/* ── The loot ──────────────────────────────────────────────────────────────── */
 
 .cc-loot { display: grid; gap: 14px; }
 .cc-loot-top { display: grid; grid-template-columns: minmax(0, 512px) minmax(0, 1fr); gap: 20px 40px; align-items: center; }
@@ -175,8 +165,6 @@ button.cc-map-name[aria-pressed="true"] { color: var(--wk-ground); background: v
 @keyframes cc-land { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 .cc-open .wk-small { max-width: 44ch; }
 
-/* ── Locators ──────────────────────────────────────────────────────────────── */
-
 .cc-table { width: 100%; border-collapse: collapse; font-size: 16px; }
 .cc-table th, .cc-table td { padding: 8px 16px 8px 0; text-align: left; vertical-align: middle; box-shadow: inset 0 -1px 0 var(--wk-line); }
 .cc-table thead th { font-size: 12.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--wk-ink-3); }
@@ -203,8 +191,6 @@ button.cc-map-name[aria-pressed="true"] { color: var(--wk-ground); background: v
 .cc-offer-text { display: grid; gap: 2px; }
 .cc-offer-name { font-size: 16px; font-weight: 600; color: var(--wk-ink); }
 
-/* ── Narrower screens ─────────────────────────────────────────────────────── */
-
 @media (max-width: 1100px) {
   .cc-loot-body { grid-template-columns: 1fr; }
   .cc-open { position: static; }
@@ -224,8 +210,6 @@ button.cc-map-name[aria-pressed="true"] { color: var(--wk-ground); background: v
   .cc-to:has(.cc-to-label) { width: 96px; }
   .cc-contents ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
-/* ── Calm ─────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .cc-drop { animation: none; }

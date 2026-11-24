@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { COLORS } from '../../../config/constants.js';
 import { useAuth } from '../../../context/AuthContext.jsx';
 
-// ============================================
-// Username Modal
-// ============================================
 export function UsernameModal({ onClose }) {
     const { user, setUsername } = useAuth();
     const [input, setInput] = useState(user?.customUsername || '');

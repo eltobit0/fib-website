@@ -68,8 +68,6 @@ export default function ChangeTray({ changes, byMaterial, viewBranch, onInfoComm
     );
 }
 
-/* ── Signing in ─────────────────────────────────────────────────────────────── */
-
 function SignIn({ auth, setAuth }) {
     const [token, setToken] = useState('');
     const [remember, setRemember] = useState(false);
@@ -130,8 +128,6 @@ function SignIn({ auth, setAuth }) {
     );
 }
 
-/* ── Committing ─────────────────────────────────────────────────────────────── */
-
 function useBranches(auth, repo) {
     const [branches, setBranches] = useState(null);
     useEffect(() => {
@@ -190,7 +186,7 @@ function PoolCommit({ auth, changes, byMaterial, onDone, result, setResult }) {
             setStep('Checking you can push to the plugin repo…');
             if (!(await canPush(auth.token, REPOS.pool.repo))) throw new Error(`${auth.user.login} cannot push to ${REPOS.pool.repo}.`);
             const { additions, removals } = poolEdits(snapshot);
-            // Create the branch only once the edit is known to change something: a failed read used to leave an unused branch behind.
+            // Create the branch only once the edit is known to change something, so a failed read leaves no unused branch.
             const from = mode === 'new' ? REPOS.pool.base : target;
             setStep(`Reading the pool on ${from}…`);
             let { content, sha } = await readFile(auth.token, REPOS.pool, from);

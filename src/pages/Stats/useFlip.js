@@ -1,16 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
 
-/**
- * FLIP reordering for a table body.
- *
- * Scrubbing the match clock re-ranks the standings. Rows that teleport to a new
- * position tell you the order changed; rows that travel tell you WHO overtook
- * WHOM, which is the only thing anyone actually wants from a race. This is the
- * one place in the module where motion carries information no number does.
- *
- * Reads layout once per commit and writes only transforms, so no layout
- * thrash and nothing animates a layout property.
- */
 export function useFlipRows(containerRef, key) {
   const previous = useRef(new Map());
 

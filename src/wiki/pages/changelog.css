@@ -1,18 +1,12 @@
 
-/* ── The head ─────────────────────────────────────────────────────────────── */
-
 .cl-index {
   display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; gap: 10px 20px;
   margin-top: 8px; max-width: 72ch;
 }
 .cl-index-list { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; list-style: none; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* ── A year ───────────────────────────────────────────────────────────────── */
-
 .cl-year-title { margin: 0; font-size: 30px; line-height: 1.1; color: var(--wk-ink); }
 .cl-months { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
-
-/* ── The track ────────────────────────────────────────────────────────────── */
 
 .cl-track { position: relative; list-style: none; margin: 0; padding: 0; }
 .cl-rel {
@@ -46,8 +40,6 @@
 }
 .cl-rel:target .cl-node { outline: 2px solid var(--wk-ink); outline-offset: 2px; }
 
-/* ── A release ────────────────────────────────────────────────────────────── */
-
 .cl-body { min-width: 0; }
 .cl-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0; min-height: 22px; }
 .cl-v {
@@ -74,8 +66,6 @@
 .cl-changes { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; max-width: 68ch; }
 .cl-changes li { position: relative; padding-left: 18px; font-size: 16px; line-height: 1.5; color: var(--wk-ink-2); text-wrap: pretty; }
 .cl-changes li::before { content: ""; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; background: var(--wk-ink-3); }
-
-/* ── Narrower screens ─────────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {
   .cl-year .pg-sec-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }

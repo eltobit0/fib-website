@@ -24,9 +24,7 @@ function UserCollectionEditor({ user, allItems, onClose, onAddItem, onRemoveItem
 
     const specialItems = [
         { texture: 'mythic_cavendish', name: 'Cavendish', type: 'mythic' },
-        // m.texture first: the two item-shaped legendaries have no username, and the
-        // template alone gave both of them `special_null` — granting one from this
-        // panel would have written a texture no spin can produce. See constants.js.
+        // m.texture first: the two item-shaped legendaries have no username, and the template alone gave both `special_null`, a texture no spin can produce. See constants.js.
         ...TEAM_MEMBERS.map(m => ({ texture: m.texture || `special_${m.username}`, name: m.name, type: 'legendary' })),
         ...EXOTIC_ITEMS.map(i => ({ texture: i.texture, name: i.name, type: 'exotic' })),
         ...RELIC_ITEMS.map(i => ({ texture: i.texture, name: i.name, type: 'relic' })),
@@ -201,14 +199,6 @@ function UserCollectionEditor({ user, allItems, onClose, onAddItem, onRemoveItem
         </div>
     );
 }
-
-// Helper functions
-//
-// This file used to carry its own getRarityEmoji / getRarityIcon / getRarityColor
-// — a private copy of the rarity ladder that had to be updated in lockstep with
-// utils/rarityHelpers.jsx and, predictably, was not. They are imported now. The
-// unicode emoji version is gone with them: the icon set is Lucide everywhere else
-// in this panel, and 👑 next to a <Crown /> was two icon systems in one dropdown.
 
 function formatWeight(weight) {
     if (weight >= 1000000) return (weight / 1000000).toFixed(1) + 'M';
@@ -567,21 +557,14 @@ function AddItemForm({ onAdd, poolStats, adding }) {
                         onChange={e => setItemData({ ...itemData, rarity: e.target.value })}
                         style={{ width: '100%', padding: '10px 12px', background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: '6px', color: COLORS.text, fontSize: '14px' }}
                     >
-                        {/* Ascending ladder, matching SPECIAL_PULL_RARITIES on the server —
-                            which is also what the create endpoint validates against, so a
-                            tier absent here is simply uncreatable, and one present but
-                            unaccepted is silently stored as rare. Exotic was the former. */}
+                        {/* Ascending ladder matching SPECIAL_PULL_RARITIES on the server, which the create endpoint validates against: a tier absent here is uncreatable, and one present but unaccepted is stored as rare (Exotic was the latter). */}
                         <option value="rare">💎 Rare</option>
                         <option value="exotic">🔮 Exotic</option>
                         <option value="relic">🗺️ Relic</option>
                         <option value="legendary">⭐ Legendary</option>
                         <option value="mythic">✨ Mythic</option>
                         <option value="insane">👑 Insane</option>
-                        {/* No Event option. It was here, and it never worked: `event` is not
-                            a collectible tier, so the server stored the item as a rare. The
-                            bonus wheel is driven by the single seeded BONUS EVENT row and a
-                            second one would just add trigger weight, which is a weight edit,
-                            not a new item. */}
+                        {/* No Event option: `event` is not a collectible tier, so the server stored it as a rare. The bonus wheel is driven by the single seeded BONUS EVENT row; a second would only add trigger weight. */}
                     </select>
                 </div>
 
@@ -698,12 +681,7 @@ function AddItemForm({ onAdd, poolStats, adding }) {
     );
 }
 
-// Main Admin Panel Component
-// ============================================
-// Global events the admin panel can trigger
-// ============================================
-// Ids must match EVENT_TYPES in server/services/globalEvents.js - the server rejects
-// anything else with "Unknown event type". Colours match each event's banner.
+// Global events the admin panel can trigger. Ids must match EVENT_TYPES in server/services/globalEvents.js (the server rejects anything else); colours match each event's banner.
 const EVENT_TYPES = [
     {
         id: 'arrival',
@@ -733,9 +711,7 @@ const EVENT_TYPES = [
         id: 'roulette',
         label: 'The Parlour',
         color: '#19B36B',
-        // The duration field above does not apply to this one and the server
-        // ignores it: the length is a 15s window plus a fixed animation, not a
-        // dial. A "2 minute roulette" would be 90 seconds of a locked table.
+        // The duration field does not apply to this one and the server ignores it: the length is a 15s window plus a fixed animation.
         blurb: 'Roulette. Everyone in the room gets 5 lucky spins to fold or bet on red, black or green.',
     },
     {
@@ -805,10 +781,7 @@ export function AdminPanel({ onClose, allItems }) {
         finally { setLoading(false); }
     }
 
-    // ============================================
-    // Global events
-    // ============================================
-    // Note the base: these live under /api, unlike the /admin/* endpoints above.
+    // These live under /api, unlike the /admin/* endpoints above.
 
     async function fetchEventStatus() {
         try {
@@ -1622,13 +1595,7 @@ export function AdminPanel({ onClose, allItems }) {
                                     />
                                 </div>
 
-                                {/* The Gold Rush rarity picker went with the event
-                                    it configured. The Arrival has no knobs by
-                                    design — one crate per player on the platform,
-                                    rolled server-side — so there is nothing here
-                                    to set, and Duration does not apply to it
-                                    either: its length is the animation's, not a
-                                    window players act inside. */}
+                                {/* The Arrival has no knobs by design (one crate per player on the platform, rolled server-side), and Duration does not apply: its length is the animation's. */}
 
                                 <div>
                                     <label style={{ display: 'block', color: COLORS.textMuted, fontSize: '12px', marginBottom: '6px' }}>

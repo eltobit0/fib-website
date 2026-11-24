@@ -67,10 +67,7 @@ function poolFilter(settings) {
   };
 }
 
-/*
- * ── The atlas ──
- * Where items live comes from the plugin's /info lines plus the plugin's tags, never a hand-kept list.
- */
+// Where items live comes from the plugin's /info lines and tags, never a hand-kept list.
 
 /* An '&' glued to a word is a mistyped code and is dropped; '& ' is a real ampersand. */
 function cleanLine(text) {
